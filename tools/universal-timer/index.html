@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#eef5fb">
+<title>Universal Timer | PC Local Tool</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div>
+      <a class="back" href="../../index.html">← PC Local Tool</a>
+      <h1>⏱ Universal Timer</h1>
+      <p>カウントダウン、ストップウォッチ、インターバル、ポモドーロ、アラーム、複数タイマー。</p>
+    </div>
+    <div class="status-pills">
+      <span>🔒 完全ローカル</span><span id="clockPill">--:--:--</span>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="タイマー機能">
+    <button class="tab active" data-view="timer">⏳ タイマー</button>
+    <button class="tab" data-view="stopwatch">⏱ ストップウォッチ</button>
+    <button class="tab" data-view="interval">🔁 インターバル</button>
+    <button class="tab" data-view="pomodoro">🍅 ポモドーロ</button>
+    <button class="tab" data-view="alarm">⏰ アラーム</button>
+    <button class="tab" data-view="multi">🧩 複数タイマー</button>
+  </nav>
+
+  <main>
+    <section class="view active" id="timer">
+      <div class="hero-grid">
+        <article class="card timer-card">
+          <div class="mode-head"><div><span class="eyebrow">COUNTDOWN</span><h2 id="timerLabel">タイマー</h2></div><button class="icon-btn" id="timerFullscreen" title="全画面">⛶</button></div>
+          <div class="ring-wrap">
+            <div class="ring" id="timerRing"><div class="ring-inner"><div class="time-display" id="timerDisplay">05:00</div><div class="sub-display" id="timerSub">停止中</div></div></div>
+          </div>
+          <div class="controls primary-controls">
+            <button class="btn primary big" id="timerStart">▶ 開始</button>
+            <button class="btn" id="timerPause">⏸ 一時停止</button>
+            <button class="btn danger-soft" id="timerReset">↺ リセット</button>
+          </div>
+          <div class="controls compact"><button class="btn mini" data-add-ms="60000">+1分</button><button class="btn mini" data-add-ms="300000">+5分</button><button class="btn mini" data-add-ms="-60000">−1分</button><button class="btn mini" id="timerAddLap">残りを記録</button></div>
+        </article>
+
+        <aside class="card settings-card">
+          <h3>時間を設定</h3>
+          <label class="field-label" for="durationText">文字でも入力できます</label>
+          <div class="input-row"><input id="durationText" class="input" placeholder="例：1時間20分 / 90s / 12:30"><button class="btn primary" id="applyDuration">設定</button></div>
+          <div class="preset-grid" id="presets">
+            <button data-sec="60">1分</button><button data-sec="180">3分</button><button data-sec="300">5分</button><button data-sec="600">10分</button><button data-sec="900">15分</button><button data-sec="1500">25分</button><button data-sec="1800">30分</button><button data-sec="3600">1時間</button>
+          </div>
+          <div class="split-fields"><label>名前<input id="countdownName" class="input" value="タイマー" maxlength="40"></label><label>繰り返し<select id="countdownRepeat" class="input"><option value="1">1回</option><option value="2">2回</option><option value="3">3回</option><option value="5">5回</option><option value="0">無限</option></select></label></div>
+          <label class="toggle"><input type="checkbox" id="countUpAfter"><span>終了後は超過時間を表示する</span></label>
+          <div class="history-box"><h3>記録</h3><div id="timerMarks" class="list empty">まだありません。</div></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="stopwatch">
+      <div class="hero-grid">
+        <article class="card timer-card">
+          <div class="mode-head"><div><span class="eyebrow">STOPWATCH</span><h2>ストップウォッチ</h2></div><button class="icon-btn" id="swFullscreen">⛶</button></div>
+          <div class="time-display huge" id="swDisplay">00:00.00</div>
+          <div class="sub-display" id="swSub">停止中</div>
+          <div class="controls primary-controls"><button class="btn primary big" id="swStart">▶ 開始</button><button class="btn" id="swLap">🏁 ラップ</button><button class="btn danger-soft" id="swReset">↺ リセット</button></div>
+        </article>
+        <aside class="card"><div class="mode-head"><h3>ラップ</h3><button class="btn mini" id="copyLaps">コピー</button></div><div id="laps" class="list empty">まだラップがありません。</div></aside>
+      </div>
+    </section>
+
+    <section class="view" id="interval">
+      <div class="hero-grid">
+        <article class="card timer-card">
+          <span class="eyebrow">INTERVAL</span><h2 id="intervalPhase">準備</h2>
+          <div class="ring-wrap"><div class="ring" id="intervalRing"><div class="ring-inner"><div class="time-display" id="intervalDisplay">00:30</div><div class="sub-display" id="intervalSub">ラウンド 1 / 5</div></div></div></div>
+          <div class="controls primary-controls"><button class="btn primary big" id="intervalStart">▶ 開始</button><button class="btn" id="intervalPause">⏸ 一時停止</button><button class="btn danger-soft" id="intervalReset">↺ リセット</button></div>
+        </article>
+        <aside class="card settings-card"><h3>インターバル設定</h3><div class="split-fields"><label>運動<input class="input" id="workTime" value="30秒"></label><label>休憩<input class="input" id="restTime" value="15秒"></label></div><div class="split-fields"><label>ラウンド<input class="input" id="rounds" type="number" min="1" max="999" value="5"></label><label>開始前<input class="input" id="prepareTime" value="5秒"></label></div><label class="toggle"><input type="checkbox" id="intervalEndRest"><span>最後の運動後にも休憩する</span></label><button class="btn primary full" id="applyInterval">設定を反映</button><p class="hint">各区間は終了予定時刻から計算するので、描画が遅れても残り時間を補正します。</p></aside>
+      </div>
+    </section>
+
+    <section class="view" id="pomodoro">
+      <div class="hero-grid">
+        <article class="card timer-card">
+          <span class="eyebrow">POMODORO</span><h2 id="pomoPhase">集中</h2>
+          <div class="ring-wrap"><div class="ring" id="pomoRing"><div class="ring-inner"><div class="time-display" id="pomoDisplay">25:00</div><div class="sub-display" id="pomoSub">1 / 4 セッション</div></div></div></div>
+          <div class="controls primary-controls"><button class="btn primary big" id="pomoStart">▶ 開始</button><button class="btn" id="pomoSkip">⏭ 次へ</button><button class="btn danger-soft" id="pomoReset">↺ リセット</button></div>
+        </article>
+        <aside class="card settings-card"><h3>ポモドーロ設定</h3><div class="split-fields"><label>集中<input class="input" id="pomoWork" value="25分"></label><label>短い休憩<input class="input" id="pomoShort" value="5分"></label></div><div class="split-fields"><label>長い休憩<input class="input" id="pomoLong" value="15分"></label><label>長休憩まで<input class="input" id="pomoCycles" type="number" min="1" max="20" value="4"></label></div><button class="btn primary full" id="applyPomo">設定を反映</button><div class="stat-row"><div><strong id="pomoDone">0</strong><span>完了集中</span></div><div><strong id="pomoFocusTotal">0分</strong><span>集中時間</span></div></div></aside>
+      </div>
+    </section>
+
+    <section class="view" id="alarm">
+      <div class="hero-grid">
+        <article class="card"><span class="eyebrow">ALARM</span><h2>時刻アラーム</h2><div class="alarm-create"><input type="time" class="input time-input" id="alarmTime"><input class="input" id="alarmName" placeholder="名前（例：休み時間終了）"><button class="btn primary" id="addAlarm">＋ 追加</button></div><p class="hint">ページを閉じると鳴りません。PCのスリープ中は、復帰後に期限切れとして通知します。</p></article>
+        <aside class="card"><div class="mode-head"><h3>アラーム一覧</h3><button class="btn mini" id="clearAlarms">全削除</button></div><div id="alarms" class="list empty">アラームはありません。</div></aside>
+      </div>
+    </section>
+
+    <section class="view" id="multi">
+      <article class="card"><div class="mode-head"><div><span class="eyebrow">MULTI TIMER</span><h2>複数タイマー</h2></div><button class="btn primary" id="addMulti">＋ タイマー追加</button></div><div id="multiGrid" class="multi-grid"></div></article>
+    </section>
+  </main>
+
+  <footer class="footerbar">
+    <div class="sound-controls"><button class="icon-btn" id="muteBtn" title="消音">🔊</button><label>音量 <input type="range" id="volume" min="0" max="100" value="65"></label><select id="soundPattern" class="small-select"><option value="gentle">やさしい</option><option value="clear">はっきり</option><option value="triple">3回</option></select><button class="btn mini" id="testSound">音テスト</button></div>
+    <div class="shortcut-hint">Space: 開始/一時停止 ・ R: リセット ・ F: 全画面（入力中を除く）</div>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="alert-overlay hidden" id="alertOverlay" role="dialog" aria-modal="true"><div class="alert-box"><div class="alert-icon">⏰</div><h2 id="alertTitle">時間です</h2><p id="alertText"></p><button class="btn primary big" id="dismissAlert">停止</button></div></div>
+<script src="app.js"></script>
+</body>
+</html>
