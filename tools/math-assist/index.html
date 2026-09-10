@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Math Assist | PC Local Tool</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><h1>🧮 Math Assist</h1><p>入力しても、選んでも使える。ローカル計算アシスト。</p></div>
+    <div class="badge"><span class="status-dot"></span>完全ローカル / 外部送信なし</div>
+  </header>
+  <nav class="tabs" aria-label="計算モード">
+    <button class="tab active" data-tab="smart">✨ かんたん入力</button>
+    <button class="tab" data-tab="calc">🔢 数式</button>
+    <button class="tab" data-tab="guide">📝 文字計算</button>
+    <button class="tab" data-tab="equation">🧩 方程式</button>
+    <button class="tab" data-tab="geometry">📐 図形</button>
+    <button class="tab" data-tab="data">📊 データ・グラフ</button>
+  </nav>
+  <div class="layout">
+    <main class="panel">
+      <section id="smart" class="section active">
+        <h2>何を計算したいですか？</h2><p class="lead">数式でも文章でもOK。曖昧なときは候補を出します。</p>
+        <div class="field"><label for="smartInput">入力</label><textarea id="smartInput" class="textarea" placeholder="例：半径5cm\n例：120円の商品を3個\n例：2x+5=15\n例：国語 70\n　　数学 92"></textarea></div>
+        <div class="chips" id="smartExamples">
+          <button class="chip" data-example="125×48÷3">125×48÷3</button><button class="chip" data-example="30人中12人">30人中12人</button><button class="chip" data-example="半径5cm">半径5cm</button><button class="chip" data-example="2x+5=15">2x+5=15</button><button class="chip" data-example="国語 70\n数学 92\n理科 84\n社会 75\n英語 88">5教科データ</button>
+        </div>
+        <div class="actions"><button class="btn primary" id="smartAnalyze">解析して進む</button><button class="btn ghost" id="smartClear">クリア</button></div>
+        <div id="smartSuggestions" class="suggestions"></div><div id="smartResult" class="result" aria-live="polite">ここに結果が表示されます。</div>
+      </section>
+
+      <section id="calc" class="section">
+        <h2>数式計算</h2><p class="lead">四則演算、累乗、平方根、三角関数、対数など。括弧にも対応。</p>
+        <div class="field"><label for="expr">数式</label><input id="expr" class="input" inputmode="text" placeholder="例：(25+17)^2 / sqrt(16)"></div>
+        <div class="grid-calc" id="keypad">
+          <button class="key" data-key="7">7</button><button class="key" data-key="8">8</button><button class="key" data-key="9">9</button><button class="key op" data-key="/">÷</button><button class="key op" data-key="sqrt(">√</button>
+          <button class="key" data-key="4">4</button><button class="key" data-key="5">5</button><button class="key" data-key="6">6</button><button class="key op" data-key="*">×</button><button class="key op" data-key="^">xʸ</button>
+          <button class="key" data-key="1">1</button><button class="key" data-key="2">2</button><button class="key" data-key="3">3</button><button class="key op" data-key="-">−</button><button class="key op" data-key="%">%</button>
+          <button class="key" data-key="0">0</button><button class="key" data-key=".">.</button><button class="key" data-key="(">(</button><button class="key" data-key=")">)</button><button class="key op" data-key="+">＋</button>
+          <button class="key wide" data-action="clear">C</button><button class="key" data-key="pi">π</button><button class="key" data-key="e">e</button><button class="key eq wide" data-action="equals">=</button>
+        </div>
+        <div class="chips" style="margin-top:10px"><button class="chip" data-fn="sin(">sin</button><button class="chip" data-fn="cos(">cos</button><button class="chip" data-fn="tan(">tan</button><button class="chip" data-fn="log(">log10</button><button class="chip" data-fn="ln(">ln</button><button class="chip" data-fn="abs(">abs</button><button class="chip" data-fn="floor(">floor</button><button class="chip" data-fn="ceil(">ceil</button></div>
+        <div id="calcResult" class="result" aria-live="polite">数式を入力してください。</div>
+      </section>
+
+      <section id="guide" class="section">
+        <h2>文字計算</h2><p class="lead">式が思いつかなくても、やりたいことを順番に選べます。</p>
+        <div class="field"><label for="guideType">何をしたい？</label><select id="guideType" class="select"><option value="compare">2つを比べる</option><option value="difference">差を求める</option><option value="times">何倍か求める</option><option value="percent">割合・百分率</option><option value="speed">速さ・時間・距離</option><option value="average">平均</option><option value="sentence">比較文が正しいか調べる</option></select></div>
+        <div id="guideFields" class="guide-box"></div>
+        <div class="actions"><button id="guideRun" class="btn primary">計算する</button><button id="guideUnknown" class="btn ghost">わからない</button></div>
+        <div id="guideResult" class="result" aria-live="polite">項目を入力して「計算する」を押してください。</div>
+      </section>
+
+      <section id="equation" class="section">
+        <h2>方程式</h2><p class="lead">xを含む一次・二次方程式を解きます。例：2x+5=15、x^2-5x+6=0</p>
+        <div class="field"><label for="equationInput">方程式</label><input id="equationInput" class="input" placeholder="x^2 - 5x + 6 = 0"></div>
+        <div class="actions"><button id="equationRun" class="btn primary">解く</button></div>
+        <div id="equationResult" class="result" aria-live="polite">方程式を入力してください。</div>
+      </section>
+
+      <section id="geometry" class="section">
+        <h2>図形計算</h2><p class="lead">求めたいものを選ぶと、必要な入力だけ表示します。逆算にも対応。</p>
+        <div class="row"><div class="field"><label for="shape">図形</label><select id="shape" class="select"></select></div><div class="field"><label for="geoTarget">求めたいもの</label><select id="geoTarget" class="select"></select></div></div>
+        <div id="shapePreview" class="shape-preview"></div><div id="geoFields" class="row"></div>
+        <div class="actions"><button id="geoRun" class="btn primary">計算する</button></div><div id="geoResult" class="result" aria-live="polite">図形と求めたいものを選んでください。</div>
+      </section>
+
+      <section id="data" class="section">
+        <h2>データ・グラフ</h2><p class="lead">数字だけでも「項目 数値」の形式でもOK。統計とグラフを自動作成します。</p>
+        <div class="field"><label for="dataInput">データ</label><textarea id="dataInput" class="textarea" placeholder="例：\n国語 70\n数学 92\n理科 84\n\nまたは\n10, 25, 18, 31"></textarea></div>
+        <div class="row"><div class="field"><label for="chartType">グラフ</label><select id="chartType" class="select"><option value="bar">棒グラフ</option><option value="line">折れ線グラフ</option><option value="pie">円グラフ</option></select></div><div class="field"><label for="sortData">並び順</label><select id="sortData" class="select"><option value="none">入力順</option><option value="desc">大きい順</option><option value="asc">小さい順</option></select></div></div>
+        <div class="actions"><button id="dataRun" class="btn primary">分析する</button></div>
+        <div id="stats" class="stats-grid"></div><div id="dataResult" class="result" aria-live="polite">データを入力してください。</div><div class="chart-wrap"><canvas id="chart" width="900" height="430"></canvas></div>
+      </section>
+    </main>
+    <aside class="panel side">
+      <h3>最近の計算</h3><div id="history" class="history"></div><div class="actions"><button id="clearHistory" class="btn small ghost">履歴を消す</button></div>
+      <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+      <h3>使い方</h3><div class="note">迷ったら「✨ かんたん入力」。数式・文章・表を貼り付けると、できる操作を予測します。<br><br><span class="kbd">Enter</span> で数式計算もできます。</div>
+    </aside>
+  </div>
+  <div class="footer">PC Local Tool / Math Assist — 計算内容はブラウザ内だけで処理されます。</div>
+</div>
+<script src="app.js"></script>
+</body></html>
