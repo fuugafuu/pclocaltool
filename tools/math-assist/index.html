@@ -2,47 +2,79 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Math Assist | PC Local Tool</title>
+<meta name="theme-color" content="#f4f7fb">
+<title>Math Assist Final | PC Local Tool</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="final.css">
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><h1>🧮 Math Assist</h1><p>入力しても、選んでも使える。ローカル計算アシスト。</p></div>
+    <div class="brand"><h1>🧮 Math Assist</h1><p>入力しても、選んでも使える。学校PC向けローカル計算アシスト。</p></div>
     <div class="badge"><span class="status-dot"></span>完全ローカル / 外部送信なし</div>
   </header>
+
+  <div class="trustbar"><strong>迷ったら「かんたん入力」</strong><span>数式・文章・表から候補を予測</span><span>外部API / CDN 不使用</span><span>データはこの端末内だけ</span></div>
+
   <nav class="tabs" aria-label="計算モード">
     <button class="tab active" data-tab="smart">✨ かんたん入力</button>
-    <button class="tab" data-tab="calc">🔢 数式</button>
+    <button class="tab" data-tab="calc">🔢 数式・厳密</button>
     <button class="tab" data-tab="guide">📝 文字計算</button>
-    <button class="tab" data-tab="equation">🧩 方程式</button>
+    <button class="tab" data-tab="equation">🧩 方程式・関数</button>
     <button class="tab" data-tab="geometry">📐 図形</button>
     <button class="tab" data-tab="data">📊 データ・グラフ</button>
+    <button class="tab" data-tab="advanced">🧠 発展ツール</button>
   </nav>
+
   <div class="layout">
     <main class="panel">
       <section id="smart" class="section active">
-        <h2>何を計算したいですか？</h2><p class="lead">数式でも文章でもOK。曖昧なときは候補を出します。</p>
-        <div class="field"><label for="smartInput">入力</label><textarea id="smartInput" class="textarea" placeholder="例：半径5cm\n例：120円の商品を3個\n例：2x+5=15\n例：国語 70\n　　数学 92"></textarea></div>
+        <h2>何を計算したいですか？</h2><p class="lead">数式でも文章でもOK。曖昧な入力は勝手に決めず、候補を出します。</p>
+        <div class="field"><label for="smartInput">入力</label><textarea id="smartInput" class="textarea hero-input" placeholder="例：半径5cm\n例：120円の商品を3個\n例：2x+5=15\n例：2x+3y=7 ↵ x-y=1\n例：10C3\n例：国語 70 ↵ 数学 92"></textarea></div>
         <div class="chips" id="smartExamples">
-          <button class="chip" data-example="125×48÷3">125×48÷3</button><button class="chip" data-example="30人中12人">30人中12人</button><button class="chip" data-example="半径5cm">半径5cm</button><button class="chip" data-example="2x+5=15">2x+5=15</button><button class="chip" data-example="国語 70\n数学 92\n理科 84\n社会 75\n英語 88">5教科データ</button>
+          <button class="chip" data-example="125×48÷3">125×48÷3</button>
+          <button class="chip" data-example="1/3+1/6">1/3+1/6</button>
+          <button class="chip" data-example="30人中12人">30人中12人</button>
+          <button class="chip" data-example="半径5cm">半径5cm</button>
+          <button class="chip" data-example="2x+5=15">2x+5=15</button>
+          <button class="chip" data-example="2x+3y=7\nx-y=1">連立方程式</button>
+          <button class="chip" data-example="y=x^2-4">関数</button>
+          <button class="chip" data-example="国語 70\n数学 92\n理科 84\n社会 75\n英語 88">5教科データ</button>
         </div>
         <div class="actions"><button class="btn primary" id="smartAnalyze">解析して進む</button><button class="btn ghost" id="smartClear">クリア</button></div>
         <div id="smartSuggestions" class="suggestions"></div><div id="smartResult" class="result" aria-live="polite">ここに結果が表示されます。</div>
       </section>
 
       <section id="calc" class="section">
-        <h2>数式計算</h2><p class="lead">四則演算、累乗、平方根、三角関数、対数など。括弧にも対応。</p>
-        <div class="field"><label for="expr">数式</label><input id="expr" class="input" inputmode="text" placeholder="例：(25+17)^2 / sqrt(16)"></div>
-        <div class="grid-calc" id="keypad">
-          <button class="key" data-key="7">7</button><button class="key" data-key="8">8</button><button class="key" data-key="9">9</button><button class="key op" data-key="/">÷</button><button class="key op" data-key="sqrt(">√</button>
-          <button class="key" data-key="4">4</button><button class="key" data-key="5">5</button><button class="key" data-key="6">6</button><button class="key op" data-key="*">×</button><button class="key op" data-key="^">xʸ</button>
-          <button class="key" data-key="1">1</button><button class="key" data-key="2">2</button><button class="key" data-key="3">3</button><button class="key op" data-key="-">−</button><button class="key op" data-key="%">%</button>
-          <button class="key" data-key="0">0</button><button class="key" data-key=".">.</button><button class="key" data-key="(">(</button><button class="key" data-key=")">)</button><button class="key op" data-key="+">＋</button>
-          <button class="key wide" data-action="clear">C</button><button class="key" data-key="pi">π</button><button class="key" data-key="e">e</button><button class="key eq wide" data-action="equals">=</button>
+        <h2>数式・厳密計算</h2><p class="lead">普通の計算は高速に、分数は必要に応じて厳密に計算します。</p>
+        <div class="tool-grid">
+          <div class="subcard span2">
+            <h3>数式計算</h3>
+            <div class="field"><label for="expr">数式</label><input id="expr" class="input" inputmode="text" autocomplete="off" placeholder="例：(25+17)^2 / sqrt(16)"></div>
+            <div class="grid-calc" id="keypad">
+              <button class="key" data-key="7">7</button><button class="key" data-key="8">8</button><button class="key" data-key="9">9</button><button class="key op" data-key="/">÷</button><button class="key op" data-key="sqrt(">√</button>
+              <button class="key" data-key="4">4</button><button class="key" data-key="5">5</button><button class="key" data-key="6">6</button><button class="key op" data-key="*">×</button><button class="key op" data-key="^">xʸ</button>
+              <button class="key" data-key="1">1</button><button class="key" data-key="2">2</button><button class="key" data-key="3">3</button><button class="key op" data-key="-">−</button><button class="key op" data-key="%">%</button>
+              <button class="key" data-key="0">0</button><button class="key" data-key=".">.</button><button class="key" data-key="(">(</button><button class="key" data-key=")">)</button><button class="key op" data-key="+">＋</button>
+              <button class="key wide" data-action="clear">C</button><button class="key" data-key="pi">π</button><button class="key" data-key="e">e</button><button class="key eq wide" data-action="equals">=</button>
+            </div>
+            <div class="chips compact"><button class="chip" data-fn="sin(">sin</button><button class="chip" data-fn="cos(">cos</button><button class="chip" data-fn="tan(">tan</button><button class="chip" data-fn="log(">log10</button><button class="chip" data-fn="ln(">ln</button><button class="chip" data-fn="abs(">abs</button><button class="chip" data-fn="floor(">floor</button><button class="chip" data-fn="ceil(">ceil</button></div>
+            <div id="calcResult" class="result" aria-live="polite">数式を入力してください。</div>
+          </div>
+
+          <div class="subcard">
+            <h3>厳密な分数</h3><p class="mini">浮動小数の丸めを避け、分子・分母を整数のまま計算。</p>
+            <div class="field"><label for="exactInput">式</label><input id="exactInput" class="input" placeholder="1/3 + 1/6"></div>
+            <div class="actions"><button id="exactRun" class="btn primary">厳密に計算</button></div><div id="exactResult" class="result">整数・小数・分数、+ − × ÷ ^ に対応。</div>
+          </div>
+
+          <div class="subcard">
+            <h3>整数・数論</h3>
+            <div class="field"><label for="numberMode">計算</label><select id="numberMode" class="select"><option value="gcd">最大公約数</option><option value="lcm">最小公倍数</option><option value="factor">素因数分解（Aを使用）</option><option value="sqrt">√の簡単化（Aを使用）</option></select></div>
+            <div class="row"><div class="field"><label for="numA">A</label><input id="numA" class="input" inputmode="numeric" value="84"></div><div class="field"><label for="numB">B</label><input id="numB" class="input" inputmode="numeric" value="30"></div></div>
+            <div class="actions"><button id="numberRun" class="btn primary">計算</button></div><div id="numberResult" class="result">整数を入力してください。</div>
+          </div>
         </div>
-        <div class="chips" style="margin-top:10px"><button class="chip" data-fn="sin(">sin</button><button class="chip" data-fn="cos(">cos</button><button class="chip" data-fn="tan(">tan</button><button class="chip" data-fn="log(">log10</button><button class="chip" data-fn="ln(">ln</button><button class="chip" data-fn="abs(">abs</button><button class="chip" data-fn="floor(">floor</button><button class="chip" data-fn="ceil(">ceil</button></div>
-        <div id="calcResult" class="result" aria-live="polite">数式を入力してください。</div>
       </section>
 
       <section id="guide" class="section">
@@ -54,38 +86,52 @@
       </section>
 
       <section id="equation" class="section">
-        <h2>方程式</h2><p class="lead">xを含む一次・二次方程式を解きます。例：2x+5=15、x^2-5x+6=0</p>
-        <div class="field"><label for="equationInput">方程式</label><input id="equationInput" class="input" placeholder="x^2 - 5x + 6 = 0"></div>
-        <div class="actions"><button id="equationRun" class="btn primary">解く</button></div>
-        <div id="equationResult" class="result" aria-live="polite">方程式を入力してください。</div>
+        <h2>方程式・関数</h2><p class="lead">一次・二次方程式から、連立方程式・因数分解・関数グラフまで。</p>
+        <div class="tool-grid">
+          <div class="subcard"><h3>1変数の方程式</h3><div class="field"><label for="equationInput">方程式</label><input id="equationInput" class="input" placeholder="x^2 - 5x + 6 = 0"></div><div class="actions"><button id="equationRun" class="btn primary">解く</button></div><div id="equationResult" class="result">xについての一次・二次方程式。</div></div>
+          <div class="subcard"><h3>連立方程式</h3><div class="field"><label for="systemInput">1行に1式</label><textarea id="systemInput" class="textarea small-area" placeholder="2x + 3y = 7\nx - y = 1"></textarea></div><div class="actions"><button id="systemRun" class="btn primary">連立を解く</button></div><div id="systemResult" class="result">2〜4変数の一次連立方程式。</div></div>
+          <div class="subcard"><h3>因数分解</h3><div class="field"><label for="factorInput">xの二次式</label><input id="factorInput" class="input" value="x^2-5x+6"></div><div class="actions"><button id="factorRun" class="btn primary">因数分解</button></div><div id="factorResult" class="result">整数係数で分解できる二次式に対応。</div></div>
+          <div class="subcard span2"><h3>関数グラフ・数値解析</h3><div class="field"><label for="functionInput">f(x)</label><input id="functionInput" class="input" value="x^2-4" placeholder="sin(x), x^2-4, 1/x など"></div><div class="row3"><div class="field"><label for="xMin">x 最小</label><input id="xMin" class="input" type="number" step="any" value="-10"></div><div class="field"><label for="xMax">x 最大</label><input id="xMax" class="input" type="number" step="any" value="10"></div><div class="field"><label for="xPoint">調べるx</label><input id="xPoint" class="input" type="number" step="any" value="1"></div></div><div class="actions"><button id="functionRun" class="btn primary">解析する</button><button id="functionDraw" class="btn ghost">グラフだけ更新</button></div><div id="functionResult" class="result">値・傾き・零点・定積分を数値解析します。</div><div class="chart-wrap"><canvas id="functionCanvas" width="900" height="430"></canvas></div><p class="mini">※ 傾き・零点・積分は数値近似です。不連続点を含む区間では積分を出さない場合があります。</p></div>
+        </div>
       </section>
 
       <section id="geometry" class="section">
-        <h2>図形計算</h2><p class="lead">求めたいものを選ぶと、必要な入力だけ表示します。逆算にも対応。</p>
-        <div class="row"><div class="field"><label for="shape">図形</label><select id="shape" class="select"></select></div><div class="field"><label for="geoTarget">求めたいもの</label><select id="geoTarget" class="select"></select></div></div>
-        <div id="shapePreview" class="shape-preview"></div><div id="geoFields" class="row"></div>
-        <div class="actions"><button id="geoRun" class="btn primary">計算する</button></div><div id="geoResult" class="result" aria-live="polite">図形と求めたいものを選んでください。</div>
+        <h2>図形</h2><p class="lead">公式計算・逆算に加えて、三角形は辺と角度まで解析できます。</p>
+        <div class="subcard"><h3>基本図形</h3><div class="row"><div class="field"><label for="shape">図形</label><select id="shape" class="select"></select></div><div class="field"><label for="geoTarget">求めたいもの</label><select id="geoTarget" class="select"></select></div></div><div id="shapePreview" class="shape-preview"></div><div id="geoFields" class="row"></div><div class="actions"><button id="geoRun" class="btn primary">計算する</button></div><div id="geoResult" class="result">図形と求めたいものを選んでください。</div></div>
+        <div class="subcard top-gap"><h3>三角形を詳しく調べる</h3><div class="field"><label for="triangleMode">分かっているもの</label><select id="triangleMode" class="select"><option value="sss">3辺 a・b・c</option><option value="sas">2辺 a・b とその間の角C</option></select></div><div class="row3"><div class="field"><label for="triA">a</label><input id="triA" class="input" type="number" step="any" value="3"></div><div class="field"><label for="triB">b</label><input id="triB" class="input" type="number" step="any" value="4"></div><div class="field"><label for="triC">c または角C(°)</label><input id="triC" class="input" type="number" step="any" value="5"></div></div><div class="actions"><button id="triangleRun" class="btn primary">三角形を解析</button></div><div id="triangleResult" class="result">辺・角・面積・周長をまとめて計算します。</div></div>
       </section>
 
       <section id="data" class="section">
         <h2>データ・グラフ</h2><p class="lead">数字だけでも「項目 数値」の形式でもOK。統計とグラフを自動作成します。</p>
-        <div class="field"><label for="dataInput">データ</label><textarea id="dataInput" class="textarea" placeholder="例：\n国語 70\n数学 92\n理科 84\n\nまたは\n10, 25, 18, 31"></textarea></div>
+        <div class="field"><label for="dataInput">データ</label><textarea id="dataInput" class="textarea" placeholder="国語 70\n数学 92\n理科 84\n\nまたは 10, 25, 18, 31"></textarea></div>
         <div class="row"><div class="field"><label for="chartType">グラフ</label><select id="chartType" class="select"><option value="bar">棒グラフ</option><option value="line">折れ線グラフ</option><option value="pie">円グラフ</option></select></div><div class="field"><label for="sortData">並び順</label><select id="sortData" class="select"><option value="none">入力順</option><option value="desc">大きい順</option><option value="asc">小さい順</option></select></div></div>
-        <div class="actions"><button id="dataRun" class="btn primary">分析する</button></div>
-        <div id="stats" class="stats-grid"></div><div id="dataResult" class="result" aria-live="polite">データを入力してください。</div><div class="chart-wrap"><canvas id="chart" width="900" height="430"></canvas></div>
+        <div class="actions"><button id="dataRun" class="btn primary">分析する</button></div><div id="stats" class="stats-grid"></div><div id="dataResult" class="result">データを入力してください。</div><div class="chart-wrap"><canvas id="chart" width="900" height="430"></canvas></div>
+      </section>
+
+      <section id="advanced" class="section">
+        <h2>発展ツール</h2><p class="lead">組合せ・確率・行列・単位換算を、入力欄中心で扱えます。</p>
+        <div class="tool-grid">
+          <div class="subcard"><h3>順列・組合せ・階乗</h3><div class="field"><label for="comboMode">種類</label><select id="comboMode" class="select"><option value="comb">組合せ nCr</option><option value="perm">順列 nPr</option><option value="fact">階乗 n!</option></select></div><div class="row"><div class="field"><label for="comboN">n</label><input id="comboN" class="input" inputmode="numeric" value="10"></div><div class="field"><label for="comboR">r</label><input id="comboR" class="input" inputmode="numeric" value="3"></div></div><div class="actions"><button id="comboRun" class="btn primary">計算</button></div><div id="comboResult" class="result">大きな整数もBigIntで正確に計算。</div></div>
+          <div class="subcard"><h3>基本確率</h3><div class="row"><div class="field"><label for="probFav">当たりの場合の数</label><input id="probFav" class="input" type="number" step="1" value="3"></div><div class="field"><label for="probAll">全体の場合の数</label><input id="probAll" class="input" type="number" step="1" value="10"></div></div><div class="actions"><button id="probRun" class="btn primary">確率を計算</button></div><div id="probResult" class="result">分数と百分率で表示。</div></div>
+          <div class="subcard span2"><h3>行列</h3><div class="field"><label for="matrixMode">計算</label><select id="matrixMode" class="select"><option value="add">A + B</option><option value="sub">A − B</option><option value="mul">A × B</option><option value="det">det(A)</option><option value="inv">Aの逆行列</option><option value="transpose">Aの転置</option></select></div><div class="row"><div class="field"><label for="matrixA">行列A</label><textarea id="matrixA" class="textarea small-area matrix-input">1 2\n3 4</textarea></div><div class="field"><label for="matrixB">行列B</label><textarea id="matrixB" class="textarea small-area matrix-input">5 6\n7 8</textarea></div></div><div class="actions"><button id="matrixRun" class="btn primary">行列を計算</button></div><div id="matrixResult" class="result">1行が1行列行。空白またはカンマ区切り。6×6まで。</div></div>
+          <div class="subcard span2"><h3>単位換算</h3><div class="row3"><div class="field"><label for="unitGroup">種類</label><select id="unitGroup" class="select"><option value="length">長さ</option><option value="area">面積</option><option value="volume">体積</option><option value="mass">質量</option><option value="time">時間</option><option value="speed">速さ</option><option value="data">データ量</option><option value="angle">角度</option></select></div><div class="field"><label for="unitValue">値</label><input id="unitValue" class="input" type="number" step="any" value="1"></div><div class="field"><label>換算</label><div class="inline-units"><select id="unitFrom" class="select"></select><span>→</span><select id="unitTo" class="select"></select></div></div></div><div class="actions"><button id="unitRun" class="btn primary">換算</button></div><div id="unitResult" class="result">換算する種類・値・単位を選んでください。</div></div>
+        </div>
       </section>
     </main>
+
     <aside class="panel side">
-      <h3>最近の計算</h3><div id="history" class="history"></div><div class="actions"><button id="clearHistory" class="btn small ghost">履歴を消す</button></div>
-      <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
-      <h3>使い方</h3><div class="note">迷ったら「✨ かんたん入力」。数式・文章・表を貼り付けると、できる操作を予測します。<br><br><span class="kbd">Enter</span> で数式計算もできます。</div>
+      <div class="side-sticky"><h3>最近の計算</h3><div id="history" class="history"></div><div class="actions"><button id="clearHistory" class="btn small ghost">履歴を消す</button></div><hr class="sep"><h3>使い方</h3><div class="note">まずは <strong>✨ かんたん入力</strong>。分からない場合だけ各専門ツールへ進めばOKです。<br><br><span class="kbd">Enter</span> 数式を計算<br><span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> かんたん入力を解析</div><div class="safe-note">🔒 入力した式・数値・グラフ用データは外部へ送信しません。</div></div>
     </aside>
   </div>
-  <div class="footer">PC Local Tool / Math Assist — 計算内容はブラウザ内だけで処理されます。</div>
+  <div class="footer">PC Local Tool / Math Assist Final — ブラウザだけで動くローカル計算環境</div>
 </div>
 <script src="core.js"></script>
+<script src="exact.js"></script>
 <script src="smart.js"></script>
+<script src="smart-extended.js"></script>
 <script src="guided.js"></script>
+<script src="algebra.js"></script>
 <script src="geometry.js"></script>
 <script src="data.js"></script>
+<script src="advanced.js"></script>
 </body></html>
