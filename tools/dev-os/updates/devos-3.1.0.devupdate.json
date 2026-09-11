@@ -1,0 +1,6 @@
+{
+  "type": "devos-update-pointer",
+  "schema": 1,
+  "version": "3.1.0",
+  "manifestUrl": "https://raw.githubusercontent.com/fuugafuu/pclocaltool/main/tools/dev-os/updates/latest.json"
+}
