@@ -13,6 +13,7 @@
     "デスクトップアイコンを自由にドラッグ移動し、位置を保存。画面サイズ変更時も画面内へ自動補正",
     "アプリウィンドウがデスクトップ外へはみ出さないよう自動クランプを追加",
     "NightWormを5段階の仮想感染モデルへ強化し、サービス・ログ・ファイル・プロセス・GPU・BSODと連動",
+    "NightWormに仮想WMI・フィルタードライバ・自己修復永続化・偽更新・仮想DNS/Firewall・UpdateSvc妨害を追加",
     "Vercel/GitHub連動のDev OS Updateとローカルフォルダー更新機能を追加"
   ],
   "files": [
@@ -32,6 +33,7 @@
     {"path":"desktop-shell.js"},
     {"path":"package-manager.js"},
     {"path":"malware-sim.js"},
+    {"path":"malware-advanced.js"},
     {"path":"v2-integrate.js"},
     {"path":"v3-shell.js"},
     {"path":"update-system.js"},
