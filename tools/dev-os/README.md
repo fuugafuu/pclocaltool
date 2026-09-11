@@ -1,4 +1,4 @@
-# Dev OS Lab v3.1
+# Dev OS Lab v3.1.1
 
 PC Local Tool 内で動く、完全ブラウザ内の仮想OSシミュレーターです。実PCのBIOS、Windows設定、レジストリ、プロセス、ファイル、セキュリティには接続しません。
 
@@ -23,7 +23,7 @@ PC Local Tool 内で動く、完全ブラウザ内の仮想OSシミュレータ�
 
 ## Dev OS Update
 
-現在の初期リリースは `3.1.0 / build 30100` です。
+現在のリリースは `3.1.1 / build 30101` です。
 
 ### Vercel版
 
@@ -31,24 +31,24 @@ PC Local Tool 内で動く、完全ブラウザ内の仮想OSシミュレータ�
 
 1. GitHub Raw の最新版マニフェストを取得
 2. 現在のDev OSバージョンと比較
-3. 新版がある場合、`pclocaltool.vercel.app` の本番マニフェストも確認
-4. GitHubだけ先行している場合は「Vercel deployment waiting」
-5. 本番Vercelも同じ版になったら「Update and restart」が有効化
-6. 更新時は本番URLへキャッシュ回避パラメータ付きで再起動
+3. 新版がある場合、現在開いているVercel deploymentの同一オリジン `updates/latest.json` も確認
+4. GitHubだけ先行している場合は「waiting for this Vercel deployment」
+5. 現在のVercel配信も同じversion/buildになったら「Update and restart」が有効化
+6. 更新時は現在のVercel URLをキャッシュ回避パラメータ付きで再読込
 
 このリポジトリはVercelプロジェクト `pclocaltool` とGitHub `fuugafuu/pclocaltool` が連携されているため、`main` へのpush後にproduction deploymentが自動作成されます。
 
-Vercelのproduction URLは `https://pclocaltool.vercel.app/tools/dev-os/index.html` です。
+本番aliasは `https://pclocaltool.vercel.app/tools/dev-os/index.html` です。
 
 ### ローカル版
 
 `file://` で `index.html` を開いた場合はローカルモードになります。
 
 - `.devupdate.json` を読み込み可能
-- `updates/devos-3.1.0.devupdate.json` はGitHub上の更新マニフェストを指すポータブル更新ファイル
+- `updates/devos-3.1.1.devupdate.json` はGitHub上の最新版マニフェストを指すポータブル更新ファイル
 - Edge / Chrome など File System Access API 対応ブラウザでは Dev OS フォルダーを選択して実ファイルを更新可能
 - 更新前の既存ファイルは `.devos-backup/<旧version>-<timestamp>/` に保存
-- 更新元は `fuugafuu/pclocaltool` の GitHub Raw または `pclocaltool.vercel.app` のみ許可
+- 更新元は `fuugafuu/pclocaltool` の GitHub Raw または許可済みVercel配信元のみ
 - 選択したフォルダーが Dev OS 本体か `index.html` を使って検査してから書き込み
 
 ブラウザがフォルダー書き込みAPIに対応しない場合、ローカル本体の自動上書きは行いません。
@@ -57,11 +57,12 @@ Vercelのproduction URLは `https://pclocaltool.vercel.app/tools/dev-os/index.ht
 
 今後の修正では、以下を同時に更新します。
 
-- `update-system.js` の `RELEASE.version / build`
+- 実行中アップデーターの `RELEASE.version / build`
 - `updates/latest.json` の `version / build / notes / files`
-- 必要なら `updates/devos-X.Y.Z.devupdate.json`
+- `updates/devos-X.Y.Z.devupdate.json`
+- `index.html` が新しいアップデーターを読み込むこと
 
-例：`3.1.0 → 3.1.1 → 3.2.0`。
+例：`3.1.1 → 3.1.2 → 3.2.0`。
 
 ## パッケージ形式
 
@@ -91,7 +92,7 @@ NightWorm は本物のマルウェアではありません。Dev OS内部状態�
 4. System tampering：リアルタイム保護やEventLogへの干渉、プロセス増殖
 5. Critical instability：GPU/TDR異常、表示グリッチ、最終的に仮想BSODが発生する場合あり
 
-さらに `malware-advanced.js` が基礎感染モデルの上に追加の永続化・相互作用を重ねます。
+`malware-advanced.js` が基礎感染モデルの上に追加の永続化・相互作用を重ねます。
 
 - Virtual WMI subscription (`NW-WMI-Consumer`)
 - `NWFilter` 仮想フィルタードライバ / Device Manager連動
@@ -104,20 +105,7 @@ NightWorm は本物のマルウェアではありません。Dev OS内部状態�
 - Event Viewerへの高頻度traceイベント
 - 高感染段階でNWFilter timeout、GPU/TDR、仮想BSODへ波及
 
-連動対象：
-
-- Task Manager のプロセス / CPU / RAM負荷
-- Services
-- Startup / Run key / Scheduled Tasks / Virtual WMI
-- Registry Simulator
-- File Explorer の仮想ファイル
-- Dev Security
-- Event Viewer / pending event buffer
-- Desktop wallpaper / icon positions / notification
-- Device Manager の仮想GPU / filter driver状態
-- Dev OS Update / UpdateSvc
-- Boot integrity表示
-- BSOD / Automatic Repair / Safe Mode
+連動対象：Task Manager、Services、Startup、Run key、Scheduled Tasks、Virtual WMI、Registry Simulator、File Explorer、Dev Security、Event Viewer、Desktop、Device Manager、Dev OS Update、Boot integrity、BSOD、Automatic Repair、Safe Mode。
 
 Dev Security のリアルタイム保護がONなら一部挙動をブロックし感染進行を遅らせます。隔離すると作成物・永続化・改変ファイル・停止サービス・GPU状態・壁紙・アイコン位置をできる限り復元します。Safe Modeでは第三者startupを抑止します。
 
@@ -129,6 +117,6 @@ Dev Security のリアルタイム保護がONなら一部挙動をブロック�
 - NightWormは実ネットワーク通信を行わず、通信表示はVNETという仮想状態のみ
 - Dev OS package の任意JavaScriptを実行しない
 - OS更新で書き込めるのは、ユーザーが明示的に選んだDev OSフォルダーのみ
-- 更新元URLは指定GitHub repo / Vercel productionへ制限
+- 更新元URLは指定GitHub repo / 許可済みVercel配信元へ制限
 
 Dev OS内部状態は主にブラウザの `localStorage` に保存されます。
