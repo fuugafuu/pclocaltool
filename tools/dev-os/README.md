@@ -1,24 +1,63 @@
-# Dev OS Lab
+# Dev OS Lab v2
 
-PC Local Tool の完全ローカル仮想OSシミュレーターです。本物のWindows、学校PCの管理設定、実際のBIOS/UEFI、セキュリティ機能には一切アクセスしません。すべてブラウザ内の仮想状態です。
+PC Local Tool 内で動く、完全ブラウザ内の仮想OSシミュレーターです。実PCのBIOS、Windows設定、レジストリ、プロセス、ファイル、セキュリティには接続しません。
 
-## 主な機能
+## v2 の主な機能
 
-- POST / UEFI風ブート画面
-- 仮想BIOS/UEFI: Secure Boot、TPM、Virtualization、Fast Boot、Boot order、ファンプロファイル
-- ロック画面 / デスクトップ / スタートメニュー / タスクバー
-- タスクマネージャー: プロセス、パフォーマンス、サービス、スタートアップ、プロセス終了
-- セキュリティセンター: Defender風状態、Firewall、Secure Boot、TPM、スキャン、検疫履歴
-- イベントビューアー: System / Application / Security / Setup、レベル・イベントID・ソース・検索
-- Services: start / stop、起動種類
-- デバイスマネージャー: 仮想ドライバと状態
-- ファイルエクスプローラー: 仮想ファイルツリー
-- ターミナル: help、dir、cd、type、systeminfo、tasklist、sc、eventlog、sfc、chkdsk、crash など
-- BSODシミュレーター: Stop code、ダンプ進行、イベントログ連携
-- 自動修復 / セーフモード
-- 仮想レジストリ・ブート状態・イベント履歴
-- localStorage に仮想OS状態を保存
+- BIOS / UEFI、Secure Boot、TPM、Boot order、仮想デバイス、起動・回復
+- デスクトップ、スタート、タスクバー、ウィンドウ、右クリックメニュー
+- デスクトップの単一/複数選択、ドラッグ範囲選択、タッチ長押しコンテキストメニュー
+- 日本語 / English の表示言語設定
+- Theme、Wallpaper、Accent、Desktop icon size
+- Task Manager、Performance、Startup、Services
+- Dev Security、スキャン、隔離、Protection history
+- Event Viewer、Service Control Manager、Device Manager
+- File Explorer、Dev Terminal、Registry Simulator
+- BSOD、BugCheck、Kernel-Power、Automatic Repair、Safe Mode
+- App Downloader / Dev OS package sandbox
+- `.devapp.html` 特殊HTMLパッケージ形式
+- packages フォルダーの catalog 読み込み、またはフォルダー選択によるローカル導入
+- NightWorm Lab Sample：Dev OS専用の仮想マルウェア挙動シミュレーター
 
-## 安全性
+## パッケージ形式
 
-このツールは教育・遊び用のシミュレーターです。ブラウザ外のファイル、レジストリ、プロセス、BIOS、ネットワーク制限、学校の管理設定を変更・回避する機能はありません。
+`.devapp.html` は通常のHTMLに次を埋め込みます。
+
+```html
+<meta name="devos-package" content="1">
+<script type="application/devos-package+json">
+{"id":"hello.tools","name":{"ja":"Hello Tools","en":"Hello Tools"},"version":"1.0.0","ui":"declarative"}
+</script>
+<template data-devos-view>
+  <button data-devos-action="hello">Hello</button>
+</template>
+```
+
+任意JavaScriptは実行しません。`script`、`iframe`、イベント属性などはパッケージUIから除去し、manifestに定義された許可済みの仮想アクションだけを実行します。
+
+## NightWorm simulation
+
+NightWorm は本物のマルウェアではありません。Dev OS の状態オブジェクトだけに対して以下を模擬します。
+
+- 仮想Runキー / Startup persistence
+- 仮想Scheduled Task
+- nightworm.dev / nw-worker.dev プロセス
+- 仮想ファイルの作成
+- 仮想Registry mutation
+- SearchIndexerサービスへの干渉
+- 仮想Desktop personalization変更
+- Security / Application / Systemイベント生成
+
+Dev Security のリアルタイム保護がONなら未署名パッケージをブロックします。強制インストールした場合でも、Full/Quick scan → quarantine で永続化・仮想ファイル・仮想Registry・プロセスをまとめて除去できます。Safe Modeでは第三者autorunを抑止します。
+
+## 安全境界
+
+このプロジェクトは教育・遊び用シミュレーターです。
+
+- host OS のファイルを読み書きしない
+- host のプロセス/サービス/レジストリを操作しない
+- 任意シェルコマンドを実行しない
+- Dev OS パッケージ内の任意JavaScriptを実行しない
+- ネットワーク攻撃や外部感染機能を持たない
+
+状態はブラウザの `localStorage` に保存されます。
