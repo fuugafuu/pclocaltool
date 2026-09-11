@@ -36,6 +36,8 @@ PC Local Tool 内で動く、完全ブラウザ内の仮想OSシミュレータ�
 5. 本番Vercelも同じ版になったら「Update and restart」が有効化
 6. 更新時は本番URLへキャッシュ回避パラメータ付きで再起動
 
+このリポジトリはVercelプロジェクト `pclocaltool` とGitHub `fuugafuu/pclocaltool` が連携されているため、`main` へのpush後にproduction deploymentが自動作成されます。
+
 Vercelのproduction URLは `https://pclocaltool.vercel.app/tools/dev-os/index.html` です。
 
 ### ローカル版
@@ -43,6 +45,7 @@ Vercelのproduction URLは `https://pclocaltool.vercel.app/tools/dev-os/index.ht
 `file://` で `index.html` を開いた場合はローカルモードになります。
 
 - `.devupdate.json` を読み込み可能
+- `updates/devos-3.1.0.devupdate.json` はGitHub上の更新マニフェストを指すポータブル更新ファイル
 - Edge / Chrome など File System Access API 対応ブラウザでは Dev OS フォルダーを選択して実ファイルを更新可能
 - 更新前の既存ファイルは `.devos-backup/<旧version>-<timestamp>/` に保存
 - 更新元は `fuugafuu/pclocaltool` の GitHub Raw または `pclocaltool.vercel.app` のみ許可
@@ -88,28 +91,42 @@ NightWorm は本物のマルウェアではありません。Dev OS内部状態�
 4. System tampering：リアルタイム保護やEventLogへの干渉、プロセス増殖
 5. Critical instability：GPU/TDR異常、表示グリッチ、最終的に仮想BSODが発生する場合あり
 
+さらに `malware-advanced.js` が基礎感染モデルの上に追加の永続化・相互作用を重ねます。
+
+- Virtual WMI subscription (`NW-WMI-Consumer`)
+- `NWFilter` 仮想フィルタードライバ / Device Manager連動
+- 仮想FirewallルールとVNETビーコン増加
+- Run key / Scheduled Task / Service / watchdog の相互自己修復
+- Task Managerで主要プロセスを終了しても残存永続化から再生成
+- 偽 `DevOS-Critical-Update.devapp.html` をDownloadsへ配置
+- 仮想DNSマッピング / package catalog overlay
+- UpdateSvc妨害
+- Event Viewerへの高頻度traceイベント
+- 高感染段階でNWFilter timeout、GPU/TDR、仮想BSODへ波及
+
 連動対象：
 
 - Task Manager のプロセス / CPU / RAM負荷
 - Services
-- Startup / Run key / Scheduled Tasks
+- Startup / Run key / Scheduled Tasks / Virtual WMI
 - Registry Simulator
 - File Explorer の仮想ファイル
 - Dev Security
 - Event Viewer / pending event buffer
 - Desktop wallpaper / icon positions / notification
-- Device Manager の仮想GPU状態
+- Device Manager の仮想GPU / filter driver状態
+- Dev OS Update / UpdateSvc
 - Boot integrity表示
 - BSOD / Automatic Repair / Safe Mode
 
-Dev Security のリアルタイム保護がONなら一部挙動をブロックし感染進行を遅らせます。隔離すると作成物・永続化・改変ファイル・停止サービス・GPU状態・壁紙・アイコン位置をできる限り復元します。
+Dev Security のリアルタイム保護がONなら一部挙動をブロックし感染進行を遅らせます。隔離すると作成物・永続化・改変ファイル・停止サービス・GPU状態・壁紙・アイコン位置をできる限り復元します。Safe Modeでは第三者startupを抑止します。
 
 ## 安全境界
 
 このプロジェクトは教育・遊び用シミュレーターです。
 
 - host OS のレジストリ、サービス、プロセスを操作しない
-- NightWormは実ネットワーク通信を行わない
+- NightWormは実ネットワーク通信を行わず、通信表示はVNETという仮想状態のみ
 - Dev OS package の任意JavaScriptを実行しない
 - OS更新で書き込めるのは、ユーザーが明示的に選んだDev OSフォルダーのみ
 - 更新元URLは指定GitHub repo / Vercel productionへ制限
