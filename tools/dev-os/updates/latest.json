@@ -1,8 +1,8 @@
 {
   "type": "devos-update",
   "schema": 1,
-  "version": "3.1.0",
-  "build": 30100,
+  "version": "3.1.1",
+  "build": 30101,
   "channel": "stable",
   "published": "2026-09-11",
   "productionUrl": "https://pclocaltool.vercel.app/tools/dev-os/index.html",
@@ -12,9 +12,9 @@
     "起動画面をPOST・UEFI・Kernel・Driver・Service・Security・Shellまで表示する新しいブートシーケンスへ刷新",
     "デスクトップアイコンを自由にドラッグ移動し、位置を保存。画面サイズ変更時も画面内へ自動補正",
     "アプリウィンドウがデスクトップ外へはみ出さないよう自動クランプを追加",
-    "NightWormを5段階の仮想感染モデルへ強化し、サービス・ログ・ファイル・プロセス・GPU・BSODと連動",
-    "NightWormに仮想WMI・フィルタードライバ・自己修復永続化・偽更新・仮想DNS/Firewall・UpdateSvc妨害を追加",
-    "Vercel/GitHub連動のDev OS Updateとローカルフォルダー更新機能を追加"
+    "NightWormに仮想WMI・フィルタードライバ・相互自己修復・偽更新・仮想DNS/Firewall・UpdateSvc妨害を追加",
+    "VercelではGitHub最新版と現在のVercel配信マニフェストを二重照合し、配信完了後だけ更新再起動を許可",
+    "ローカルでは.devupdate.jsonとユーザー選択フォルダーによるバックアップ付き更新に対応"
   ],
   "files": [
     {"path":"index.html"},
@@ -36,8 +36,9 @@
     {"path":"malware-advanced.js"},
     {"path":"v2-integrate.js"},
     {"path":"v3-shell.js"},
-    {"path":"update-system.js"},
+    {"path":"update-system-3.1.1.js"},
     {"path":"updates/latest.json"},
+    {"path":"updates/devos-3.1.1.devupdate.json"},
     {"path":"packages/catalog.json"},
     {"path":"packages/hello-tools.devapp.html"},
     {"path":"packages/nightworm.devapp.html"},
