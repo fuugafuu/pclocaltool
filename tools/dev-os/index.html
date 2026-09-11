@@ -6,6 +6,7 @@
 <title>Dev OS Lab | PC Local Tool</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="v2.css">
+<link rel="stylesheet" href="v3.css">
 </head>
 <body>
 <div id="boot-screen" class="boot-screen"><div class="boot-card"><div class="logo">◈</div><h1>DEV OS LAB</h1><p id="boot-status">Firmware self-test...</p><div class="progress"><span id="boot-progress"></span></div><div class="boot-actions"><button id="enter-bios" class="ghost">F2 BIOS / UEFI</button><button id="skip-boot" class="ghost">Fast boot</button></div></div></div>
@@ -16,6 +17,7 @@
 <div id="desktop" class="desktop hidden"><div class="wallpaper-grid"></div><div class="desktop-icons" id="desktop-icons"></div><div id="windows"></div><div id="toast-area"></div><div id="start-menu" class="start-menu hidden"></div><div id="quick-panel" class="quick-panel hidden"></div><footer class="taskbar"><button id="start-btn" class="tb-btn brand">◈</button><div id="task-icons" class="task-icons"></div><div class="spacer"></div><button id="security-tray" class="tray">🛡️ <span id="tray-status">Protected</span></button><button id="quick-btn" class="tray">▰</button><button id="clock-btn" class="clock"><span id="task-time"></span><span id="task-date"></span></button></footer></div>
 <template id="window-template"><section class="window"><header class="titlebar"><div class="title"></div><div class="window-controls"><button data-win="min">—</button><button data-win="max">□</button><button data-win="close">×</button></div></header><div class="window-body"></div><div class="resize-handle"></div></section></template>
 <script src="core.js"></script>
+<script src="boot-v3.js"></script>
 <script src="task-security.js"></script>
 <script src="event-admin.js"></script>
 <script src="explorer-terminal.js"></script>
@@ -26,5 +28,6 @@
 <script src="package-manager.js"></script>
 <script src="malware-sim.js"></script>
 <script src="v2-integrate.js"></script>
+<script src="v3-shell.js"></script>
 </body>
 </html>
