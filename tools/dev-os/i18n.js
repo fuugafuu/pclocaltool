@@ -1,0 +1,13 @@
+'use strict';
+const I18N={
+ ja:{
+  osName:'Dev OS Lab',unlock:'Dev OS に入る',protected:'保護されています',attention:'要確認',start:'スタート',settings:'設定',language:'言語',appearance:'外観',system:'システム',personalize:'個人設定',refresh:'最新の情報に更新',newFolder:'新しいフォルダー',terminalHere:'ここでターミナルを開く',displaySettings:'ディスプレイ設定',sort:'並べ替え',open:'開く',rename:'名前の変更',delete:'削除',properties:'プロパティ',selectAll:'すべて選択',appDownloader:'App Downloader',packageManager:'アプリとパッケージ',security:'Dev Security',taskManager:'タスク マネージャー',eventViewer:'イベント ビューアー',fileExplorer:'ファイル エクスプローラー',terminal:'Dev Terminal',services:'サービス',devices:'デバイス マネージャー',registry:'レジストリ シミュレーター',about:'システム情報',install:'インストール',uninstall:'アンインストール',scanFolder:'packages フォルダーをスキャン',chooseFolder:'パッケージフォルダーを選択',chooseFile:'パッケージHTMLを選択',installed:'インストール済み',available:'利用可能',permissions:'権限',publisher:'発行元',signed:'署名済み',unsigned:'未署名',dangerous:'危険',quarantine:'隔離',threatDetected:'脅威を検出しました',restartRequired:'再起動が必要です',desktop:'デスクトップ',power:'電源',restart:'再起動',shutdown:'シャットダウン',lock:'ロック',safeMode:'セーフモード',cancel:'キャンセル',confirm:'確認'
+ },
+ en:{
+  osName:'Dev OS Lab',unlock:'Enter Dev OS',protected:'Protected',attention:'Action needed',start:'Start',settings:'Settings',language:'Language',appearance:'Appearance',system:'System',personalize:'Personalization',refresh:'Refresh',newFolder:'New folder',terminalHere:'Open Terminal here',displaySettings:'Display settings',sort:'Sort by',open:'Open',rename:'Rename',delete:'Delete',properties:'Properties',selectAll:'Select all',appDownloader:'App Downloader',packageManager:'Apps & packages',security:'Dev Security',taskManager:'Task Manager',eventViewer:'Event Viewer',fileExplorer:'File Explorer',terminal:'Dev Terminal',services:'Services',devices:'Device Manager',registry:'Registry Simulator',about:'System Information',install:'Install',uninstall:'Uninstall',scanFolder:'Scan packages folder',chooseFolder:'Choose package folder',chooseFile:'Choose package HTML',installed:'Installed',available:'Available',permissions:'Permissions',publisher:'Publisher',signed:'Signed',unsigned:'Unsigned',dangerous:'Dangerous',quarantine:'Quarantine',threatDetected:'Threat detected',restartRequired:'Restart required',desktop:'Desktop',power:'Power',restart:'Restart',shutdown:'Shut down',lock:'Lock',safeMode:'Safe mode',cancel:'Cancel',confirm:'Confirm'
+ }
+};
+function locale(){return state?.settings?.language||'ja'}
+function t(key){return I18N[locale()]?.[key]??I18N.ja[key]??key}
+function localizeName(v){if(v&&typeof v==='object')return v[locale()]||v.ja||v.en||Object.values(v)[0];return v}
+function localeCode(){return locale()==='ja'?'ja-JP':'en-US'}
