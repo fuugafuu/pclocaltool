@@ -1,0 +1,9 @@
+{
+  "id": "custom.read_and_count",
+  "description": "指定したテキストファイルを読み、文字数を返す",
+  "args": {"path":"対象ファイル"},
+  "steps": [
+    {"tool":"file.read_text","args":{"path":"{{args.path}}"}},
+    {"tool":"text.char_count","args":{"text":"{{steps.0.result.text}}"}}
+  ]
+}
