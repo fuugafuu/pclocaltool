@@ -59,10 +59,14 @@
   <section class="panel">
     <div class="panel-head"><div><span class="step">4</span><h2>toolフォルダ拡張</h2></div><div class="actions small-actions"><button id="reload-custom-tools" class="secondary">↻ 再読込</button></div></div>
     <p class="muted">作業フォルダ内の <code>tool/*.agenttool.json</code> を読み込むと、AIへ渡すツール一覧にも自動追加されます。カスタムツールは既存ツールを組み合わせる安全なマクロ形式です。</p>
-    <div class="tool-summary"><strong id="custom-count">Custom 0</strong><span>内蔵ツール約100種類 + カスタム</span></div>
+    <div class="tool-summary"><strong id="custom-count">Custom 0</strong><span>内蔵123種類 + カスタム</span></div>
   </section>
 </main>
 <script src="tool/catalog.js"></script>
 <script src="app.js"></script>
+<script src="tool/runtime-file.js"></script>
+<script src="tool/runtime-text.js"></script>
+<script src="tool/runtime-data.js"></script>
+<script src="tool/runtime-code.js"></script>
 </body>
 </html>
