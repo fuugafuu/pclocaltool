@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Bridge | PC Local Tool</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div><div class="eyebrow">LOCAL · BROWSER ONLY</div><h1>🤖 Agent Bridge</h1><p>AIのJSON指示を、選んだ作業フォルダ内だけで実行する手動エージェントブリッジ。</p></div>
+    <div class="status-stack"><span id="mode-badge" class="badge">未接続</span><span id="tool-count" class="badge ghost">0 tools</span></div>
+  </header>
+
+  <section class="notice">
+    <strong>学校PC向け安全境界</strong>
+    <span>インストール不要。管理者権限不要。学校PCの制限を回避しません。選択した作業フォルダ以外にはアクセスしません。</span>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <div class="panel-head"><div><span class="step">1</span><h2>作業フォルダ</h2></div></div>
+      <p class="muted">最初にAIが触ってよいフォルダだけを選びます。</p>
+      <div class="actions">
+        <button id="pick-folder" class="primary">📁 作業フォルダを選ぶ</button>
+        <label class="button secondary">📂 読み込み専用で選ぶ<input id="folder-input" type="file" webkitdirectory multiple hidden></label>
+      </div>
+      <div id="workspace-info" class="info-box">まだフォルダが選択されていません。</div>
+      <div class="small muted">「直接編集」が使えない学校PCでは、読み込み専用モードで変更内容をダウンロードできます。</div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head"><div><span class="step">2</span><h2>最初にAIへ送る</h2></div></div>
+      <p class="muted">使い方・JSON形式・利用可能ツール一覧を自動生成します。</p>
+      <div class="actions"><button id="copy-handshake" class="primary">📋 AI用説明をコピー</button><button id="preview-handshake" class="secondary">表示</button></div>
+      <textarea id="handshake" class="codearea compact" readonly></textarea>
+    </article>
+  </section>
+
+  <section class="panel executor">
+    <div class="panel-head"><div><span class="step">3</span><h2>AIのJSONを貼って実行</h2></div><div class="actions small-actions"><button id="sample-json" class="secondary">例</button><button id="clear-json" class="secondary">クリア</button></div></div>
+    <textarea id="command" class="codearea" spellcheck="false" placeholder='{"version":1,"actions":[{"tool":"file.list","args":{"path":"."}}]}'></textarea>
+    <div class="actions run-row"><button id="run" class="primary big">▶ 実行</button><label class="check"><input id="auto-copy" type="checkbox" checked> 結果を自動コピー</label><label class="check"><input id="stop-on-error" type="checkbox" checked> エラーで停止</label></div>
+    <div id="run-status" class="run-status">待機中</div>
+  </section>
+
+  <section class="grid two">
+    <article class="panel">
+      <div class="panel-head"><h2>実行結果</h2><div class="actions small-actions"><button id="copy-result" class="secondary">📋 コピー</button></div></div>
+      <textarea id="result" class="codearea result" readonly></textarea>
+    </article>
+    <article class="panel">
+      <div class="panel-head"><h2>変更ファイル</h2><div class="actions small-actions"><button id="download-all" class="secondary">⬇ 変更を書き出す</button></div></div>
+      <div id="changes" class="changes"><p class="muted">変更はまだありません。</p></div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><div><span class="step">4</span><h2>toolフォルダ拡張</h2></div><div class="actions small-actions"><button id="reload-custom-tools" class="secondary">↻ 再読込</button></div></div>
+    <p class="muted">作業フォルダ内の <code>tool/*.agenttool.json</code> を読み込むと、AIへ渡すツール一覧にも自動追加されます。カスタムツールは既存ツールを組み合わせる安全なマクロ形式です。</p>
+    <div class="tool-summary"><strong id="custom-count">Custom 0</strong><span>内蔵ツール約100種類 + カスタム</span></div>
+  </section>
+</main>
+<script src="tool/catalog.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
