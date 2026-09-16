@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -7,62 +7,153 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="app">
-  <header class="topbar">
-    <div><div class="eyebrow">LOCAL · BROWSER ONLY</div><h1>🤖 Agent Bridge</h1><p>AIのJSON指示を、選んだ作業フォルダ内だけで実行する手動エージェントブリッジ。</p></div>
-    <div class="status-stack"><span id="mode-badge" class="badge">未接続</span><span id="tool-count" class="badge ghost">0 tools</span></div>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="brand-block">
+      <div class="brand-icon">🤖</div>
+      <div class="brand-copy">
+        <div class="brand-title">Agent Bridge</div>
+        <div class="brand-sub">AIのJSON指示を、選択した作業フォルダ内だけで実行</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="open-tools" class="secondary text-btn">⌕ ツール検索 <span class="kbd">Ctrl K</span></button>
+      <button id="theme-toggle" class="icon-btn" title="テーマ切替">☀️</button>
+    </div>
   </header>
 
-  <section class="notice">
-    <strong>学校PC向け安全境界</strong>
-    <span>インストール不要。管理者権限不要。学校PCの制限を回避しません。選択した作業フォルダ以外にはアクセスしません。</span>
-  </section>
+  <div class="workspace-layout">
+    <aside class="sidebar">
+      <section class="side-card">
+        <div class="side-label">Workspace</div>
+        <div id="workspace-summary" class="workspace-mini">まだフォルダが選択されていません。</div>
+        <div class="status-pills" style="margin-top:10px">
+          <span id="mode-badge" class="badge">未接続</span>
+          <span id="tool-count" class="badge accent">0 tools</span>
+        </div>
+      </section>
 
-  <section class="grid two">
-    <article class="panel">
-      <div class="panel-head"><div><span class="step">1</span><h2>作業フォルダ</h2></div></div>
-      <p class="muted">最初にAIが触ってよいフォルダだけを選びます。</p>
-      <div class="actions">
-        <button id="pick-folder" class="primary">📁 作業フォルダを選ぶ</button>
-        <label class="button secondary">📂 読み込み専用で選ぶ<input id="folder-input" type="file" webkitdirectory multiple hidden></label>
-      </div>
-      <div id="workspace-info" class="info-box">まだフォルダが選択されていません。</div>
-      <div class="small muted">「直接編集」が使えない学校PCでは、読み込み専用モードで変更内容をダウンロードできます。</div>
-    </article>
+      <section class="side-card step-list-card">
+        <div class="side-label">Workflow</div>
+        <div class="step-list">
+          <div class="step-row"><div class="step-num">1</div><div class="step-copy"><strong>作業フォルダ</strong><span>AIが触ってよい場所だけ選択</span></div></div>
+          <div class="step-row"><div class="step-num">2</div><div class="step-copy"><strong>AIへ説明</strong><span>使い方と利用可能toolをコピー</span></div></div>
+          <div class="step-row"><div class="step-num">3</div><div class="step-copy"><strong>JSONを実行</strong><span>AIのactionを貼り付けて実行</span></div></div>
+          <div class="step-row"><div class="step-num">4</div><div class="step-copy"><strong>結果を返す</strong><span>自動コピーされた結果をAIへ送信</span></div></div>
+        </div>
+      </section>
 
-    <article class="panel">
-      <div class="panel-head"><div><span class="step">2</span><h2>最初にAIへ送る</h2></div></div>
-      <p class="muted">最初のAI返答はJSONではなく「何をしたいか」を聞くように指示します。作業開始後はツールJSONへ移行します。</p>
-      <div class="actions"><button id="copy-handshake" class="primary">📋 AI用説明をコピー</button><button id="copy-detailed" class="secondary">📚 詳細説明をコピー</button><button id="preview-handshake" class="secondary">表示</button></div>
-      <textarea id="handshake" class="codearea compact" readonly></textarea>
-    </article>
-  </section>
+      <section class="side-card">
+        <div class="side-label">Shortcuts</div>
+        <div class="shortcut"><span>実行</span><span class="kbd">Ctrl Enter</span></div>
+        <div class="shortcut" style="margin-top:8px"><span>ツール検索</span><span class="kbd">Ctrl K</span></div>
+      </section>
+    </aside>
 
-  <section class="panel executor">
-    <div class="panel-head"><div><span class="step">3</span><h2>AIのJSONを貼って実行</h2></div><div class="actions small-actions"><button id="sample-json" class="secondary">例</button><button id="format-json" class="secondary">JSONを正規化</button><button id="clear-json" class="secondary">クリア</button></div></div>
-    <p class="muted small">コードブロック付き、前後に説明文があるJSON、単一action、action配列、JSON Lines、コメント・末尾カンマを含む入力も可能な範囲で自動補正します。</p>
-    <textarea id="command" class="codearea" spellcheck="false" placeholder='{"version":1,"actions":[{"tool":"file.list","args":{"path":"."}}]}'></textarea>
-    <div class="actions run-row"><button id="run" class="primary big">▶ 実行</button><label class="check"><input id="auto-copy" type="checkbox" checked> 結果を自動コピー</label><label class="check"><input id="stop-on-error" type="checkbox" checked> エラーで停止</label></div>
-    <div id="run-status" class="run-status">待機中</div>
-  </section>
+    <main class="main-area">
+      <section class="hero">
+        <article class="hero-card">
+          <h1>ローカルAIエージェント実行環境</h1>
+          <p>AIは頭脳、Agent Bridgeは手足。ファイル編集・調査・診断を、選んだフォルダの中だけで安全に実行します。</p>
+        </article>
+        <article class="live-card">
+          <div class="live-label">CURRENT STATUS</div>
+          <div id="live-status" class="live-status" data-kind="idle">待機中</div>
+        </article>
+      </section>
 
-  <section class="grid two">
-    <article class="panel">
-      <div class="panel-head"><h2>実行結果</h2><div class="actions small-actions"><button id="copy-result" class="secondary">📋 コピー</button></div></div>
-      <textarea id="result" class="codearea result" readonly></textarea>
-    </article>
-    <article class="panel">
-      <div class="panel-head"><h2>変更ファイル</h2><div class="actions small-actions"><button id="download-all" class="secondary">⬇ 変更を書き出す</button></div></div>
-      <div id="changes" class="changes"><p class="muted">変更はまだありません。</p></div>
-    </article>
-  </section>
+      <section class="notice-strip"><span>🛡️</span><div><strong>学校PC向け安全境界</strong><br>インストール不要・管理者権限不要。学校PCの制限を回避せず、選択した作業フォルダ外にはアクセスしません。</div></section>
 
-  <section class="panel">
-    <div class="panel-head"><div><span class="step">4</span><h2>toolフォルダ拡張</h2></div><div class="actions small-actions"><button id="reload-custom-tools" class="secondary">↻ 再読込</button></div></div>
-    <p class="muted">作業フォルダ内の <code>tool/*.agenttool.json</code> を読み込むと、AIへ渡すツール一覧にも自動追加されます。カスタムツールは既存ツールを組み合わせる安全なマクロ形式です。</p>
-    <div class="tool-summary"><strong id="custom-count">Custom 0</strong><span>内蔵227種類 + カスタム</span></div>
-  </section>
-</main>
+      <section class="two-col">
+        <article class="panel">
+          <div class="panel-head"><div><h2>📁 作業フォルダ</h2><div class="subhead">最初にAIが操作してよい場所を選択</div></div></div>
+          <div class="actions">
+            <button id="pick-folder" class="primary">作業フォルダを選ぶ</button>
+            <label class="button secondary">読み込み専用で選ぶ<input id="folder-input" type="file" webkitdirectory multiple hidden></label>
+          </div>
+          <div id="workspace-info" class="info-box" style="margin-top:12px">まだフォルダが選択されていません。</div>
+          <div class="small muted" style="margin-top:8px">直接編集が許可されない環境では、変更内容をダウンロードできます。</div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><h2>📋 AIへ最初に送る</h2><div class="subhead">まず目的を聞いてからJSONモードへ移行</div></div></div>
+          <div class="actions">
+            <button id="copy-handshake" class="primary">AI用説明をコピー</button>
+            <button id="copy-detailed" class="secondary">詳細説明をコピー</button>
+            <button id="preview-handshake" class="secondary">表示</button>
+          </div>
+          <textarea id="handshake" class="codearea compact" readonly style="margin-top:12px"></textarea>
+        </article>
+      </section>
+
+      <section class="panel editor-panel">
+        <div class="editor-toolbar">
+          <div>
+            <h2 style="margin:0;font-size:1rem">AIのJSONを貼って実行</h2>
+            <div class="editor-meta"><span id="json-health" class="health idle">空</span><span id="command-meta">0 文字 · 0 actions</span></div>
+          </div>
+          <div class="actions">
+            <button id="sample-json" class="secondary">例</button>
+            <button id="format-json" class="secondary">JSONを正規化</button>
+            <button id="copy-protocol-mini" class="secondary" title="最小プロトコルをコピー">{} コピー</button>
+            <button id="clear-json" class="secondary">クリア</button>
+          </div>
+        </div>
+        <textarea id="command" class="codearea command-area" spellcheck="false" placeholder='{"version":1,"actions":[{"tool":"file.list","args":{"path":"."}}]}'></textarea>
+        <div class="runbar">
+          <div class="run-left">
+            <label class="check"><input id="auto-copy" type="checkbox" checked> 結果を自動コピー</label>
+            <label class="check"><input id="stop-on-error" type="checkbox" checked> エラーで停止</label>
+          </div>
+          <div class="run-right">
+            <span class="small muted">コードブロック・JSON Lines・末尾カンマも可能な範囲で補正</span>
+            <button id="run" class="primary big">▶ 実行</button>
+          </div>
+        </div>
+        <div id="run-status" class="run-status">待機中</div>
+      </section>
+
+      <section>
+        <div class="tab-bar">
+          <button class="tab-btn active" data-main-tab="result">実行結果</button>
+          <button class="tab-btn" data-main-tab="changes">変更ファイル</button>
+          <button class="tab-btn" data-main-tab="tools">tool拡張</button>
+        </div>
+
+        <div data-main-panel="result" class="active" style="margin-top:10px">
+          <article class="panel editor-panel">
+            <div class="editor-toolbar"><div><h2 style="margin:0;font-size:1rem">実行結果</h2><div class="subhead">そのままAIへ返せる結果JSON</div></div><button id="copy-result" class="secondary">📋 コピー</button></div>
+            <textarea id="result" class="codearea result" readonly></textarea>
+          </article>
+        </div>
+
+        <div data-main-panel="changes" style="margin-top:10px">
+          <article class="panel">
+            <div class="panel-head"><div><h2>変更ファイル</h2><div class="subhead">このセッションで作成・変更されたファイル</div></div><button id="download-all" class="secondary">⬇ 変更を書き出す</button></div>
+            <div id="changes" class="changes"><p class="muted">変更はまだありません。</p></div>
+          </article>
+        </div>
+
+        <div data-main-panel="tools" style="margin-top:10px">
+          <article class="panel">
+            <div class="panel-head"><div><h2>toolフォルダ拡張</h2><div class="subhead">作業フォルダ内の tool/*.agenttool.json を自動認識</div></div><button id="reload-custom-tools" class="secondary">↻ 再読込</button></div>
+            <p class="muted small">カスタムツールは既存の内蔵toolを組み合わせる安全なマクロ形式です。</p>
+            <div class="tool-summary"><strong id="custom-count">Custom 0</strong><span>内蔵227種類 + カスタム</span></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="drawer-backdrop" class="drawer-backdrop"></div>
+<aside id="tool-drawer" class="tool-drawer" aria-label="ツール検索">
+  <div class="drawer-head"><div><h2>🔎 ツール検索</h2><div class="small muted">227種類から用途で探す</div></div><button id="close-tools" class="icon-btn">✕</button></div>
+  <div class="search-wrap"><input id="tool-search" class="tool-search" placeholder="例: JSON 部分編集 / エラーチェック / HTML"></div>
+  <div class="drawer-body"><div id="tool-results" class="tool-results"></div><div id="tool-detail" class="tool-detail"><div class="empty-state">左からツールを選ぶと詳しい使い方を表示します。</div></div></div>
+  <div class="drawer-foot">Ctrl + K でいつでも検索できます。</div>
+</aside>
+
 <script src="tool/catalog.js"></script>
 <script src="tool/catalog-diagnostics.js"></script>
 <script src="tool/catalog-agent.js"></script>
@@ -74,5 +165,6 @@
 <script src="tool/runtime-diagnostics.js"></script>
 <script src="tool/runtime-agent.js"></script>
 <script src="input-normalizer.js"></script>
+<script src="ui-enhance.js"></script>
 </body>
 </html>
