@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Janken AI Lab | PC Local Tool</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand"><div class="brand-icon">✊</div><div><h1>Janken AI Lab</h1><p>プロフィールごとにクセを学習する、完全ローカルじゃんけん分析ツール</p></div></div>
+  <div class="top-actions"><span id="storage-pill" class="pill">LOCAL</span><button id="theme-toggle" class="icon-btn" title="テーマ切替">☀️</button></div>
+</header>
+
+<main class="main-grid">
+  <aside class="sidebar">
+    <section class="side-card">
+      <div class="side-title"><span>👤 プロフィール</span><button id="new-profile" class="small-btn">＋</button></div>
+      <div id="profile-list" class="profile-list"></div>
+    </section>
+    <section class="side-card">
+      <div class="side-title">📊 セッション</div>
+      <div class="session-stats">
+        <div><b id="session-rounds">0</b><span>ラウンド</span></div>
+        <div><b id="session-wins">0</b><span>勝ち</span></div>
+        <div><b id="session-draws">0</b><span>あいこ</span></div>
+        <div><b id="session-losses">0</b><span>負け</span></div>
+      </div>
+      <button id="undo-round" class="wide secondary" disabled>↶ 直前のラウンドを取り消す</button>
+    </section>
+    <section class="side-card">
+      <div class="side-title">💾 データ</div>
+      <div class="stack"><button id="export-data" class="wide secondary">バックアップを書き出す</button><label class="wide secondary file-label">バックアップを読み込む<input id="import-data" type="file" accept="application/json" hidden></label></div>
+    </section>
+  </aside>
+
+  <section class="content">
+    <section class="hero panel">
+      <div><div class="eyebrow">ADAPTIVE LOCAL PREDICTION</div><h2>相手のクセを学習して、次に出す手を提案</h2><p>全体傾向だけでなく、直近・前回手・2手パターン・勝敗後・相手への反応まで合成します。</p></div>
+      <div class="ai-meter"><span>AI学習データ</span><strong id="total-events">0</strong><small>手</small></div>
+    </section>
+
+    <section class="panel setup-panel" id="setup-panel">
+      <div class="panel-head"><div><h3>1. 対戦設定</h3><p>自分と相手プロフィールを選択</p></div><div class="segmented" id="mode-segment"><button data-mode="duel" class="active">1対1</button><button data-mode="trio">1対1対1</button></div></div>
+      <div class="setup-grid">
+        <label><span>自分</span><select id="self-profile"></select></label>
+        <label><span>相手A</span><select id="opponent-a"></select></label>
+        <label id="opponent-b-wrap" class="hidden"><span>相手B</span><select id="opponent-b"></select></label>
+        <label><span>AI戦略</span><select id="ai-mode"><option value="balanced">バランス</option><option value="safe">負けにくさ重視</option><option value="aggressive">勝ち狙い</option></select></label>
+      </div>
+      <div class="setup-actions"><button id="start-match" class="primary big">対戦を開始</button></div>
+      <div id="setup-error" class="error-text"></div>
+    </section>
+
+    <section id="match-area" class="hidden">
+      <section class="recommend panel">
+        <div class="recommend-head"><div><div class="eyebrow">AI RECOMMENDATION</div><h3>次に出す手</h3></div><button id="end-match" class="secondary">対戦を終了</button></div>
+        <div class="recommend-main">
+          <div class="recommended-move" id="recommended-move"><span class="move-emoji">✊</span><strong>グー</strong></div>
+          <div class="recommend-info">
+            <div class="metric-row"><span>推奨確信度</span><div class="meter"><i id="confidence-bar"></i></div><b id="confidence-text">0%</b></div>
+            <div class="expect-grid"><div><span>予想勝ち</span><b id="exp-win">0%</b></div><div><span>あいこ</span><b id="exp-draw">0%</b></div><div><span>予想負け</span><b id="exp-loss">0%</b></div></div>
+            <div id="recommend-reason" class="reason"></div>
+          </div>
+        </div>
+        <div id="candidate-cards" class="candidate-cards"></div>
+      </section>
+
+      <section class="prediction-grid" id="prediction-grid"></section>
+
+      <section class="panel record-panel">
+        <div class="panel-head"><div><h3>2. 実際に出た手を記録</h3><p>推奨手を出したあと、全員の手を選んで記録</p></div><div id="round-number" class="round-pill">ROUND 1</div></div>
+        <div id="move-inputs" class="move-inputs"></div>
+        <div class="record-actions"><button id="record-round" class="primary big" disabled>このラウンドを記録</button></div>
+        <div id="round-result" class="round-result hidden"></div>
+      </section>
+
+      <section class="panel history-panel">
+        <div class="panel-head"><div><h3>対戦履歴</h3><p>このセッションの流れ</p></div></div>
+        <div id="match-history" class="history-list"><div class="empty">まだラウンドがありません。</div></div>
+      </section>
+    </section>
+
+    <section class="panel analytics-panel">
+      <div class="panel-head"><div><h3>プロフィール分析</h3><p>選択した人のクセと学習状況</p></div><select id="analytics-profile"></select></div>
+      <div id="analytics-content" class="analytics-content"></div>
+    </section>
+  </section>
+</main>
+</div>
+
+<dialog id="profile-dialog">
+<form method="dialog" id="profile-form">
+  <div class="dialog-head"><h3 id="profile-dialog-title">プロフィール作成</h3><button value="cancel" class="icon-btn">✕</button></div>
+  <input type="hidden" id="profile-id">
+  <label><span>名前</span><input id="profile-name" maxlength="30" required placeholder="例: フーガ"></label>
+  <label><span>アイコン</span><input id="profile-icon" maxlength="4" placeholder="😎"></label>
+  <label><span>メモ</span><textarea id="profile-note" maxlength="200" placeholder="右手で出すことが多い、など"></textarea></label>
+  <div class="dialog-actions"><button value="cancel" class="secondary">キャンセル</button><button id="save-profile" value="default" class="primary">保存</button></div>
+</form>
+</dialog>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
