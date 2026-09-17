@@ -92,12 +92,12 @@
 
 <dialog id="profile-dialog">
 <form method="dialog" id="profile-form">
-  <div class="dialog-head"><h3 id="profile-dialog-title">プロフィール作成</h3><button value="cancel" class="icon-btn">✕</button></div>
+  <div class="dialog-head"><h3 id="profile-dialog-title">プロフィール作成</h3><button type="button" class="icon-btn dialog-cancel">✕</button></div>
   <input type="hidden" id="profile-id">
   <label><span>名前</span><input id="profile-name" maxlength="30" required placeholder="例: フーガ"></label>
   <label><span>アイコン</span><input id="profile-icon" maxlength="4" placeholder="😎"></label>
   <label><span>メモ</span><textarea id="profile-note" maxlength="200" placeholder="右手で出すことが多い、など"></textarea></label>
-  <div class="dialog-actions"><button value="cancel" class="secondary">キャンセル</button><button id="save-profile" value="default" class="primary">保存</button></div>
+  <div class="dialog-actions"><button type="button" class="secondary dialog-cancel">キャンセル</button><button id="save-profile" value="default" class="primary">保存</button></div>
 </form>
 </dialog>
 
