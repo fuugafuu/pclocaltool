@@ -17,7 +17,7 @@
   <aside class="sidebar">
     <section class="side-card">
       <div class="side-title"><span>👤 プロフィール</span><button id="new-profile" class="small-btn">＋</button></div>
-      <div id="profile-list" class="profile-list"></div>
+      <div id="profile-list" class="profile-list"></div>\n      <button id="quick-train" class="wide secondary" style="margin-top:10px">⚡ 過去の手でクイック学習</button>
     </section>
     <section class="side-card">
       <div class="side-title">📊 セッション</div>
@@ -25,7 +25,7 @@
         <div><b id="session-rounds">0</b><span>ラウンド</span></div>
         <div><b id="session-wins">0</b><span>勝ち</span></div>
         <div><b id="session-draws">0</b><span>あいこ</span></div>
-        <div><b id="session-losses">0</b><span>負け</span></div>
+        <div><b id="session-losses">0</b><span>負け</span></div>\n        <div><b id="session-ai-hit">—</b><span>AI命中</span></div>\n        <div><b id="session-follow">—</b><span>推奨採用時</span></div>
       </div>
       <button id="undo-round" class="wide secondary" disabled>↶ 直前のラウンドを取り消す</button>
     </section>
@@ -37,7 +37,7 @@
 
   <section class="content">
     <section class="hero panel">
-      <div><div class="eyebrow">ADAPTIVE LOCAL PREDICTION</div><h2>相手のクセを学習して、次に出す手を提案</h2><p>全体傾向だけでなく、直近・前回手・2手パターン・勝敗後・相手への反応まで合成します。</p></div>
+      <div><div class="eyebrow">ADAPTIVE LOCAL PREDICTION</div><h2>相手のクセを学習して、次に出す手を提案</h2><p>全体・直近・対人相性・勝敗後・相手への反応・最大4手パターンを合成し、予測精度も自己評価します。</p></div>
       <div class="ai-meter"><span>AI学習データ</span><strong id="total-events">0</strong><small>手</small></div>
     </section>
 
@@ -47,7 +47,7 @@
         <label><span>自分</span><select id="self-profile"></select></label>
         <label><span>相手A</span><select id="opponent-a"></select></label>
         <label id="opponent-b-wrap" class="hidden"><span>相手B</span><select id="opponent-b"></select></label>
-        <label><span>AI戦略</span><select id="ai-mode"><option value="balanced">バランス</option><option value="safe">負けにくさ重視</option><option value="aggressive">勝ち狙い</option></select></label>
+        <label><span>AI戦略</span><select id="ai-mode"><option value="adaptive" selected>自動適応</option><option value="balanced">バランス</option><option value="safe">負けにくさ重視</option><option value="aggressive">勝ち狙い</option></select></label>
       </div>
       <div class="setup-actions"><button id="start-match" class="primary big">対戦を開始</button></div>
       <div id="setup-error" class="error-text"></div>
@@ -83,7 +83,7 @@
     </section>
 
     <section class="panel analytics-panel">
-      <div class="panel-head"><div><h3>プロフィール分析</h3><p>選択した人のクセと学習状況</p></div><select id="analytics-profile"></select></div>
+      <div class="panel-head"><div><h3>プロフィール分析</h3><p>クセ・AI精度・対人相性・遷移パターンまで分析</p></div><div class="analytics-selects"><select id="analytics-profile"></select><select id="analytics-rival"><option value="">全対戦相手</option></select></div></div>
       <div id="analytics-content" class="analytics-content"></div>
     </section>
   </section>
@@ -98,6 +98,17 @@
   <label><span>アイコン</span><input id="profile-icon" maxlength="4" placeholder="😎"></label>
   <label><span>メモ</span><textarea id="profile-note" maxlength="200" placeholder="右手で出すことが多い、など"></textarea></label>
   <div class="dialog-actions"><button type="button" class="secondary dialog-cancel">キャンセル</button><button id="save-profile" value="default" class="primary">保存</button></div>
+</form>
+</dialog>
+
+<dialog id="train-dialog">
+<form method="dialog" id="train-form">
+  <div class="dialog-head"><h3>⚡ クイック学習</h3><button type="button" class="icon-btn train-cancel">✕</button></div>
+  <label><span>学習させるプロフィール</span><select id="train-profile"></select></label>
+  <label><span>過去に出した手を順番に入力</span><textarea id="train-sequence" placeholder="例: グー チョキ パー グー\nまたは: ✊ ✌️ 🖐️ ✊\nR S P R でもOK"></textarea></label>
+  <div class="small muted">勝敗情報がないため「出し手パターン」の学習に使います。既存データへ追加されます。</div>
+  <div id="train-preview" class="info-box">0手</div>
+  <div class="dialog-actions"><button type="button" class="secondary train-cancel">キャンセル</button><button id="train-save" value="default" class="primary">学習データを追加</button></div>
 </form>
 </dialog>
 
