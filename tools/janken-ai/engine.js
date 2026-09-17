@@ -40,6 +40,49 @@
     let e=0; for(const m of MOVES){const p=dist[m]; if(p>0)e-=p*Math.log(p)/Math.log(3)} return clamp(e,0,1);
   }
 
+  const topMove = d => MOVES.reduce((a,b)=>d[a]>=d[b]?a:b);
+
+  function distFrom(events, filter=()=>true, decay=1, prior=.55){
+    const c={rock:prior,scissors:prior,paper:prior}; let n=0,w=1;
+    for(let i=events.length-1;i>=0;i--){ const e=events[i]; if(filter(e,i)&&MOVES.includes(e.move)){ c[e.move]+=w; n++; w*=decay; if(decay<1&&w<.02) break; } }
+    return {dist:normalize(c),n};
+  }
+  function componentWeight(base,n,d,target=8){ const sample=.25+.75*clamp(n/target,0,1), info=.62+.72*(1-entropy(d)); return base*sample*info; }
+  function relation(prev,next){ if(!prev||!next)return null; if(next===prev)return 'repeat'; if(next===LOSES_TO[prev])return 'counter'; return 'other'; }
+  function moveFromRelation(prev,r){ return r==='repeat'?prev:r==='counter'?LOSES_TO[prev]:BEATS[prev]; }
+  function relationModel(events,lastMove){
+    if(!lastMove||events.length<2)return null; const c={repeat:.5,counter:.5,other:.5}; let n=0;
+    for(let i=1;i<events.length;i++){ const r=relation(events[i-1].move,events[i].move); if(r){c[r]++;n++;} }
+    if(!n)return null; const total=c.repeat+c.counter+c.other,d={rock:0,scissors:0,paper:0};
+    for(const r of Object.keys(c)) d[moveFromRelation(lastMove,r)]+=c[r]/total;
+    return {dist:normalize(d),n};
+  }
+  function ngramModel(events,order){
+    if(events.length<=order)return null; const seq=events.slice(-order).map(e=>e.move); if(seq.some(m=>!MOVES.includes(m)))return null;
+    const c={rock:.45,scissors:.45,paper:.45}; let n=0;
+    for(let i=order;i<events.length;i++){ let ok=true; for(let j=0;j<order;j++) if(events[i-order+j]?.move!==seq[j]){ok=false;break;} if(ok&&MOVES.includes(events[i].move)){c[events[i].move]++;n++;} }
+    return n?{dist:normalize(c),n,seq}:null;
+  }
+  function specificEvents(events,context){ if(!context.selfId)return []; return events.filter(e=>Array.isArray(e.context?.opponentIds)&&e.context.opponentIds.includes(context.selfId)); }
+  function makeComponent(base,name,model,target=8,extra=1){ if(!model||!model.n)return null; return {name,dist:model.dist,n:model.n,weight:componentWeight(base,model.n,model.dist,target)*extra}; }
+
+  function jointDistribution(history,aId,bId){
+    const c={}; for(const a of MOVES)for(const b of MOVES)c[`${a}|${b}`]=.18; let n=0,w=1;
+    for(let i=(history?.length||0)-1;i>=0;i--){ const h=history[i],ma=h?.round?.moves?.[aId],mb=h?.round?.moves?.[bId]; if(MOVES.includes(ma)&&MOVES.includes(mb)){c[`${ma}|${mb}`]+=w;n++;w*=.965;if(w<.04)break;} }
+    const total=Object.values(c).reduce((a,b)=>a+b,0); for(const k in c)c[k]/=total;
+    return {pairs:c,n,blend:clamp(n/28,0,.72)};
+  }
+  function predictionPerformance(history,profileId=null){
+    let n=0,topHits=0,probSum=0,brier=0;
+    for(const h of history||[]){ const preds=h?.round?.predictions||{},ids=profileId?[profileId]:Object.keys(preds); for(const id of ids){ const p=preds[id],actual=h?.round?.moves?.[id]; if(!p||!MOVES.includes(actual))continue; n++; if(p.top===actual)topHits++; probSum+=p.dist?.[actual]||0; for(const m of MOVES){const y=m===actual?1:0;brier+=Math.pow((p.dist?.[m]||0)-y,2);} } }
+    return {n,topAccuracy:n?topHits/n:0,meanActualProbability:n?probSum/n:0,brier:n?brier/n:0};
+  }
+  function matchupStats(history,aId,bId){
+    let rounds=0,win=0,draw=0,loss=0; const aMoves={rock:0,scissors:0,paper:0},bMoves={rock:0,scissors:0,paper:0};
+    for(const h of history||[]){ const r=h?.round;if(!r?.moves?.[aId]||!r?.moves?.[bId])continue; rounds++; aMoves[r.moves[aId]]++;bMoves[r.moves[bId]]++; const x=r.resolution?.results?.[aId]; if(x==='win')win++;else if(x==='draw')draw++;else loss++; }
+    return {rounds,win,draw,loss,aDist:normalize(aMoves),bDist:normalize(bMoves)};
+  }
+
   function weightedFreq(events, getMove, decay=.88){
     const c={rock:.55,scissors:.55,paper:.55};
     let w=1;
@@ -54,82 +97,60 @@
   }
 
   function predictProfile(profile, context={}){
-    const events = Array.isArray(profile?.events)?profile.events:[];
-    if(!events.length) return {dist:emptyDist(),confidence:0.08,sample:0,components:[],top:'rock'};
-    const base={rock:0,scissors:0,paper:0}; const components=[];
-    const overall = weightedFreq(events,e=>e.move,.97); addWeighted(base,overall,1.0); components.push({name:'全体傾向',weight:1.0,dist:overall});
-    const recent = weightedFreq(events,e=>e.move,.79); addWeighted(base,recent,1.45); components.push({name:'直近傾向',weight:1.45,dist:recent});
-
-    const lastOwn = context.profilePrevMove || events.at(-1)?.move;
+    const events=Array.isArray(profile?.events)?profile.events:[];
+    if(!events.length)return {dist:emptyDist(),confidence:.06,sample:0,specificSample:0,components:[],top:'rock',agreement:1/3};
+    const comps=[],push=x=>x&&comps.push(x);
+    push(makeComponent(.9,'全体傾向',distFrom(events,()=>true,.985,.8),28));
+    push(makeComponent(1.55,'直近傾向',distFrom(events,()=>true,.80,.58),10));
+    if(context.matchId) push(makeComponent(1.65,'この試合の傾向',distFrom(events,e=>e.context?.matchId===context.matchId,.86,.45),5));
+    if(context.participants) push(makeComponent(.62,context.participants===3?'3人戦での傾向':'1対1での傾向',distFrom(events,e=>e.context?.participants===context.participants,.94,.5),12));
+    const spec=specificEvents(events,context);
+    if(spec.length) push(makeComponent(1.45,'あなたとの対戦傾向',distFrom(spec,()=>true,.93,.52),8,1+Math.min(.25,spec.length/80)));
+    const lastOwn=context.profilePrevMove||events.at(-1)?.move;
     if(lastOwn){
-      const cf = conditionalFreq(events,(e,i)=>i>0 && events[i-1]?.move===lastOwn,e=>e.move);
-      if(cf.n){ const w=clamp(cf.n/5,.45,1.55); addWeighted(base,cf.dist,w); components.push({name:`${LABELS[lastOwn]}の次`,weight:w,dist:cf.dist,n:cf.n}); }
+      push(makeComponent(1.35,`${LABELS[lastOwn]}の次`,distFrom(events,(e,i)=>i>0&&events[i-1]?.move===lastOwn,.96,.42),6));
+      push(makeComponent(.78,'手の変え方',relationModel(events,lastOwn),10));
     }
-
-    const userPrev = context.userPrevMove;
+    const userPrev=context.userPrevMove;
     if(userPrev){
-      const cf = conditionalFreq(events,e=>e.context?.opponentPrevMoves?.includes(userPrev),e=>e.move);
-      if(cf.n){ const w=clamp(cf.n/4,.5,1.65); addWeighted(base,cf.dist,w); components.push({name:`相手が${LABELS[userPrev]}の次`,weight:w,dist:cf.dist,n:cf.n}); }
+      push(makeComponent(1.15,`相手が${LABELS[userPrev]}の次`,distFrom(events,e=>e.context?.opponentPrevMoves?.includes?.(userPrev),.95,.42),6));
+      if(context.selfId) push(makeComponent(1.72,`あなたが${LABELS[userPrev]}の次`,distFrom(events,e=>e.context?.opponentPrevById?.[context.selfId]===userPrev,.96,.4),5));
     }
-
-    const lastResult = context.profilePrevResult || events.at(-1)?.result;
-    if(lastResult){
-      const cf = conditionalFreq(events,(e,i)=>i>0 && events[i-1]?.result===lastResult,e=>e.move);
-      if(cf.n){ const w=clamp(cf.n/6,.35,1.15); addWeighted(base,cf.dist,w); components.push({name:`${lastResult==='win'?'勝ち':lastResult==='loss'?'負け':'あいこ'}後`,weight:w,dist:cf.dist,n:cf.n}); }
-    }
-
-    if(events.length>=2){
-      const pair = events.slice(-2).map(e=>e.move).join('>');
-      const cf = conditionalFreq(events,(e,i)=>i>1 && `${events[i-2]?.move}>${events[i-1]?.move}`===pair,e=>e.move);
-      if(cf.n){ const w=clamp(cf.n/4,.35,1.2); addWeighted(base,cf.dist,w); components.push({name:'2手パターン',weight:w,dist:cf.dist,n:cf.n}); }
-    }
-
-    const last=events.at(-1)?.move;
-    let streak=0; for(let i=events.length-1;i>=0 && events[i].move===last;i--) streak++;
-    if(last && streak>=2){
-      const repeat={rock:.15,scissors:.15,paper:.15}; repeat[last]=1.35+Math.min(1.2,(streak-2)*.25); const d=normalize(repeat);
-      addWeighted(base,d,.55); components.push({name:`${streak}連続`,weight:.55,dist:d});
-    }
-
-    const dist=normalize(base);
-    const top=MOVES.reduce((a,b)=>dist[a]>=dist[b]?a:b);
-    const sample=events.length;
-    const certainty=1-entropy(dist);
-    const confidence=clamp(.08 + Math.min(.48,sample/45) + certainty*.44, .08, .96);
-    return {dist,confidence,sample,components,top};
+    const lastResult=context.profilePrevResult||events.at(-1)?.result;
+    if(lastResult){ const name=lastResult==='win'?'勝った後':lastResult==='loss'?'負けた後':'あいこの後'; push(makeComponent(1.0,name,distFrom(events,(e,i)=>i>0&&events[i-1]?.result===lastResult,.96,.43),7)); }
+    for(const order of [2,3,4]) push(makeComponent(order===2?1.15:order===3?1.38:1.55,`${order}手パターン`,ngramModel(events,order),order===2?5:3));
+    const last=events.at(-1)?.move; let streak=0; for(let i=events.length-1;i>=0&&events[i].move===last;i--)streak++;
+    if(last&&streak>=2){ const d={rock:.2,scissors:.2,paper:.2};d[last]=1.2+Math.min(1.4,(streak-2)*.3);comps.push({name:`${streak}連続中`,dist:normalize(d),n:streak,weight:.52+Math.min(.45,streak*.08)}); }
+    const base={rock:0,scissors:0,paper:0};let totalW=0;for(const c of comps){addWeighted(base,c.dist,c.weight);totalW+=c.weight;}
+    const dist=normalize(base),top=topMove(dist),votes={rock:0,scissors:0,paper:0};for(const c of comps)votes[topMove(c.dist)]+=c.weight;
+    const agreement=totalW?Math.max(...MOVES.map(m=>votes[m]))/totalW:1/3,certainty=1-entropy(dist),sample=events.length,specificSample=spec.length;
+    const confidence=clamp(.05+Math.min(.34,sample/70)+certainty*.30+agreement*.20+Math.min(.11,specificSample/45),.05,.97);
+    return {dist,confidence,sample,specificSample,components:comps.sort((a,b)=>b.weight-a.weight),top,agreement};
   }
-
-  function expectedForMove(ourMove, opponentPredictions, mode='balanced'){
-    const preds = opponentPredictions.map(p=>p.dist||p);
+  function expectedForMove(ourMove, opponentPredictions, mode='balanced', joint=null){
+    const preds=opponentPredictions.map(p=>p.dist||p);let win=0,draw=0,loss=0;
     if(preds.length===1){
-      let win=0,draw=0,loss=0;
-      for(const m of MOVES){const p=preds[0][m]; const r=moveResult(ourMove,m); if(r==='win')win+=p; else if(r==='draw')draw+=p; else loss+=p;}
-      const utility = mode==='safe' ? win + draw*.55 - loss*.9 : mode==='aggressive' ? win*1.2 + draw*.05 - loss*.65 : win + draw*.18 - loss*.78;
-      return {move:ourMove,win,draw,loss,utility};
+      for(const m of MOVES){const p=preds[0][m],r=moveResult(ourMove,m);if(r==='win')win+=p;else if(r==='draw')draw+=p;else loss+=p;}
+    }else{
+      for(const a of MOVES)for(const b of MOVES){const independent=preds[0][a]*preds[1][b],jp=joint?.pairs?.[`${a}|${b}`]??independent,blend=joint?.blend||0,p=independent*(1-blend)+jp*blend;const r=resolveRound({self:ourMove,a,b}).results.self;if(r==='win')win+=p;else if(r==='draw')draw+=p;else loss+=p;}
+      const t=win+draw+loss;if(t){win/=t;draw/=t;loss/=t;}
     }
-    let win=0,draw=0,loss=0;
-    for(const a of MOVES) for(const b of MOVES){
-      const p=preds[0][a]*preds[1][b];
-      const rr=resolveRound({self:ourMove,a,b}).results.self;
-      if(rr==='win')win+=p; else if(rr==='draw')draw+=p; else loss+=p;
-    }
-    const utility = mode==='safe' ? win + draw*.52 - loss*.92 : mode==='aggressive' ? win*1.22 + draw*.03 - loss*.64 : win + draw*.16 - loss*.8;
+    let utility;if(mode==='safe')utility=win+draw*.62-loss;else if(mode==='aggressive')utility=win*1.26+draw*.03-loss*.66;else utility=win+draw*.2-loss*.8;
     return {move:ourMove,win,draw,loss,utility};
   }
-
-  function recommend(opponentPredictions, mode='balanced'){
-    const candidates=MOVES.map(m=>expectedForMove(m,opponentPredictions,mode)).sort((a,b)=>b.utility-a.utility || b.win-a.win || a.loss-b.loss);
-    const best=candidates[0];
-    const gap=best.utility-(candidates[1]?.utility??best.utility);
-    const avgConf=opponentPredictions.length?opponentPredictions.reduce((s,p)=>s+(p.confidence||0),0)/opponentPredictions.length:0;
-    return {...best,candidates,confidence:clamp(avgConf*.72 + Math.min(.28,Math.max(0,gap)*.9),.05,.97)};
+  function recommend(opponentPredictions, mode='balanced', joint=null, seed=0){
+    const avg=opponentPredictions.length?opponentPredictions.reduce((x,p)=>x+(p.confidence||0),0)/opponentPredictions.length:0;
+    const effectiveMode=mode==='adaptive'?(avg<.27?'safe':avg>.58?'aggressive':'balanced'):mode;
+    let candidates=MOVES.map(m=>expectedForMove(m,opponentPredictions,effectiveMode,joint)).sort((a,b)=>b.utility-a.utility||b.win-a.win||a.loss-b.loss);
+    if(avg<.16&&Math.abs(candidates[0].utility-candidates[1].utility)<.035){const chosen=MOVES[Math.abs(Number(seed)||0)%3],i=candidates.findIndex(x=>x.move===chosen);if(i>0)candidates=[candidates[i],...candidates.slice(0,i),...candidates.slice(i+1)];}
+    const best=candidates[0],gap=best.utility-(candidates[1]?.utility??best.utility);
+    return {...best,candidates,confidence:clamp(avg*.72+Math.min(.28,Math.max(0,gap)*.9),.04,.97),effectiveMode,jointBlend:joint?.blend||0};
   }
-
   function profileStats(profile){
     const events=profile?.events||[]; const counts={rock:0,scissors:0,paper:0}; const results={win:0,loss:0,draw:0};
     for(const e of events){if(MOVES.includes(e.move))counts[e.move]++; if(results[e.result]!=null)results[e.result]++;}
     const total=events.length; return {total,counts,dist:normalize({rock:counts.rock+.001,scissors:counts.scissors+.001,paper:counts.paper+.001}),results};
   }
 
-  window.JankenEngine={MOVES,LABELS,ICONS,BEATS,LOSES_TO,counterMove,moveResult,resolveRound,predictProfile,recommend,profileStats,normalize};
+  window.JankenEngine={MOVES,LABELS,ICONS,BEATS,LOSES_TO,counterMove,moveResult,resolveRound,predictProfile,recommend,profileStats,normalize,jointDistribution,predictionPerformance,matchupStats,entropy};
 })();
