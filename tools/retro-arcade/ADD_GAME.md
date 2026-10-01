@@ -195,13 +195,19 @@ Modern:
 
 ## パック追加
 
-新しいファイルを作った場合は `index.html` で読み込んでください。
+新しいゲームパックを作ったら、`index.html` は編集しません。
 
-```html
-<script src="games/my-pack.js"></script>
+`games/catalog.js` にパスを1行追加するだけで、ランチャーが起動時に順番に自動ロードします。
+
+```js
+window.RETRO_ARCADE_PACKS = [
+  "games/classics-a.js",
+  "games/classics-b.js",
+  "games/my-pack.js"
+];
 ```
 
-また `games/catalog.js` にも記録しておくと管理しやすくなります。
+そのため、ゲーム数が100本を超えてもランチャー本体のHTMLを巨大化させずに管理できます。
 
 ## 著作物について
 
