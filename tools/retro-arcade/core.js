@@ -5,8 +5,8 @@ const DEFAULTS={mode:'classic',speed:1,auto:false,sound:true,autoSkill:75,humani
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(sel,event,fn)=>{const el=typeof sel==='string'?$(sel):sel;if(el)el.addEventListener(event,fn);return el};
 const setText=(sel,text)=>{const el=$(sel);if(el)el.textContent=text};
-const jpGenre=g=>({Sports:'スポーツ',Action:'アクション',Shooter:'シューティング',Defense:'防衛',Maze:'迷路',Puzzle:'パズル','Puzzle Action':'パズルアクション',Arcade:'アーケード',Card:'カード',Platform:'プラットフォーム',Simulation:'シミュレーション'}[g]||g);
-const jpSystem=s=>({ARCADE:'アーケード',COMPUTER:'コンピューター',WINDOWS:'Windows',FAMICOM:'ファミコン','COMPUTER / GB':'コンピューター / GB','ARCADE / MOBILE':'アーケード / モバイル','WINDOWS':'Windows','COMPUTER / CONSOLE':'コンピューター / 家庭用'}[s]||s);
+const jpGenre=g=>({Sports:'スポーツ',Action:'アクション',Shooter:'シューティング',Defense:'防衛',Maze:'迷路',Puzzle:'パズル','Puzzle Action':'パズルアクション',Arcade:'アーケード',Card:'カード',Platform:'プラットフォーム',Simulation:'シミュレーション',Adventure:'アドベンチャー',Fighting:'格闘',RPG:'RPG',Racing:'レース',Rhythm:'リズム','Run & Gun':'ラン＆ガン','Beat ’em up':'ベルトアクション',Stealth:'ステルス',Strategy:'戦略',FPS:'FPS'}[g]||g);
+const jpSystem=s=>({ARCADE:'アーケード','ARCADE / DREAMCAST':'アーケード / ドリームキャスト','ARCADE / FAMICOM':'アーケード / ファミコン','ARCADE / MOBILE':'アーケード / モバイル','ARCADE / NES':'アーケード / NES','ARCADE / PS':'アーケード / PlayStation','ATARI 2600':'Atari 2600',COMPUTER:'コンピューター','COMPUTER / CONSOLE':'コンピューター / 家庭用','COMPUTER / GB':'コンピューター / ゲームボーイ',CONSOLE:'家庭用',FAMICOM:'ファミコン','FAMICOM / GAME BOY':'ファミコン / ゲームボーイ','FAMICOM DISK':'ファミコン ディスクシステム','GAME BOY':'ゲームボーイ','MEGA DRIVE':'メガドライブ','MEGA DRIVE / SNES':'メガドライブ / スーパーファミコン',MSX2:'MSX2',NES:'NES','NINTENDO 64':'NINTENDO 64',PLAYSTATION:'PlayStation','PLAYSTATION / PC':'PlayStation / PC',SATURN:'セガサターン','SUPER FAMICOM':'スーパーファミコン',WINDOWS:'Windows'}[s]||s);
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
