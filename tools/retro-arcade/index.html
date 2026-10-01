@@ -112,7 +112,7 @@ RetroArcade.loadPacks(window.RETRO_ARCADE_PACKS)
   .then(()=>RetroArcade.boot())
   .catch(err=>{
     console.error(err);
-    document.getElementById('game-grid').innerHTML='<div class="empty">ゲームパックの読み込みに失敗しました。<br>'+String(err.message||err)+'</div>';
+    document.getElementById('game-grid').innerHTML='<div class="empty">ゲームの読み込みまたは起動に失敗しました。<br>'+String(err.message||err)+'</div>';
   });
 </script>
 </body>
