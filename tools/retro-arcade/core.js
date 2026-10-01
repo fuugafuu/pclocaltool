@@ -2,7 +2,7 @@
 (() => {
 const REG=[], KEY='pclocaltool_retro_arcade_v1';
 const DEFAULTS={mode:'classic',speed:1,auto:false,sound:true,autoSkill:75,humanize:15,crt:58,touch:'auto'};
-const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const on=(sel,event,fn)=>{const el=typeof sel==='string'?$(sel):sel;if(el)el.addEventListener(event,fn);return el};
 const setText=(sel,text)=>{const el=$(sel);if(el)el.textContent=text};
 const jpGenre=g=>({Sports:'スポーツ',Action:'アクション',Shooter:'シューティング',Defense:'防衛',Maze:'迷路',Puzzle:'パズル','Puzzle Action':'パズルアクション',Arcade:'アーケード',Card:'カード',Platform:'プラットフォーム',Simulation:'シミュレーション'}[g]||g);
@@ -16,7 +16,7 @@ function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY)))}catch{
 let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false, speed=1, autoEnabled=false, autoSkill=75, humanize=15, currentCfg={...DEFAULTS};
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
 function cfgFor(id){return{...DEFAULTS,...db.settings.global,...(db.settings.perGame?.[id]||{})}}
-function setTheme(t){db.settings.theme=t;document.documentElement.dataset.theme=t;$('#theme-toggle').textContent=t==='dark'?'☀️':'🌙';save()}
+function setTheme(t){db.settings.theme=t;document.documentElement.dataset.theme=t;setText('#theme-toggle',t==='dark'?'☀️':'🌙');save()}
 function scoreKey(id,m){return id+':'+m}
 function highScore(id,m){return Number(db.scores[scoreKey(id,m)]||0)}
 function setHighScore(id,m,v){const k=scoreKey(id,m);if(v>Number(db.scores[k]||0)){db.scores[k]=Math.floor(v);save();return true}return false}
@@ -29,13 +29,13 @@ async function loadPacks(paths=[]){
  for(const src of paths){
    if(!src)continue;
    await new Promise((resolve,reject)=>{
-     const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('Game pack load failed: '+src));document.head.appendChild(s);
+     const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('ゲームパックを読み込めませんでした: '+src));document.head.appendChild(s);
    });
  }
 }
 function register(meta,factory){
  if(!meta?.id||REG.some(g=>g.meta.id===meta.id))return;
- REG.push({meta:{genre:'Arcade',year:1980,color:'#53f0a9',classic:'当時の基本ルール',modern:'操作性・保存機能を補強',controls:'矢印 / Space',auto:'ゲーム専用AI',...meta},factory});
+ REG.push({meta:{genre:'Arcade',year:1980,color:'#53f0a9',classic:'当時の基本ルール',modern:'操作性・保存機能を補強',controls:'矢印 / スペース',auto:'ゲーム専用AI',...meta},factory});
 }
 function syncRuntimeUI(){
  const a=$('#auto-toggle'),sp=$('#speed-toggle'),snd=$('#sound-toggle');
@@ -55,7 +55,7 @@ function apiFor(meta){
    addScore(v){api.setScore(score+v)},getScore(){return score},
    setStatus(t){status=String(t||'');$('#status-info').textContent=status},
    storage:{get(k,fallback=null){try{const x=localStorage.getItem('retro:'+meta.id+':'+k);return x==null?fallback:JSON.parse(x)}catch{return fallback}},set(k,v){localStorage.setItem('retro:'+meta.id+':'+k,JSON.stringify(v))}},
-   finish(t='GAME OVER'){api.setStatus(t);beep(120,.22,'sawtooth',.05)},
+   finish(t='ゲームオーバー'){api.setStatus(t);beep(120,.22,'sawtooth',.05)},
    canvas(spec){return createCanvasGame(api,spec)}
  };
  return api;
@@ -148,7 +148,9 @@ function disableZoomAndSelection(){
  document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
  document.addEventListener('gesturechange',e=>e.preventDefault(),{passive:false});
  document.addEventListener('gestureend',e=>e.preventDefault(),{passive:false});
- document.addEventListener('dblclick',e=>{if(!e.target.closest('input,select'))e.preventDefault()},{passive:false});
+ document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
+ document.addEventListener('selectstart',e=>e.preventDefault(),{passive:false});
+ document.addEventListener('dragstart',e=>e.preventDefault(),{passive:false});
  document.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey)e.preventDefault()},{passive:false});
  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','-','=','0'].includes(e.key))e.preventDefault()});
 }
