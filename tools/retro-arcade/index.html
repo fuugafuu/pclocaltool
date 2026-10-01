@@ -104,8 +104,13 @@
 
 <script src="core.js"></script>
 <script src="games/catalog.js"></script>
-<script src="games/classics-a.js"></script>
-<script src="games/classics-b.js"></script>\n<script src="games/classics-c.js"></script>\n<script src="games/classics-d.js"></script>
-<script>RetroArcade.boot();</script>
+<script>
+RetroArcade.loadPacks(window.RETRO_ARCADE_PACKS)
+  .then(()=>RetroArcade.boot())
+  .catch(err=>{
+    console.error(err);
+    document.getElementById('game-grid').innerHTML='<div class="empty">ゲームパックの読み込みに失敗しました。<br>'+String(err.message||err)+'</div>';
+  });
+</script>
 </body>
 </html>
