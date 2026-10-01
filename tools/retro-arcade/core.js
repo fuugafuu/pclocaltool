@@ -42,7 +42,7 @@ function syncRuntimeUI(){
  if(a){a.textContent=autoEnabled?'オート ON':'オート OFF';a.classList.toggle('on',autoEnabled)}
  if(sp){sp.textContent=(Number(speed)%1?Number(speed).toFixed(2).replace(/0+$/,'').replace(/\.$/,''):Number(speed))+'×';sp.classList.toggle('fast',speed>1)}
  if(snd)snd.textContent=soundOn?'♪ 音あり':'♪ ミュート';
- $('.scanlines').forEach(x=>x.style.opacity=String(clamp((currentCfg.crt??58)/100,0,1)));
+ $$('.scanlines').forEach(x=>x.style.opacity=String(clamp((currentCfg.crt??58)/100,0,1)));
 }
 function applyRuntime(id){
  currentCfg=cfgFor(id);mode=currentCfg.mode==='modern'?'modern':'classic';speed=clamp(Number(currentCfg.speed)||1,.25,6);autoEnabled=!!currentCfg.auto;soundOn=currentCfg.sound!==false;autoSkill=clamp(Number(currentCfg.autoSkill)||75,0,100);humanize=clamp(Number(currentCfg.humanize)||15,0,100);syncRuntimeUI();
