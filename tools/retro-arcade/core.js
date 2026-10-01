@@ -21,6 +21,14 @@ function beep(freq=440,dur=.05,type='square',vol=.035){
  if(!soundOn)return;
  try{audio=audio||new (window.AudioContext||window.webkitAudioContext)();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=freq;g.gain.value=vol;o.connect(g);g.connect(audio.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+dur);o.stop(audio.currentTime+dur)}catch{}
 }
+async function loadPacks(paths=[]){
+ for(const src of paths){
+   if(!src)continue;
+   await new Promise((resolve,reject)=>{
+     const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error('Game pack load failed: '+src));document.head.appendChild(s);
+   });
+ }
+}
 function register(meta,factory){
  if(!meta?.id||REG.some(g=>g.meta.id===meta.id))return;
  REG.push({meta:{genre:'Arcade',year:1980,color:'#53f0a9',classic:'当時の基本ルール',modern:'操作性・保存機能を補強',controls:'矢印 / Space',auto:'ゲーム専用AI',...meta},factory});
@@ -143,5 +151,5 @@ function boot(){
  document.addEventListener('keyup',e=>current?.keyUp?.(e.code,e));
  $$('[data-key]').forEach(b=>{const code=b.dataset.key;const down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
 }
-window.RetroArcade={register,boot,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG},get settings(){return db.settings}};
+window.RetroArcade={register,boot,loadPacks,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG},get settings(){return db.settings}};
 })();
