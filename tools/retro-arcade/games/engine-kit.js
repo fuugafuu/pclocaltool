@@ -213,7 +213,58 @@ function management(p,api){
  })
 }
 
-const engines={fixedShooter,scrollShooter,arena,platform,racer,maze,tank,sports,adventure,strategy,stealth,rhythm,physics,management};
+
+function fighter(p,api){
+ const c=p.cfg||{};let a,b,time,over,combo;
+ function reset(){a={x:150,y:350,hp:100,vx:0,vy:0,on:true,cool:0};b={x:490,y:350,hp:100,vx:0,vy:0,on:true,cool:0};time=c.time||75;over=false;combo=0;api.setStatus('ラウンド開始')}reset();
+ function attack(from,to,strong=false){if(from.cool>0)return;from.cool=strong?.45:.28;const range=strong?62:48,damage=strong?(c.heavy||13):(c.light||7);if(Math.abs(from.x-to.x)<range&&Math.abs(from.y-to.y)<42){to.hp-=damage;to.vx+=Math.sign(to.x-from.x)*(strong?105:65);if(from===a){combo++;api.addScore(damage*combo)}api.beep(strong?160:260,.03)}else if(from===a)combo=0}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const d=b.x-a.x;if(Math.abs(d)>52)press(e,d>0?'ArrowRight':'ArrowLeft');else{if(Math.random()<.03+cfg.skill*.06)press(e,'KeyX');else press(e,'Space')}if(b.cool<.1&&Math.abs(d)<58&&Math.random()<.02)press(e,'ArrowUp')},
+  keyDown(e,k){if(k==='Space')attack(a,b,false);if(k==='KeyX')attack(a,b,true);if(k==='ArrowUp'&&a.on){a.vy=-300;a.on=false}},
+  update(e,dt){if(over)return;time-=dt;a.cool=Math.max(0,a.cool-dt);b.cool=Math.max(0,b.cool-dt);const sp=c.speed||170;if(e.keys.has('ArrowLeft'))a.x-=sp*dt;if(e.keys.has('ArrowRight'))a.x+=sp*dt;a.vy+=650*dt;a.y+=a.vy*dt;if(a.y>=350){a.y=350;a.vy=0;a.on=true}a.x=R.clamp(a.x,30,610);
+   const d=a.x-b.x;if(Math.abs(d)>58)b.x+=Math.sign(d)*(c.aiSpeed||120)*dt;else if(b.cool<=0&&Math.random()<dt*(c.aiAggro||2.2))attack(b,a,Math.random()<.3);b.vx*=.9;a.vx*=.9;b.x+=b.vx*dt;a.x+=a.vx*dt;
+   if(a.hp<=0||b.hp<=0||time<=0){over=true;api.setStatus(a.hp>b.hp?'勝利！':'敗北');if(a.hp>b.hp)api.addScore(1000)}
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#1d1b2a');rect(g,0,390,640,90,p.ground||'#4b3b38');rect(g,30,22,250,15,'#411');rect(g,30,22,250*Math.max(0,a.hp)/100,15,'#5f7');rect(g,360,22,250,15,'#411');rect(g,610-250*Math.max(0,b.hp)/100,22,250*Math.max(0,b.hp)/100,15,'#f65');rect(g,a.x-14,a.y-42,28,42,p.player||'#7df');rect(g,b.x-14,b.y-42,28,42,p.enemy||'#f76');txt(g,Math.max(0,Math.ceil(time)),320,38,18,'#fff','center');if(api.mode==='modern')txt(g,'コンボ '+combo,320,465,12,'#ffd','center')}
+ })
+}
+
+function puzzle(p,api){
+ const c=p.cfg||{},W=c.cols||8,H=c.rows||16,S=24,OX=(640-(c.cols||8)*24)/2,OY=35,colors=p.colors||['#f45','#4df','#fd5','#7d6'];let board,pair,fall,over,chain;
+ function reset(){board=Array.from({length:H},()=>Array(W).fill(null));pair=null;fall=0;over=false;chain=0;spawn();api.setStatus(c.objective||'同じ色を4つつなげる')} 
+ function spawn(){pair={x:Math.floor(W/2)-1,y:0,r:0,a:Math.floor(R.rand(0,colors.length)),b:Math.floor(R.rand(0,colors.length))};if(!valid(pair.x,pair.y,pair.r)){over=true;api.finish('積み上がった')}}
+ function cells(x=pair.x,y=pair.y,r=pair.r){const d=[[0,-1],[1,0],[0,1],[-1,0]][r%4];return[[x,y,pair.a],[x+d[0],y+d[1],pair.b]]}
+ function valid(x,y,r){return cells(x,y,r).every(([cx,cy])=>cx>=0&&cx<W&&cy<H&&(cy<0||!board[cy][cx]))}
+ function groups(){const seen=new Set(),del=[];for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(board[y][x]==null||seen.has(x+','+y))continue;const col=board[y][x],q=[[x,y]],grp=[];seen.add(x+','+y);while(q.length){const[a,b]=q.pop();grp.push([a,b]);for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=a+dx,ny=b+dy,k=nx+','+ny;if(nx>=0&&nx<W&&ny>=0&&ny<H&&!seen.has(k)&&board[ny][nx]===col){seen.add(k);q.push([nx,ny])}}}if(grp.length>=4)del.push(...grp)}return del}
+ function gravity(){for(let x=0;x<W;x++){const v=[];for(let y=H-1;y>=0;y--)if(board[y][x]!=null)v.push(board[y][x]);for(let y=H-1,i=0;y>=0;y--)board[y][x]=i<v.length?v[i++]:null}}
+ function lock(){for(const[x,y,col]of cells())if(y>=0)board[y][x]=col;let total=0,n=0;while(true){const d=groups();if(!d.length)break;n++;for(const[x,y]of d)board[y][x]=null;total+=d.length;gravity()}chain=n;if(total)api.addScore(total*20*Math.max(1,n));spawn()}
+ function plan(){let best=null;for(let r=0;r<4;r++)for(let x=0;x<W;x++){if(!valid(x,0,r))continue;let y=0;while(valid(x,y+1,r))y++;let score=y*2;const cc=cells(x,y,r);for(const[cx,cy,col]of cc){for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])if(board[cy+dy]?.[cx+dx]===col)score+=5}if(!best||score>best.s)best={x,r,s:score}}return best}
+ reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const b=plan();if(!b)return;if(pair.r!==b.r){press(e,'ArrowUp');return}if(pair.x<b.x)press(e,'ArrowRight');else if(pair.x>b.x)press(e,'ArrowLeft');else press(e,'ArrowDown')},
+  update(e,dt){if(over)return;if(e.keys.has('ArrowLeft')&&valid(pair.x-1,pair.y,pair.r))pair.x--;if(e.keys.has('ArrowRight')&&valid(pair.x+1,pair.y,pair.r))pair.x++;if(e.keys.has('ArrowUp')&&valid(pair.x,pair.y,(pair.r+1)%4))pair.r=(pair.r+1)%4;fall+=dt*(e.keys.has('ArrowDown')?8:1);if(fall>.55){fall=0;if(valid(pair.x,pair.y+1,pair.r))pair.y++;else lock()}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#09101f');rect(g,OX-4,OY-4,W*S+8,H*S+8,'#26344c');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(board[y][x]!=null){g.fillStyle=colors[board[y][x]];g.beginPath();g.arc(OX+x*S+S/2,OY+y*S+S/2,S*.4,0,6.28);g.fill()}if(!over)for(const[x,y,col]of cells())if(y>=0){g.fillStyle=colors[col];g.beginPath();g.arc(OX+x*S+S/2,OY+y*S+S/2,S*.4,0,6.28);g.fill()}if(api.mode==='modern'&&chain>1)txt(g,chain+'連鎖',530,80,18,'#ffd','center')}
+ })
+}
+
+function raycast(p,api){
+ const c=p.cfg||{},MW=12,MH=12;let map,pl,en,lives,ammo,over,cool;
+ function reset(){map=Array.from({length:MH},(_,y)=>Array.from({length:MW},(_,x)=>x===0||y===0||x===MW-1||y===MH-1||Math.random()<.12));pl={x:1.5,y:1.5,a:0};en=Array.from({length:c.enemies||7},()=>({x:R.rand(2,MW-2),y:R.rand(2,MH-2),hp:c.tough?2:1})).filter(q=>!map[Math.floor(q.y)][Math.floor(q.x)]);lives=3;ammo=c.ammo||60;over=false;cool=0;api.setStatus(c.objective||'出口まで敵を排除')}reset();
+ const open=(x,y)=>!map[Math.floor(y)]?.[Math.floor(x)];
+ function nearest(){return [...en].sort((a,b)=>Math.hypot(a.x-pl.x,a.y-pl.y)-Math.hypot(b.x-pl.x,b.y-pl.y))[0]}
+ function fire(){if(cool>0||ammo<=0)return;cool=.22;ammo--;let best=null;for(const q of en){const ang=Math.atan2(q.y-pl.y,q.x-pl.x),d=Math.atan2(Math.sin(ang-pl.a),Math.cos(ang-pl.a)),dist=Math.hypot(q.x-pl.x,q.y-pl.y);if(Math.abs(d)<.18&&(!best||dist<best.dist))best={q,dist}}if(best){best.q.hp--;if(best.q.hp<=0){best.q.dead=true;api.addScore(100)}}api.beep(130,.035)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=nearest();if(!t)return;const ta=Math.atan2(t.y-pl.y,t.x-pl.x),d=Math.atan2(Math.sin(ta-pl.a),Math.cos(ta-pl.a));if(d>.06)press(e,'ArrowRight');if(d<-.06)press(e,'ArrowLeft');if(Math.abs(d)<.2)press(e,'Space');if(Math.abs(d)<.65&&Math.hypot(t.x-pl.x,t.y-pl.y)>2.2)press(e,'ArrowUp')},
+  keyDown(e,k){if(k==='Space')fire()},
+  update(e,dt){if(over)return;cool=Math.max(0,cool-dt);if(e.keys.has('ArrowLeft'))pl.a-=2.2*dt;if(e.keys.has('ArrowRight'))pl.a+=2.2*dt;let mv=0;if(e.keys.has('ArrowUp'))mv=2.2*dt;if(e.keys.has('ArrowDown'))mv=-1.5*dt;const nx=pl.x+Math.cos(pl.a)*mv,ny=pl.y+Math.sin(pl.a)*mv;if(open(nx,pl.y))pl.x=nx;if(open(pl.x,ny))pl.y=ny;for(const q of en){if(q.dead)continue;const d=Math.hypot(q.x-pl.x,q.y-pl.y);if(d<.7){lives--;q.x=R.rand(2,MW-2);q.y=R.rand(2,MH-2);if(lives<=0){over=true;api.finish('倒された')}}}en=en.filter(q=>!q.dead);if(!en.length){over=true;api.addScore(1000);api.setStatus('エリア制圧')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,240,p.ceiling||'#1b2230');rect(g,0,240,640,240,p.floor||'#3d3028');const fov=Math.PI/3,rays=160;for(let i=0;i<rays;i++){const ra=pl.a-fov/2+fov*i/(rays-1);let d=.02;while(d<14&&open(pl.x+Math.cos(ra)*d,pl.y+Math.sin(ra)*d))d+=.035;const hh=Math.min(460,350/(d*Math.cos(ra-pl.a)+.01)),shade=Math.max(35,210-d*14)|0;rect(g,i*4,240-hh/2,5,hh,'rgb('+shade+','+shade+','+shade+')')}for(const q of en){const dx=q.x-pl.x,dy=q.y-pl.y,dist=Math.hypot(dx,dy),ang=Math.atan2(dy,dx),d=Math.atan2(Math.sin(ang-pl.a),Math.cos(ang-pl.a));if(Math.abs(d)<fov/2&&dist>.2){const x=320+d/(fov/2)*320,size=R.clamp(130/dist,12,150);rect(g,x-size/2,240-size/2,size,size,p.enemy||'#b33')}}line(g,305,240,335,240,'#6f6');line(g,320,225,320,255,'#6f6');txt(g,'残機 '+lives,10,24,12,'#fff');txt(g,'弾 '+ammo,630,24,12,'#fff','right')}
+ })
+}
+
+const engines={fixedShooter,scrollShooter,arena,platform,racer,maze,tank,sports,adventure,strategy,stealth,rhythm,physics,management,fighter,puzzle,raycast};
 K.make=(p)=>{const fn=engines[p.kind]||arena;return (host,api)=>fn(p,api)};
 K.registerMany=(profiles)=>{for(const p of profiles)R.register(commonMeta(p),K.make(p))};
 K.engines=engines;
