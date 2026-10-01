@@ -59,7 +59,7 @@
       <div class="segmented"><button data-play-mode="classic" class="active">CLASSIC</button><button data-play-mode="modern">MODERN</button></div>
       <button id="restart-game">↻ RESTART</button>
       <button id="pause-game">Ⅱ PAUSE</button>
-      <button id="sound-toggle">♪ SOUND</button>
+      <button id="auto-toggle">AUTO OFF</button>\n      <button id="speed-toggle">1×</button>\n      <button id="sound-toggle">♪ SOUND</button>
       <div class="scorebox"><span>SCORE</span><b id="score">000000</b></div>
       <div class="scorebox"><span>HI</span><b id="highscore">000000</b></div>
     </div>
@@ -82,6 +82,25 @@
     </div>
   </section>
 </div>
+
+<dialog id="settings-dialog" class="settings-dialog">
+<form method="dialog" id="settings-form">
+  <div class="dialog-head"><div><div class="eyebrow">LAUNCHER CONFIG</div><h3>ゲーム共通設定</h3></div><button type="button" id="settings-close" class="icon-btn">✕</button></div>
+  <label><span>設定対象</span><select id="settings-target"><option value="global">全ゲーム共通</option></select></label>
+  <div class="settings-grid">
+    <label><span>起動モード</span><select id="setting-mode"><option value="classic">CLASSIC</option><option value="modern">MODERN</option></select></label>
+    <label><span>速度</span><select id="setting-speed"><option value=".5">0.5×</option><option value=".75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option></select></label>
+    <label><span>オートプレイ</span><select id="setting-auto"><option value="false">OFF</option><option value="true">ON</option></select></label>
+    <label><span>サウンド</span><select id="setting-sound"><option value="true">ON</option><option value="false">OFF</option></select></label>
+  </div>
+  <label><span>オートAIの強さ <b id="skill-value">75%</b></span><input id="setting-skill" type="range" min="0" max="100" step="1" value="75"></label>
+  <label><span>人間らしさ / ミス率 <b id="humanize-value">15%</b></span><input id="setting-humanize" type="range" min="0" max="60" step="1" value="15"></label>
+  <label><span>CRT走査線 <b id="crt-value">58%</b></span><input id="setting-crt" type="range" min="0" max="100" step="1" value="58"></label>
+  <label><span>タッチ操作</span><select id="setting-touch"><option value="auto">端末に合わせる</option><option value="always">常に表示</option><option value="never">非表示</option></select></label>
+  <div class="settings-note">個別ゲームを選ぶと、そのゲームだけ共通設定を上書きします。AUTOはゲーム専用AIが操作します。</div>
+  <div class="dialog-actions"><button type="button" id="settings-reset" class="secondary">この設定を初期化</button><button value="default" class="primary">保存</button></div>
+</form>
+</dialog>
 
 <script src="core.js"></script>
 <script src="games/catalog.js"></script>
