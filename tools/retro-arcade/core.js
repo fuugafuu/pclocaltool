@@ -1,13 +1,17 @@
 'use strict';
 (() => {
 const REG=[], KEY='pclocaltool_retro_arcade_v1';
+const DEFAULTS={mode:'classic',speed:1,auto:false,sound:true,autoSkill:75,humanize:15,crt:58,touch:'auto'};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
-let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false;
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.version===1)return d}catch{}return{version:1,favorites:[],scores:{},played:{},settings:{theme:'dark'},stats:{}}}
+function fresh(){return{version:1,favorites:[],scores:{},played:{},settings:{theme:'dark',global:{...DEFAULTS},perGame:{}},stats:{}}}
+function migrate(d){const x=d&&d.version===1?d:fresh();x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.scores=x.scores||{};x.played=x.played||{};x.stats=x.stats||{};x.settings=x.settings||{};x.settings.theme=x.settings.theme||'dark';x.settings.global={...DEFAULTS,...(x.settings.global||{})};x.settings.perGame=x.settings.perGame||{};return x}
+function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY)))}catch{return fresh()}}
+let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false, speed=1, autoEnabled=false, autoSkill=75, humanize=15, currentCfg={...DEFAULTS};
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function cfgFor(id){return{...DEFAULTS,...db.settings.global,...(db.settings.perGame?.[id]||{})}}
 function setTheme(t){db.settings.theme=t;document.documentElement.dataset.theme=t;$('#theme-toggle').textContent=t==='dark'?'☀️':'🌙';save()}
 function scoreKey(id,m){return id+':'+m}
 function highScore(id,m){return Number(db.scores[scoreKey(id,m)]||0)}
@@ -19,19 +23,25 @@ function beep(freq=440,dur=.05,type='square',vol=.035){
 }
 function register(meta,factory){
  if(!meta?.id||REG.some(g=>g.meta.id===meta.id))return;
- REG.push({meta:{genre:'Arcade',year:1980,color:'#53f0a9',classic:'当時の基本ルール',modern:'操作性・保存機能を補強',controls:'矢印 / Space',...meta},factory});
+ REG.push({meta:{genre:'Arcade',year:1980,color:'#53f0a9',classic:'当時の基本ルール',modern:'操作性・保存機能を補強',controls:'矢印 / Space',auto:'ゲーム専用AI',...meta},factory});
+}
+function syncRuntimeUI(){
+ $('#auto-toggle').textContent=autoEnabled?'AUTO ON':'AUTO OFF';$('#auto-toggle').classList.toggle('on',autoEnabled);
+ $('#speed-toggle').textContent=(Number(speed)%1?Number(speed).toFixed(2).replace(/0+$/,'').replace(/\.$/,''):Number(speed))+'×';$('#speed-toggle').classList.toggle('fast',speed>1);
+ $('#sound-toggle').textContent=soundOn?'♪ SOUND':'♪ MUTED';
+ $$('.scanlines').forEach(x=>x.style.opacity=String(clamp((currentCfg.crt??58)/100,0,1)));
+}
+function applyRuntime(id){
+ currentCfg=cfgFor(id);mode=currentCfg.mode==='modern'?'modern':'classic';speed=clamp(Number(currentCfg.speed)||1,.25,6);autoEnabled=!!currentCfg.auto;soundOn=currentCfg.sound!==false;autoSkill=clamp(Number(currentCfg.autoSkill)||75,0,100);humanize=clamp(Number(currentCfg.humanize)||15,0,100);syncRuntimeUI();
 }
 function apiFor(meta){
  let score=0,status='';
  const api={
-   get mode(){return mode}, get sound(){return soundOn}, meta, clamp,rand,hit,beep,
+   get mode(){return mode},get sound(){return soundOn},get speed(){return speed},get auto(){return autoEnabled},get autoSkill(){return autoSkill/100},get humanize(){return humanize/100},meta,clamp,rand,hit,beep,
    setScore(v){score=Math.max(0,Math.floor(v));$('#score').textContent=String(score).padStart(6,'0');if(setHighScore(meta.id,mode,score))$('#highscore').textContent=String(score).padStart(6,'0')},
-   addScore(v){api.setScore(score+v)}, getScore(){return score},
+   addScore(v){api.setScore(score+v)},getScore(){return score},
    setStatus(t){status=String(t||'');$('#status-info').textContent=status},
-   storage:{
-     get(k,fallback=null){try{const x=localStorage.getItem('retro:'+meta.id+':'+k);return x==null?fallback:JSON.parse(x)}catch{return fallback}},
-     set(k,v){localStorage.setItem('retro:'+meta.id+':'+k,JSON.stringify(v))}
-   },
+   storage:{get(k,fallback=null){try{const x=localStorage.getItem('retro:'+meta.id+':'+k);return x==null?fallback:JSON.parse(x)}catch{return fallback}},set(k,v){localStorage.setItem('retro:'+meta.id+':'+k,JSON.stringify(v))}},
    finish(t='GAME OVER'){api.setStatus(t);beep(120,.22,'sawtooth',.05)},
    canvas(spec){return createCanvasGame(api,spec)}
  };
@@ -41,35 +51,47 @@ function createCanvasGame(api,spec){
  const host=$('#game-host');host.innerHTML='';
  const canvas=document.createElement('canvas');canvas.width=spec.width||640;canvas.height=spec.height||480;host.appendChild(canvas);
  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
- const keys=new Set();let paused=false,dead=false,last=performance.now(),pointer={x:0,y:0,down:false};
- const env={canvas,ctx,keys,pointer,api,get mode(){return mode},get paused(){return paused}};
+ const manualKeys=new Set(),autoKeys=new Set();
+ const keys={has:c=>manualKeys.has(c)||autoKeys.has(c),add:c=>manualKeys.add(c),delete:c=>manualKeys.delete(c),clear:()=>{manualKeys.clear();autoKeys.clear()}};
+ let paused=false,dead=false,last=performance.now(),pointer={x:0,y:0,down:false};
+ const env={canvas,ctx,keys,manualKeys,autoKeys,pointer,api,get mode(){return mode},get paused(){return paused},get speed(){return speed},get auto(){return autoEnabled}};
  if(spec.init)spec.init(env);
+ function step(dt){
+   autoKeys.clear();
+   if(autoEnabled&&spec.auto)spec.auto(env,dt,{skill:autoSkill/100,humanize:humanize/100,speed,mode});
+   if(spec.update)spec.update(env,dt);
+ }
  function frame(now){
-   if(dead)return;const dt=Math.min(.04,(now-last)/1000||0);last=now;
-   if(!paused&&spec.update)spec.update(env,dt);
+   if(dead)return;
+   const elapsed=Math.min(.08,(now-last)/1000||0);last=now;
+   if(!paused){
+     let remain=Math.min(.32,elapsed*speed),guard=0;
+     while(remain>0.00001&&guard++<24){const dt=Math.min(1/60,remain);step(dt);remain-=dt}
+   }
    ctx.save();ctx.clearRect(0,0,canvas.width,canvas.height);if(spec.draw)spec.draw(env);ctx.restore();
    requestAnimationFrame(frame);
  }
  requestAnimationFrame(frame);
  function pos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height}}
- canvas.addEventListener('pointerdown',e=>{pointer={...pos(e),down:true};canvas.setPointerCapture?.(e.pointerId);spec.pointerDown?.(env,pointer,e)});
- canvas.addEventListener('pointermove',e=>{pointer={...pointer,...pos(e)};spec.pointerMove?.(env,pointer,e)});
- canvas.addEventListener('pointerup',e=>{pointer={...pointer,...pos(e),down:false};spec.pointerUp?.(env,pointer,e)});
- return {
-   keyDown(code,e){keys.add(code);spec.keyDown?.(env,code,e)},
-   keyUp(code,e){keys.delete(code);spec.keyUp?.(env,code,e)},
+ canvas.addEventListener('pointerdown',e=>{pointer={...pos(e),down:true};env.pointer=pointer;canvas.setPointerCapture?.(e.pointerId);spec.pointerDown?.(env,pointer,e)});
+ canvas.addEventListener('pointermove',e=>{pointer={...pointer,...pos(e)};env.pointer=pointer;spec.pointerMove?.(env,pointer,e)});
+ canvas.addEventListener('pointerup',e=>{pointer={...pointer,...pos(e),down:false};env.pointer=pointer;spec.pointerUp?.(env,pointer,e)});
+ return{
+   keyDown(code,e){manualKeys.add(code);spec.keyDown?.(env,code,e)},
+   keyUp(code,e){manualKeys.delete(code);spec.keyUp?.(env,code,e)},
    pause(v){paused=v==null?!paused:!!v;spec.pause?.(env,paused);return paused},
    reset(){keys.clear();api.setScore(0);api.setStatus('');spec.reset?.(env)},
    destroy(){dead=true;keys.clear();spec.destroy?.(env);host.innerHTML=''},
-   modeChanged(){spec.modeChanged?.(env,mode)}
+   modeChanged(){spec.modeChanged?.(env,mode)},
+   runtimeChanged(){spec.runtimeChanged?.(env,{mode,speed,auto:autoEnabled,skill:autoSkill/100,humanize:humanize/100})}
  };
 }
 function card(g){
- const m=g.meta,hi=Math.max(highScore(m.id,'classic'),highScore(m.id,'modern')),fav=db.favorites.includes(m.id);
+ const m=g.meta,hi=Math.max(highScore(m.id,'classic'),highScore(m.id,'modern')),fav=db.favorites.includes(m.id),cfg=cfgFor(m.id);
  return `<article class="game-card" data-game="${m.id}" style="--game-color:${m.color}">
  <div class="card-top"><span class="year">${m.year} · ${m.system||'ARCADE'}</span><button class="fav ${fav?'on':''}" data-fav="${m.id}">${fav?'★':'☆'}</button></div>
  <h3>${m.title}</h3><p>${m.description||''}</p>
- <div class="card-tags"><span class="tag">${m.genre}</span><span class="tag">CLASSIC</span><span class="tag">MODERN</span></div>
+ <div class="card-tags"><span class="tag">${m.genre}</span><span class="tag">${cfg.auto?'AUTO':'MANUAL'}</span><span class="tag">${cfg.speed}×</span></div>
  <span class="card-score">HI ${String(hi).padStart(6,'0')}</span></article>`;
 }
 function render(){
@@ -77,41 +99,49 @@ function render(){
  const list=REG.filter(({meta:m})=>(!q||(`${m.title} ${m.description} ${m.genre} ${m.year}`.toLowerCase().includes(q)))&&(!genre||m.genre===genre)&&(!era||String(m.year).startsWith(era.slice(0,3)))&&(!favOnly||db.favorites.includes(m.id)));
  $('#game-grid').innerHTML=list.length?list.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
  $$('[data-game]').forEach(el=>el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)});
- $$('[data-fav]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFavorite(b.dataset.fav);render()});
- updateStats();
+ $$('[data-fav]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFavorite(b.dataset.fav);render()});updateStats();
 }
 function updateStats(){
- $('#game-count').textContent=REG.length+' GAMES';
- $('#played-count').textContent=Object.keys(db.played||{}).length;
- $('#favorite-count').textContent=db.favorites.length;
- $('#highscore-count').textContent=Object.keys(db.scores||{}).filter(k=>db.scores[k]>0).length;
+ $('#game-count').textContent=REG.length+' GAMES';$('#played-count').textContent=Object.keys(db.played||{}).length;$('#favorite-count').textContent=db.favorites.length;$('#highscore-count').textContent=Object.keys(db.scores||{}).filter(k=>db.scores[k]>0).length;
 }
 function toggleFavorite(id){const i=db.favorites.indexOf(id);if(i>=0)db.favorites.splice(i,1);else db.favorites.push(id);save();if(currentMeta?.id===id)$('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆'}
+function instantiate(g){
+ $('#score').textContent='000000';$('#highscore').textContent=String(highScore(g.meta.id,mode)).padStart(6,'0');$('#status-info').textContent='';
+ const api=apiFor(g.meta);current={...g.factory($('#game-host'),api),api};syncRuntimeUI();updateTouch(g.meta);
+}
 function openGame(id){
- const g=REG.find(x=>x.meta.id===id);if(!g)return;closeGame();currentMeta=g.meta;mode='classic';
- db.played[id]=(db.played[id]||0)+1;save();
+ const g=REG.find(x=>x.meta.id===id);if(!g)return;closeGame();currentMeta=g.meta;applyRuntime(id);db.played[id]=(db.played[id]||0)+1;save();
  $('#overlay').classList.remove('hidden');$('#game-title').textContent=g.meta.title;$('#game-era').textContent=`${g.meta.year} · ${g.meta.system||'ARCADE'} · ${g.meta.genre}`;$('#game-subtitle').textContent=g.meta.description||'';
- $('#classic-info').textContent=g.meta.classic;$('#modern-info').textContent=g.meta.modern;$('#control-info').textContent=g.meta.controls;
- $('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆';$$('[data-play-mode]').forEach(b=>b.classList.toggle('active',b.dataset.playMode==='classic'));
- $('#score').textContent='000000';$('#highscore').textContent=String(highScore(id,mode)).padStart(6,'0');
- const api=apiFor(g.meta);current={...g.factory($('#game-host'),api),api};
- updateTouch(g.meta);
+ $('#classic-info').textContent=g.meta.classic;$('#modern-info').textContent=g.meta.modern;$('#control-info').textContent=g.meta.controls+' / AUTO: '+(g.meta.auto||'専用AI');
+ $('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆';$$('[data-play-mode]').forEach(b=>b.classList.toggle('active',b.dataset.playMode===mode));instantiate(g);
 }
 function closeGame(){if(current?.destroy)current.destroy();current=null;currentMeta=null;$('#overlay')?.classList.add('hidden')}
-function restart(){if(!currentMeta)return;const id=currentMeta.id;openGame(id)}
-function updateTouch(meta){const need=meta.touch!==false;$('#touch-controls').style.display=need?'flex':'none'}
+function restart(){if(!currentMeta)return;const g=REG.find(x=>x.meta.id===currentMeta.id);current?.destroy?.();instantiate(g)}
+function updateTouch(meta){const cfg=currentMeta?cfgFor(currentMeta.id):db.settings.global,coarse=matchMedia?.('(pointer:coarse)').matches;const need=cfg.touch==='always'||(cfg.touch==='auto'&&coarse);$('#touch-controls').style.display=need?'flex':'none'}
+function cycleSpeed(){const vals=[.5,.75,1,1.25,1.5,2,3,4],i=vals.findIndex(v=>Math.abs(v-speed)<.001);speed=vals[(i+1+vals.length)%vals.length];syncRuntimeUI();current?.runtimeChanged?.()}
+function populateSettingsTargets(){const s=$('#settings-target'),value=s.value||'global';s.innerHTML='<option value="global">全ゲーム共通</option>'+REG.map(g=>`<option value="${g.meta.id}">${g.meta.title}</option>`).join('');if(value==='global'||REG.some(g=>g.meta.id===value))s.value=value}
+function formCfg(){return{mode:$('#setting-mode').value,speed:Number($('#setting-speed').value),auto:$('#setting-auto').value==='true',sound:$('#setting-sound').value==='true',autoSkill:Number($('#setting-skill').value),humanize:Number($('#setting-humanize').value),crt:Number($('#setting-crt').value),touch:$('#setting-touch').value}}
+function loadSettingsForm(){
+ const target=$('#settings-target').value,cfg=target==='global'?{...DEFAULTS,...db.settings.global}:cfgFor(target);
+ $('#setting-mode').value=cfg.mode;$('#setting-speed').value=String(cfg.speed);$('#setting-auto').value=String(!!cfg.auto);$('#setting-sound').value=String(cfg.sound!==false);$('#setting-skill').value=cfg.autoSkill;$('#setting-humanize').value=cfg.humanize;$('#setting-crt').value=cfg.crt;$('#setting-touch').value=cfg.touch||'auto';updateSettingLabels();
+}
+function updateSettingLabels(){$('#skill-value').textContent=$('#setting-skill').value+'%';$('#humanize-value').textContent=$('#setting-humanize').value+'%';$('#crt-value').textContent=$('#setting-crt').value+'%'}
+function openSettings(){populateSettingsTargets();$('#settings-target').value=currentMeta?.id||'global';loadSettingsForm();$('#settings-dialog').showModal()}
 function boot(){
  const genres=[...new Set(REG.map(x=>x.meta.genre))].sort();$('#genre-filter').innerHTML='<option value="">すべてのジャンル</option>'+genres.map(g=>`<option>${g}</option>`).join('');
- setTheme(db.settings.theme||'dark');render();
+ setTheme(db.settings.theme||'dark');populateSettingsTargets();render();
  $('#search').oninput=render;$('#genre-filter').onchange=render;$('#era-filter').onchange=render;$('#favorites-only').onclick=()=>{favOnly=!favOnly;$('#favorites-only').classList.toggle('active',favOnly);render()};
- $('#theme-toggle').onclick=()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark');
+ $('#theme-toggle').onclick=()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark');$('#launcher-settings').onclick=openSettings;$('#settings-close').onclick=()=>$('#settings-dialog').close();$('#settings-target').onchange=loadSettingsForm;
+ ['setting-skill','setting-humanize','setting-crt'].forEach(id=>$('#'+id).oninput=updateSettingLabels);
+ $('#settings-reset').onclick=()=>{const t=$('#settings-target').value;if(t==='global')db.settings.global={...DEFAULTS};else delete db.settings.perGame[t];save();loadSettingsForm();render()};
+ $('#settings-form').onsubmit=e=>{e.preventDefault();const t=$('#settings-target').value,c=formCfg();if(t==='global')db.settings.global={...c};else db.settings.perGame[t]={...c};save();$('#settings-dialog').close();render();if(currentMeta?.id===t||t==='global'&&!db.settings.perGame[currentMeta?.id]){applyRuntime(currentMeta?.id);current?.runtimeChanged?.();updateTouch(currentMeta||{})}};
  $('#close-game').onclick=()=>{closeGame();render()};$('#restart-game').onclick=restart;$('#favorite-game').onclick=()=>{if(currentMeta)toggleFavorite(currentMeta.id)};
  $('#pause-game').onclick=()=>{if(!current)return;const p=current.pause?.();$('#pause-game').textContent=p?'▶ RESUME':'Ⅱ PAUSE'};
- $('#sound-toggle').onclick=()=>{soundOn=!soundOn;$('#sound-toggle').textContent=soundOn?'♪ SOUND':'♪ MUTED'};
- $$('[data-play-mode]').forEach(b=>b.onclick=()=>{if(!currentMeta||mode===b.dataset.playMode)return;mode=b.dataset.playMode;$$('[data-play-mode]').forEach(x=>x.classList.toggle('active',x===b));$('#highscore').textContent=String(highScore(currentMeta.id,mode)).padStart(6,'0');current?.modeChanged?.();restart()});
+ $('#auto-toggle').onclick=()=>{autoEnabled=!autoEnabled;syncRuntimeUI();current?.runtimeChanged?.()};$('#speed-toggle').onclick=cycleSpeed;$('#sound-toggle').onclick=()=>{soundOn=!soundOn;syncRuntimeUI()};
+ $$('[data-play-mode]').forEach(b=>b.onclick=()=>{if(!currentMeta||mode===b.dataset.playMode)return;mode=b.dataset.playMode;$$('[data-play-mode]').forEach(x=>x.classList.toggle('active',x===b));restart()});
  document.addEventListener('keydown',e=>{if(!current)return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();current.keyDown?.(e.code,e)});
  document.addEventListener('keyup',e=>current?.keyUp?.(e.code,e));
- $$('[data-key]').forEach(b=>{const code=b.dataset.key;const down=e=>{e.preventDefault();current?.keyDown?.(code,e)};const up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
- }
-window.RetroArcade={register,boot,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG}};
+ $$('[data-key]').forEach(b=>{const code=b.dataset.key;const down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
+}
+window.RetroArcade={register,boot,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG},get settings(){return db.settings}};
 })();
