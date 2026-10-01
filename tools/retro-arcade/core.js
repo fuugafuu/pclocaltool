@@ -51,7 +51,7 @@ function createCanvasGame(api,spec){
  const host=$('#game-host');host.innerHTML='';
  const canvas=document.createElement('canvas');canvas.width=spec.width||640;canvas.height=spec.height||480;host.appendChild(canvas);
  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
- const manualKeys=new Set(),autoKeys=new Set();
+ const manualKeys=new Set(),autoKeys=new Set();let prevAutoKeys=new Set();
  const keys={has:c=>manualKeys.has(c)||autoKeys.has(c),add:c=>manualKeys.add(c),delete:c=>manualKeys.delete(c),clear:()=>{manualKeys.clear();autoKeys.clear()}};
  let paused=false,dead=false,last=performance.now(),pointer={x:0,y:0,down:false};
  const env={canvas,ctx,keys,manualKeys,autoKeys,pointer,api,get mode(){return mode},get paused(){return paused},get speed(){return speed},get auto(){return autoEnabled}};
@@ -81,7 +81,7 @@ function createCanvasGame(api,spec){
    keyUp(code,e){manualKeys.delete(code);spec.keyUp?.(env,code,e)},
    pause(v){paused=v==null?!paused:!!v;spec.pause?.(env,paused);return paused},
    reset(){keys.clear();api.setScore(0);api.setStatus('');spec.reset?.(env)},
-   destroy(){dead=true;keys.clear();spec.destroy?.(env);host.innerHTML=''},
+   destroy(){dead=true;for(const code of prevAutoKeys)spec.keyUp?.(env,code,{auto:true});prevAutoKeys.clear();keys.clear();spec.destroy?.(env);host.innerHTML=''},
    modeChanged(){spec.modeChanged?.(env,mode)},
    runtimeChanged(){spec.runtimeChanged?.(env,{mode,speed,auto:autoEnabled,skill:autoSkill/100,humanize:humanize/100})}
  };
