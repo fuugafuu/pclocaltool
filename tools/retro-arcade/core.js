@@ -39,7 +39,7 @@ function register(meta,factory){
 }
 function syncRuntimeUI(){
  const a=$('#auto-toggle'),sp=$('#speed-toggle'),snd=$('#sound-toggle');
- if(a){a.textContent=autoEnabled?'オート ON':'オート OFF';a.classList.toggle('on',autoEnabled)}
+ if(a){a.textContent=autoEnabled?'オート 有効':'オート 無効';a.classList.toggle('on',autoEnabled)}
  if(sp){sp.textContent=(Number(speed)%1?Number(speed).toFixed(2).replace(/0+$/,'').replace(/\.$/,''):Number(speed))+'×';sp.classList.toggle('fast',speed>1)}
  if(snd)snd.textContent=soundOn?'♪ 音あり':'♪ ミュート';
  $$('.scanlines').forEach(x=>x.style.opacity=String(clamp((currentCfg.crt??58)/100,0,1)));
