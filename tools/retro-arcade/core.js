@@ -2,7 +2,11 @@
 (() => {
 const REG=[], KEY='pclocaltool_retro_arcade_v1';
 const DEFAULTS={mode:'classic',speed:1,auto:false,sound:true,autoSkill:75,humanize:15,crt:58,touch:'auto'};
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
+const on=(sel,event,fn)=>{const el=typeof sel==='string'?$(sel):sel;if(el)el.addEventListener(event,fn);return el};
+const setText=(sel,text)=>{const el=$(sel);if(el)el.textContent=text};
+const jpGenre=g=>({Sports:'スポーツ',Action:'アクション',Shooter:'シューティング',Defense:'防衛',Maze:'迷路',Puzzle:'パズル','Puzzle Action':'パズルアクション',Arcade:'アーケード',Card:'カード',Platform:'プラットフォーム',Simulation:'シミュレーション'}[g]||g);
+const jpSystem=s=>({ARCADE:'アーケード',COMPUTER:'コンピューター',WINDOWS:'Windows',FAMICOM:'ファミコン','COMPUTER / GB':'コンピューター / GB','ARCADE / MOBILE':'アーケード / モバイル','WINDOWS':'Windows','COMPUTER / CONSOLE':'コンピューター / 家庭用'}[s]||s);
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
@@ -34,10 +38,11 @@ function register(meta,factory){
  REG.push({meta:{genre:'Arcade',year:1980,color:'#53f0a9',classic:'当時の基本ルール',modern:'操作性・保存機能を補強',controls:'矢印 / Space',auto:'ゲーム専用AI',...meta},factory});
 }
 function syncRuntimeUI(){
- $('#auto-toggle').textContent=autoEnabled?'AUTO ON':'AUTO OFF';$('#auto-toggle').classList.toggle('on',autoEnabled);
- $('#speed-toggle').textContent=(Number(speed)%1?Number(speed).toFixed(2).replace(/0+$/,'').replace(/\.$/,''):Number(speed))+'×';$('#speed-toggle').classList.toggle('fast',speed>1);
- $('#sound-toggle').textContent=soundOn?'♪ SOUND':'♪ MUTED';
- $$('.scanlines').forEach(x=>x.style.opacity=String(clamp((currentCfg.crt??58)/100,0,1)));
+ const a=$('#auto-toggle'),sp=$('#speed-toggle'),snd=$('#sound-toggle');
+ if(a){a.textContent=autoEnabled?'オート ON':'オート OFF';a.classList.toggle('on',autoEnabled)}
+ if(sp){sp.textContent=(Number(speed)%1?Number(speed).toFixed(2).replace(/0+$/,'').replace(/\.$/,''):Number(speed))+'×';sp.classList.toggle('fast',speed>1)}
+ if(snd)snd.textContent=soundOn?'♪ 音あり':'♪ ミュート';
+ $('.scanlines').forEach(x=>x.style.opacity=String(clamp((currentCfg.crt??58)/100,0,1)));
 }
 function applyRuntime(id){
  currentCfg=cfgFor(id);mode=currentCfg.mode==='modern'?'modern':'classic';speed=clamp(Number(currentCfg.speed)||1,.25,6);autoEnabled=!!currentCfg.auto;soundOn=currentCfg.sound!==false;autoSkill=clamp(Number(currentCfg.autoSkill)||75,0,100);humanize=clamp(Number(currentCfg.humanize)||15,0,100);syncRuntimeUI();
@@ -67,6 +72,9 @@ function createCanvasGame(api,spec){
  function step(dt){
    autoKeys.clear();
    if(autoEnabled&&spec.auto)spec.auto(env,dt,{skill:autoSkill/100,humanize:humanize/100,speed,mode});
+   for(const code of autoKeys)if(!prevAutoKeys.has(code))spec.keyDown?.(env,code,{auto:true});
+   for(const code of prevAutoKeys)if(!autoKeys.has(code))spec.keyUp?.(env,code,{auto:true});
+   prevAutoKeys=new Set(autoKeys);
    if(spec.update)spec.update(env,dt);
  }
  function frame(now){
@@ -97,10 +105,10 @@ function createCanvasGame(api,spec){
 function card(g){
  const m=g.meta,hi=Math.max(highScore(m.id,'classic'),highScore(m.id,'modern')),fav=db.favorites.includes(m.id),cfg=cfgFor(m.id);
  return `<article class="game-card" data-game="${m.id}" style="--game-color:${m.color}">
- <div class="card-top"><span class="year">${m.year} · ${m.system||'ARCADE'}</span><button class="fav ${fav?'on':''}" data-fav="${m.id}">${fav?'★':'☆'}</button></div>
+ <div class="card-top"><span class="year">${m.year} · ${jpSystem(m.system||'ARCADE')}</span><button class="fav ${fav?'on':''}" data-fav="${m.id}">${fav?'★':'☆'}</button></div>
  <h3>${m.title}</h3><p>${m.description||''}</p>
- <div class="card-tags"><span class="tag">${m.genre}</span><span class="tag">${cfg.auto?'AUTO':'MANUAL'}</span><span class="tag">${cfg.speed}×</span></div>
- <span class="card-score">HI ${String(hi).padStart(6,'0')}</span></article>`;
+ <div class="card-tags"><span class="tag">${jpGenre(m.genre)}</span><span class="tag">${cfg.auto?'オート':'手動'}</span><span class="tag">${cfg.speed}×</span></div>
+ <span class="card-score">最高 ${String(hi).padStart(6,'0')}</span></article>`;
 }
 function render(){
  const q=$('#search').value.trim().toLowerCase(),genre=$('#genre-filter').value,era=$('#era-filter').value;
@@ -110,7 +118,7 @@ function render(){
  $$('[data-fav]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFavorite(b.dataset.fav);render()});updateStats();
 }
 function updateStats(){
- $('#game-count').textContent=REG.length+' GAMES';$('#played-count').textContent=Object.keys(db.played||{}).length;$('#favorite-count').textContent=db.favorites.length;$('#highscore-count').textContent=Object.keys(db.scores||{}).filter(k=>db.scores[k]>0).length;
+ setText('#game-count',REG.length+'本');$('#played-count').textContent=Object.keys(db.played||{}).length;$('#favorite-count').textContent=db.favorites.length;$('#highscore-count').textContent=Object.keys(db.scores||{}).filter(k=>db.scores[k]>0).length;
 }
 function toggleFavorite(id){const i=db.favorites.indexOf(id);if(i>=0)db.favorites.splice(i,1);else db.favorites.push(id);save();if(currentMeta?.id===id)$('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆'}
 function instantiate(g){
@@ -119,8 +127,8 @@ function instantiate(g){
 }
 function openGame(id){
  const g=REG.find(x=>x.meta.id===id);if(!g)return;closeGame();currentMeta=g.meta;applyRuntime(id);db.played[id]=(db.played[id]||0)+1;save();
- $('#overlay').classList.remove('hidden');$('#game-title').textContent=g.meta.title;$('#game-era').textContent=`${g.meta.year} · ${g.meta.system||'ARCADE'} · ${g.meta.genre}`;$('#game-subtitle').textContent=g.meta.description||'';
- $('#classic-info').textContent=g.meta.classic;$('#modern-info').textContent=g.meta.modern;$('#control-info').textContent=g.meta.controls+' / AUTO: '+(g.meta.auto||'専用AI');
+ $('#overlay')?.classList.remove('hidden');setText('#game-title',g.meta.title);setText('#game-era',`${g.meta.year} · ${jpSystem(g.meta.system||'ARCADE')} · ${jpGenre(g.meta.genre)}`);setText('#game-subtitle',g.meta.description||'');
+ setText('#classic-info',g.meta.classic);setText('#modern-info',g.meta.modern);setText('#control-info',g.meta.controls+' / オート: '+(g.meta.auto||'専用AI'));
  $('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆';$$('[data-play-mode]').forEach(b=>b.classList.toggle('active',b.dataset.playMode===mode));instantiate(g);
 }
 function closeGame(){if(current?.destroy)current.destroy();current=null;currentMeta=null;$('#overlay')?.classList.add('hidden')}
@@ -135,21 +143,37 @@ function loadSettingsForm(){
 }
 function updateSettingLabels(){$('#skill-value').textContent=$('#setting-skill').value+'%';$('#humanize-value').textContent=$('#setting-humanize').value+'%';$('#crt-value').textContent=$('#setting-crt').value+'%'}
 function openSettings(){populateSettingsTargets();$('#settings-target').value=currentMeta?.id||'global';loadSettingsForm();$('#settings-dialog').showModal()}
+function disableZoomAndSelection(){
+ document.documentElement.classList.add('no-select');
+ document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
+ document.addEventListener('gesturechange',e=>e.preventDefault(),{passive:false});
+ document.addEventListener('gestureend',e=>e.preventDefault(),{passive:false});
+ document.addEventListener('dblclick',e=>{if(!e.target.closest('input,select'))e.preventDefault()},{passive:false});
+ document.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey)e.preventDefault()},{passive:false});
+ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','-','=','0'].includes(e.key))e.preventDefault()});
+}
 function boot(){
- const genres=[...new Set(REG.map(x=>x.meta.genre))].sort();$('#genre-filter').innerHTML='<option value="">すべてのジャンル</option>'+genres.map(g=>`<option>${g}</option>`).join('');
+ disableZoomAndSelection();
+ const genreEl=$('#genre-filter');
+ if(genreEl){const genres=[...new Set(REG.map(x=>x.meta.genre))].sort();genreEl.innerHTML='<option value="">すべてのジャンル</option>'+genres.map(g=>`<option value="${g}">${jpGenre(g)}</option>`).join('')}
  setTheme(db.settings.theme||'dark');populateSettingsTargets();render();
- $('#search').oninput=render;$('#genre-filter').onchange=render;$('#era-filter').onchange=render;$('#favorites-only').onclick=()=>{favOnly=!favOnly;$('#favorites-only').classList.toggle('active',favOnly);render()};
- $('#theme-toggle').onclick=()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark');$('#launcher-settings').onclick=openSettings;$('#settings-close').onclick=()=>$('#settings-dialog').close();$('#settings-target').onchange=loadSettingsForm;
- ['setting-skill','setting-humanize','setting-crt'].forEach(id=>$('#'+id).oninput=updateSettingLabels);
- $('#settings-reset').onclick=()=>{const t=$('#settings-target').value;if(t==='global')db.settings.global={...DEFAULTS};else delete db.settings.perGame[t];save();loadSettingsForm();render()};
- $('#settings-form').onsubmit=e=>{e.preventDefault();const t=$('#settings-target').value,c=formCfg();if(t==='global')db.settings.global={...c};else db.settings.perGame[t]={...c};save();$('#settings-dialog').close();render();if(currentMeta?.id===t||t==='global'&&!db.settings.perGame[currentMeta?.id]){applyRuntime(currentMeta?.id);current?.runtimeChanged?.();updateTouch(currentMeta||{})}};
- $('#close-game').onclick=()=>{closeGame();render()};$('#restart-game').onclick=restart;$('#favorite-game').onclick=()=>{if(currentMeta)toggleFavorite(currentMeta.id)};
- $('#pause-game').onclick=()=>{if(!current)return;const p=current.pause?.();$('#pause-game').textContent=p?'▶ RESUME':'Ⅱ PAUSE'};
- $('#auto-toggle').onclick=()=>{autoEnabled=!autoEnabled;syncRuntimeUI();current?.runtimeChanged?.()};$('#speed-toggle').onclick=cycleSpeed;$('#sound-toggle').onclick=()=>{soundOn=!soundOn;syncRuntimeUI()};
+
+ on('#search','input',render);on('#genre-filter','change',render);on('#era-filter','change',render);
+ on('#favorites-only','click',()=>{favOnly=!favOnly;$('#favorites-only')?.classList.toggle('active',favOnly);render()});
+ on('#theme-toggle','click',()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark'));
+ on('#launcher-settings','click',openSettings);on('#settings-close','click',()=>$('#settings-dialog')?.close());on('#settings-target','change',loadSettingsForm);
+ ['setting-skill','setting-humanize','setting-crt'].forEach(id=>on('#'+id,'input',updateSettingLabels));
+ on('#settings-reset','click',()=>{const t=$('#settings-target')?.value;if(!t)return;if(t==='global')db.settings.global={...DEFAULTS};else delete db.settings.perGame[t];save();loadSettingsForm();render()});
+ const form=$('#settings-form');if(form)form.onsubmit=e=>{e.preventDefault();const t=$('#settings-target')?.value;if(!t)return;const c=formCfg();if(t==='global')db.settings.global={...c};else db.settings.perGame[t]={...c};save();$('#settings-dialog')?.close();render();if(currentMeta&&(currentMeta.id===t||(t==='global'&&!db.settings.perGame[currentMeta.id]))){applyRuntime(currentMeta.id);current?.runtimeChanged?.();updateTouch(currentMeta)}};
+
+ on('#close-game','click',()=>{closeGame();render()});on('#restart-game','click',restart);on('#favorite-game','click',()=>{if(currentMeta)toggleFavorite(currentMeta.id)});
+ on('#pause-game','click',()=>{if(!current)return;const p=current.pause?.();setText('#pause-game',p?'▶ 再開':'Ⅱ 一時停止')});
+ on('#auto-toggle','click',()=>{autoEnabled=!autoEnabled;syncRuntimeUI();current?.runtimeChanged?.()});
+ on('#speed-toggle','click',cycleSpeed);on('#sound-toggle','click',()=>{soundOn=!soundOn;syncRuntimeUI()});
  $$('[data-play-mode]').forEach(b=>b.onclick=()=>{if(!currentMeta||mode===b.dataset.playMode)return;mode=b.dataset.playMode;$$('[data-play-mode]').forEach(x=>x.classList.toggle('active',x===b));restart()});
  document.addEventListener('keydown',e=>{if(!current)return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();current.keyDown?.(e.code,e)});
  document.addEventListener('keyup',e=>current?.keyUp?.(e.code,e));
- $$('[data-key]').forEach(b=>{const code=b.dataset.key;const down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
+ $$('[data-key]').forEach(b=>{const code=b.dataset.key,down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
 }
 window.RetroArcade={register,boot,loadPacks,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG},get settings(){return db.settings}};
 })();
