@@ -1,13 +1,13 @@
 window.RETRO_ARCADE_PACKS=[
-  "games/engine-kit.js?v=20261001-4",
-  "games/classics-a.js?v=20261001-4",
-  "games/classics-b.js?v=20261001-4",
-  "games/classics-c.js?v=20261001-4",
-  "games/classics-d.js?v=20261001-4",
-  "games/expansion-e.js?v=20261001-4",
-  "games/expansion-f.js?v=20261001-4",
-  "games/expansion-g.js?v=20261001-4",
-  "games/expansion-h.js?v=20261001-4",
-  "games/expansion-i.js?v=20261001-4",
-  "games/expansion-j.js?v=20261001-4"
+  "games/engine-kit.js?v=20261001-5",
+  "games/classics-a.js?v=20261001-5",
+  "games/classics-b.js?v=20261001-5",
+  "games/classics-c.js?v=20261001-5",
+  "games/classics-d.js?v=20261001-5",
+  "games/expansion-e.js?v=20261001-5",
+  "games/expansion-f.js?v=20261001-5",
+  "games/expansion-g.js?v=20261001-5",
+  "games/expansion-h.js?v=20261001-5",
+  "games/expansion-i.js?v=20261001-5",
+  "games/expansion-j.js?v=20261001-5"
 ];
