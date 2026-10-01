@@ -12,3 +12,14 @@
 #speed-toggle.fast{border-color:var(--amber);color:var(--amber)}
 @media(max-width:760px){.settings-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.settings-grid{grid-template-columns:1fr}.settings-dialog form{padding:12px}}
+
+/* ゲームランチャーでは誤選択・誤ズームを防ぐ */
+html,body,.shell,.overlay,.cabinet,.game-grid,.game-card,.game-host,.touch-controls,button,select,input,label,span,b,p,h1,h2,h3,footer{
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+html,body{touch-action:pan-x pan-y;overscroll-behavior:none}
+.game-host,.screen-bezel,.touch-controls,.dpad,.action-pad{touch-action:none}
+img,canvas{ -webkit-user-drag:none; user-drag:none; }
+button{ -webkit-tap-highlight-color:transparent; }
