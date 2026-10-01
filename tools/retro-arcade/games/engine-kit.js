@@ -1,0 +1,221 @@
+'use strict';
+(() => {
+const R=window.RetroArcade;
+const K={};
+const txt=(c,t,x,y,s=16,col='#fff',a='left')=>{c.fillStyle=col;c.font=s+'px monospace';c.textAlign=a;c.fillText(t,x,y)};
+const rect=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
+const line=(c,x1,y1,x2,y2,col='#fff',w=2)=>{c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()};
+const press=(e,k)=>e.autoKeys.add(k);
+const choose=(a)=>a[Math.floor(Math.random()*a.length)];
+const norm=(x,y)=>{const d=Math.hypot(x,y)||1;return{x:x/d,y:y/d}};
+const human=(cfg,s=1)=>R.rand(-1,1)*(cfg.humanize||0)*s*(1-(cfg.skill||.75)*.45);
+const commonMeta=(p)=>({
+ id:p.id,title:p.title,year:p.year,system:p.system||'ARCADE',genre:p.genre||'Action',color:p.color||'#66ffaa',
+ description:p.description||p.title+'の代表的な遊びをブラウザ向けに再構成。',
+ classic:p.classic||'当時の核となるルールとテンポを重視。',
+ modern:p.modern||'視認性・操作補助・コンボや短時間パワーアップを自然に追加。',
+ controls:p.controls||'矢印 / スペース',auto:p.auto||'ゲーム状態を見て専用AIが操作'
+});
+
+function fixedShooter(p,api){
+ let px,enemies,shots,eb,cool,lives,wave,over,combo;
+ const c=p.cfg||{},cols=c.cols||9,rows=c.rows||4;
+ function build(){enemies=[];for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)enemies.push({x:70+x*(500/(cols-1||1)),y:60+y*34,alive:true,phase:R.rand(0,6.28),dive:false})}
+ function reset(){px=305;shots=[];eb=[];cool=0;lives=c.lives||3;wave=1;over=false;combo=0;build();api.setStatus('ウェーブ '+wave)}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const d=eb.filter(b=>b.y>320&&Math.abs(b.x-(px+15))<70).sort((a,b)=>b.y-a.y)[0];if(d)press(e,d.x<px?'ArrowRight':'ArrowLeft');else{const t=enemies.filter(x=>x.alive).sort((a,b)=>Math.abs(a.x-px)-Math.abs(b.x-px))[0];if(t){if(px<t.x-10)press(e,'ArrowRight');if(px>t.x+10)press(e,'ArrowLeft')}}press(e,'Space')},
+  update(e,dt){if(over)return;const sp=c.playerSpeed||320;if(e.keys.has('ArrowLeft'))px-=sp*dt;if(e.keys.has('ArrowRight'))px+=sp*dt;px=R.clamp(px,8,602);cool-=dt;if(e.keys.has('Space')&&cool<=0){shots.push({x:px+15,y:420});cool=api.mode==='modern'?.14:.2;api.beep(560,.02)}
+   for(const s of shots)s.y-=430*dt;shots=shots.filter(s=>s.y>-12);for(const b of eb)b.y+=170*dt;eb=eb.filter(b=>b.y<490);
+   for(const en of enemies)if(en.alive){en.phase+=dt;en.x+=Math.sin(en.phase*1.4)*8*dt;if(c.dive&&Math.random()<dt*.035){en.y+=95*dt;if(en.y>390)en.y=60+R.rand(0,rows*34)}if(Math.random()<dt*(c.fireRate||.045))eb.push({x:en.x,y:en.y+10})}
+   for(let i=shots.length-1;i>=0;i--){for(const en of enemies)if(en.alive&&Math.abs(shots[i].x-en.x)<16&&Math.abs(shots[i].y-en.y)<15){en.alive=false;shots.splice(i,1);combo++;api.addScore((c.enemyScore||25)+(api.mode==='modern'?combo:0));break}}
+   for(const b of eb)if(Math.abs(b.x-(px+15))<14&&Math.abs(b.y-430)<14){b.y=999;lives--;combo=0;if(lives<=0){over=true;api.finish('ゲームオーバー')}}
+   if(enemies.every(x=>!x.alive)){wave++;api.addScore(300);build();api.setStatus('ウェーブ '+wave)}
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#000012');for(const en of enemies)if(en.alive){rect(g,en.x-10,en.y-7,20,14,p.enemy||'#72ff9a');if(c.dive)rect(g,en.x-4,en.y+7,8,4,p.enemy2||'#ffcf5a')}rect(g,px,427,30,14,p.player||'#9ee7ff');for(const s of shots)rect(g,s.x-2,s.y-7,4,10,'#fff');for(const b of eb)rect(g,b.x-2,b.y,4,9,'#ff6677');txt(g,'残機 '+lives,10,470,12,'#ddd');txt(g,'波 '+wave,630,470,12,'#ddd','right')}
+ })
+}
+
+function scrollShooter(p,api){
+ let pl,en,shots,eb,spawn,cool,lives,dist,over,power;
+ const c=p.cfg||{},vertical=!!c.vertical;
+ function reset(){pl={x:vertical?320:80,y:vertical?400:240};en=[];shots=[];eb=[];spawn=.2;cool=0;lives=3;dist=0;over=false;power=0;api.setStatus(c.objective||'前進せよ')}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const d=eb.filter(b=>Math.hypot(b.x-pl.x,b.y-pl.y)<95).sort((a,b)=>Math.hypot(a.x-pl.x,a.y-pl.y)-Math.hypot(b.x-pl.x,b.y-pl.y))[0];if(d){press(e,d.y<pl.y?'ArrowDown':'ArrowUp');press(e,d.x<pl.x?'ArrowRight':'ArrowLeft')}else{const t=en[0];if(t){if(pl.y<t.y-12)press(e,'ArrowDown');if(pl.y>t.y+12)press(e,'ArrowUp')}}press(e,'Space')},
+  update(e,dt){if(over)return;const sp=c.playerSpeed||240;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;if(e.keys.has('ArrowUp'))pl.y-=sp*dt;if(e.keys.has('ArrowDown'))pl.y+=sp*dt;pl.x=R.clamp(pl.x,15,625);pl.y=R.clamp(pl.y,20,455);cool-=dt;power=Math.max(0,power-dt);
+   if(e.keys.has('Space')&&cool<=0){shots.push({x:pl.x,y:pl.y,vx:vertical?0:380,vy:vertical?-380:0});if(power>0)shots.push({x:pl.x,y:pl.y+8,vx:vertical?80:360,vy:vertical?-360:70});cool=power>0?.09:.17}
+   spawn-=dt;if(spawn<=0){en.push({x:vertical?R.rand(30,610):660,y:vertical?-20:R.rand(40,420),vx:vertical?R.rand(-30,30):-(c.enemySpeed||110),vy:vertical?(c.enemySpeed||110):R.rand(-20,20),hp:c.tough?2:1,phase:R.rand(0,6.28)});spawn=R.rand(.28,.72)/(1+dist/3000)}
+   for(const q of en){q.phase+=dt;q.x+=q.vx*dt;q.y+=q.vy*dt+Math.sin(q.phase*2)*18*dt;if(Math.random()<dt*(c.fireRate||.08))eb.push({x:q.x,y:q.y,vx:vertical?0:-150,vy:vertical?160:0})}
+   for(const s of shots){s.x+=s.vx*dt;s.y+=s.vy*dt}for(const b of eb){b.x+=b.vx*dt;b.y+=b.vy*dt}
+   for(let i=shots.length-1;i>=0;i--){for(let j=en.length-1;j>=0;j--){if(Math.hypot(shots[i].x-en[j].x,shots[i].y-en[j].y)<16){shots.splice(i,1);en[j].hp--;if(en[j].hp<=0){en.splice(j,1);api.addScore(c.enemyScore||35);if(api.mode==='modern'&&Math.random()<.06)power=5}break}}}
+   for(const b of eb)if(Math.hypot(b.x-pl.x,b.y-pl.y)<14){b.dead=true;lives--;if(lives<=0){over=true;api.finish('撃墜')}}eb=eb.filter(b=>!b.dead&&b.x>-20&&b.x<660&&b.y>-20&&b.y<500);en=en.filter(q=>q.x>-40&&q.x<680&&q.y>-40&&q.y<520);shots=shots.filter(s=>s.x>-20&&s.x<680&&s.y>-20&&s.y<520);dist+=dt*100;api.addScore(dt*(c.travelScore||2))
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#030617');for(let i=0;i<70;i++){const x=(i*97+dist*.7)%640,y=(i*53+(vertical?dist:0))%480;rect(g,x,y,2,2,'#ffffff77')}for(const q of en){rect(g,q.x-10,q.y-8,20,16,p.enemy||'#ff776f')}rect(g,pl.x-10,pl.y-8,20,16,p.player||'#7df');for(const s of shots)rect(g,s.x-3,s.y-3,6,6,'#fff');for(const b of eb)rect(g,b.x-3,b.y-3,6,6,'#f55');txt(g,'残機 '+lives,10,470,12,'#fff')}
+ })
+}
+
+function arena(p,api){
+ let pl,en,bullets,cool,spawn,lives,over;
+ const c=p.cfg||{};
+ function reset(){pl={x:320,y:240};en=[];bullets=[];cool=0;spawn=.2;lives=3;over=false;api.setStatus(c.objective||'敵を倒せ')}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=[...en].sort((a,b)=>Math.hypot(a.x-pl.x,a.y-pl.y)-Math.hypot(b.x-pl.x,b.y-pl.y))[0];if(!t)return;const dx=t.x-pl.x,dy=t.y-pl.y;if(Math.hypot(dx,dy)<100){press(e,Math.abs(dx)>Math.abs(dy)?(dx>0?'ArrowLeft':'ArrowRight'):(dy>0?'ArrowUp':'ArrowDown'))}else{if(Math.abs(dx)>15)press(e,dx>0?'ArrowRight':'ArrowLeft');if(Math.abs(dy)>15)press(e,dy>0?'ArrowDown':'ArrowUp')}press(e,'Space')},
+  update(e,dt){if(over)return;const sp=c.playerSpeed||220;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;if(e.keys.has('ArrowUp'))pl.y-=sp*dt;if(e.keys.has('ArrowDown'))pl.y+=sp*dt;pl.x=R.clamp(pl.x,10,630);pl.y=R.clamp(pl.y,10,470);spawn-=dt;if(spawn<=0){const side=Math.floor(R.rand(0,4));en.push({x:side===0?0:side===1?640:R.rand(0,640),y:side===2?0:side===3?480:R.rand(0,480),hp:c.tough?2:1});spawn=R.rand(.35,.7)}
+   cool-=dt;if(e.keys.has('Space')&&cool<=0&&en.length){const t=[...en].sort((a,b)=>Math.hypot(a.x-pl.x,a.y-pl.y)-Math.hypot(b.x-pl.x,b.y-pl.y))[0],n=norm(t.x-pl.x,t.y-pl.y);bullets.push({x:pl.x,y:pl.y,vx:n.x*360,vy:n.y*360});cool=.15}
+   for(const q of en){const n=norm(pl.x-q.x,pl.y-q.y);q.x+=n.x*(c.enemySpeed||70)*dt;q.y+=n.y*(c.enemySpeed||70)*dt;if(Math.hypot(q.x-pl.x,q.y-pl.y)<17){q.dead=true;lives--;if(lives<=0){over=true;api.finish('包囲された')}}}for(const b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;for(const q of en)if(!q.dead&&Math.hypot(q.x-b.x,q.y-b.y)<13){q.hp--;b.dead=true;if(q.hp<=0){q.dead=true;api.addScore(c.enemyScore||20)}}}en=en.filter(q=>!q.dead);bullets=bullets.filter(b=>!b.dead&&b.x>0&&b.x<640&&b.y>0&&b.y<480)
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#07100d');for(const q of en)rect(g,q.x-9,q.y-9,18,18,p.enemy||'#f66');rect(g,pl.x-9,pl.y-9,18,18,p.player||'#8ff');for(const b of bullets)rect(g,b.x-2,b.y-2,4,4,'#fff');txt(g,'残機 '+lives,10,470,12,'#fff')}
+ })
+}
+
+function platform(p,api){
+ let pl,cam,en,coins,goal,lives,over,attackCd;
+ const c=p.cfg||{},levelW=c.levelW||2200;
+ function reset(){pl={x:70,y:350,vx:0,vy:0,on:false};cam=0;lives=3;over=false;attackCd=0;en=Array.from({length:c.enemies||10},(_,i)=>({x:260+i*(levelW-400)/(c.enemies||10)+R.rand(-50,50),y:360,hp:c.beat?2:1}));coins=Array.from({length:18},(_,i)=>({x:150+i*(levelW-250)/18,y:300-R.rand(0,130),taken:false}));goal=levelW-110;api.setStatus(c.objective||'ゴールへ進め')}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const near=en.find(q=>Math.abs(q.x-pl.x)<85);if(near&&c.beat){press(e,'Space');if(near.x<pl.x)press(e,'ArrowLeft');else press(e,'ArrowRight')}else press(e,'ArrowRight');if((near&&!c.beat)||Math.sin(pl.x*.02)>0.82)press(e,'ArrowUp')},
+  keyDown(e,k){if(k==='ArrowUp'&&pl.on){pl.vy=-(c.jump||330);pl.on=false}if(k==='Space'&&c.beat&&attackCd<=0)attackCd=.35},
+  update(e,dt){if(over)return;const accel=c.beat?300:480;if(e.keys.has('ArrowLeft'))pl.vx-=accel*dt;if(e.keys.has('ArrowRight'))pl.vx+=accel*dt;pl.vx*=Math.pow(c.slippery?.992:.94,dt*60);pl.vy+=(c.gravity||700)*dt;pl.x+=pl.vx*dt;pl.y+=pl.vy*dt;const ground=390+Math.sin(pl.x*.006)*16;if(pl.y>ground){pl.y=ground;pl.vy=0;pl.on=true}pl.x=R.clamp(pl.x,0,levelW);attackCd=Math.max(0,attackCd-dt);for(const q of en){if(c.beat){if(Math.abs(q.x-pl.x)<45&&attackCd>.25){q.hp--;q.x+=Math.sign(q.x-pl.x)*35;if(q.hp<=0){q.dead=true;api.addScore(100)}}else if(Math.abs(q.x-pl.x)<18){lives--;pl.x=Math.max(0,pl.x-120)}}else if(Math.abs(q.x-pl.x)<18&&Math.abs(q.y-pl.y)<28){if(pl.vy>40){q.dead=true;pl.vy=-220;api.addScore(100)}else{lives--;pl.x=Math.max(0,pl.x-100)}}}en=en.filter(q=>!q.dead);for(const coin of coins)if(!coin.taken&&Math.hypot(coin.x-pl.x,coin.y-pl.y)<24){coin.taken=true;api.addScore(20)}if(lives<=0){over=true;api.finish('ゲームオーバー')}if(pl.x>=goal){over=true;api.addScore(1000);api.setStatus('クリア！')}cam=R.clamp(pl.x-190,0,levelW-640)},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#203b7c');rect(g,0,400,640,80,p.ground||'#5f9b43');for(const coin of coins)if(!coin.taken&&coin.x-cam>-20&&coin.x-cam<660){g.fillStyle='#ffd84a';g.beginPath();g.arc(coin.x-cam,coin.y,7,0,6.28);g.fill()}for(const q of en)if(q.x-cam>-30&&q.x-cam<670)rect(g,q.x-cam-10,q.y-20,20,20,p.enemy||'#e55');rect(g,pl.x-cam-10,pl.y-24,20,24,p.player||'#fff');rect(g,goal-cam,330,8,70,'#fff');txt(g,'残機 '+lives,10,470,12,'#fff')}
+ })
+}
+
+function racer(p,api){
+ let lane,speed,pos,obs,spawn,lap,damage,over;
+ const c=p.cfg||{},lanes=c.lanes||4;
+ function reset(){lane=Math.floor(lanes/2);speed=0;pos=0;obs=[];spawn=.4;lap=1;damage=0;over=false;api.setStatus(c.objective||'コースを走れ')}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const danger=obs.filter(o=>o.y>300&&o.y<450).sort((a,b)=>b.y-a.y)[0];if(danger&&danger.lane===lane)press(e,lane<lanes-1?'ArrowRight':'ArrowLeft');press(e,'ArrowUp')},
+  update(e,dt){if(over)return;if(e.keys.has('ArrowUp'))speed+=90*dt;else speed-=35*dt;if(e.keys.has('ArrowDown'))speed-=120*dt;speed=R.clamp(speed,0,c.maxSpeed||260);if(e.keys.has('ArrowLeft'))lane=Math.max(0,lane-1);if(e.keys.has('ArrowRight'))lane=Math.min(lanes-1,lane+1);spawn-=dt;if(spawn<=0){obs.push({lane:Math.floor(R.rand(0,lanes)),y:-30,type:Math.random()<.15?'boost':'car'});spawn=R.rand(.55,1.0)*(180/Math.max(80,speed))}
+   for(const o of obs)o.y+=speed*dt*1.8;for(const o of obs)if(!o.hit&&o.y>370&&o.y<440&&o.lane===lane){o.hit=true;if(o.type==='boost'&&api.mode==='modern'){speed=Math.min(c.maxSpeed||260,speed+70);api.addScore(100)}else{speed*=.35;damage++;api.beep(90,.08)}}obs=obs.filter(o=>o.y<500);pos+=speed*dt;if(pos>(c.lapLength||5000)){lap++;pos=0;api.addScore(1000)}api.addScore(speed*dt*.08);if(damage>=5){over=true;api.finish('マシン大破')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.sky||'#18213b');const roadL=120,roadW=400;rect(g,roadL,0,roadW,480,'#30343c');for(let i=1;i<lanes;i++)for(let y=-40;y<520;y+=60)rect(g,roadL+i*roadW/lanes-2,(y+(pos*.8)%60),4,28,'#ddd');for(const o of obs){const x=roadL+(o.lane+.5)*roadW/lanes;rect(g,x-18,o.y-25,36,50,o.type==='boost'?'#52f5b2':'#f55')}const x=roadL+(lane+.5)*roadW/lanes;rect(g,x-19,395,38,58,p.player||'#6cf');txt(g,'速度 '+Math.floor(speed),10,24,13,'#fff');txt(g,'周 '+lap,630,24,13,'#fff','right')}
+ })
+}
+
+function maze(p,api){
+ const W=19,H=15,S=28,OX=54,OY=28,c=p.cfg||{};let grid,pl,en,items,lives,over,moveT;
+ function make(){grid=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>x===0||y===0||x===W-1||y===H-1||((x%4===0)&&(y%3!==1))));for(let i=0;i<32;i++){const x=Math.floor(R.rand(1,W-1)),y=Math.floor(R.rand(1,H-1));grid[y][x]=false}}
+ function reset(){make();pl={x:1,y:1};en=Array.from({length:c.enemies||4},(_,i)=>({x:W-2-i,y:H-2}));items=[];for(let i=0;i<(c.items||35);i++){let x,y;do{x=Math.floor(R.rand(1,W-1));y=Math.floor(R.rand(1,H-1))}while(grid[y][x]);items.push({x,y,taken:false})}lives=3;over=false;moveT=0;api.setStatus(c.objective||'全部集めろ')}reset();
+ const dirs=[['ArrowRight',1,0],['ArrowLeft',-1,0],['ArrowDown',0,1],['ArrowUp',0,-1]],open=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&!grid[y][x];
+ function autoDir(){let best=null;for(const [k,dx,dy] of dirs){const nx=pl.x+dx,ny=pl.y+dy;if(!open(nx,ny))continue;let score=0;const item=items.filter(x=>!x.taken).sort((a,b)=>Math.abs(a.x-nx)+Math.abs(a.y-ny)-Math.abs(b.x-nx)-Math.abs(b.y-ny))[0];if(item)score-=Math.abs(item.x-nx)+Math.abs(item.y-ny);for(const q of en)score+=Math.min(10,Math.abs(q.x-nx)+Math.abs(q.y-ny))*2;if(!best||score>best.s)best={k,s:score}}return best?.k}
+ return api.canvas({
+  reset,auto(e){const k=autoDir();if(k)press(e,k)},
+  update(e,dt){if(over)return;moveT+=dt;if(moveT<.105)return;moveT=0;for(const[k,dx,dy]of dirs)if(e.keys.has(k)&&open(pl.x+dx,pl.y+dy)){pl.x+=dx;pl.y+=dy;break}for(const it of items)if(!it.taken&&it.x===pl.x&&it.y===pl.y){it.taken=true;api.addScore(10)}for(const q of en){const opts=dirs.filter(d=>open(q.x+d[1],q.y+d[2]));opts.sort((a,b)=>Math.abs(q.x+a[1]-pl.x)+Math.abs(q.y+a[2]-pl.y)-Math.abs(q.x+b[1]-pl.x)-Math.abs(q.y+b[2]-pl.y));const d=opts[Math.random()<(c.smart||.7)?0:Math.floor(Math.random()*Math.max(1,opts.length))];if(d){q.x+=d[1];q.y+=d[2]}if(q.x===pl.x&&q.y===pl.y){lives--;pl={x:1,y:1};if(lives<=0){over=true;api.finish('捕まった')}}}if(items.every(x=>x.taken)){over=true;api.addScore(500);api.setStatus('クリア！')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#050611');for(let y=0;y<H;y++)for(let x=0;x<W;x++){const xx=OX+x*S,yy=OY+y*S;if(grid[y][x])rect(g,xx,yy,S-2,S-2,p.wall||'#2147aa')}for(const it of items)if(!it.taken){g.fillStyle='#ffd75c';g.beginPath();g.arc(OX+it.x*S+S/2,OY+it.y*S+S/2,4,0,6.28);g.fill()}for(const q of en)rect(g,OX+q.x*S+6,OY+q.y*S+6,S-12,S-12,p.enemy||'#f66');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,p.player||'#fff');txt(g,'残機 '+lives,10,470,12,'#fff')}
+ })
+}
+
+function tank(p,api){
+ let pl,en,shots,cool,lives,over;
+ const c=p.cfg||{};
+ function reset(){pl={x:320,y:400,a:-Math.PI/2};en=Array.from({length:c.enemies||5},(_,i)=>({x:80+i*110,y:70+R.rand(0,100),a:Math.PI/2,hp:c.tough?2:1,cool:R.rand(0,1)}));shots=[];cool=0;lives=3;over=false;api.setStatus('敵車両を撃破')}reset();
+ const fire=(o,enemy=false)=>{shots.push({x:o.x,y:o.y,vx:Math.cos(o.a)*260,vy:Math.sin(o.a)*260,enemy,t:2})};
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=en[0];if(!t)return;const ta=Math.atan2(t.y-pl.y,t.x-pl.x),d=Math.atan2(Math.sin(ta-pl.a),Math.cos(ta-pl.a));if(d>.08)press(e,'ArrowRight');if(d<-.08)press(e,'ArrowLeft');if(Math.abs(d)<.28)press(e,'Space');if(Math.hypot(t.x-pl.x,t.y-pl.y)>160)press(e,'ArrowUp')},
+  update(e,dt){if(over)return;if(e.keys.has('ArrowLeft'))pl.a-=2.8*dt;if(e.keys.has('ArrowRight'))pl.a+=2.8*dt;if(e.keys.has('ArrowUp')){pl.x+=Math.cos(pl.a)*110*dt;pl.y+=Math.sin(pl.a)*110*dt}if(e.keys.has('ArrowDown')){pl.x-=Math.cos(pl.a)*75*dt;pl.y-=Math.sin(pl.a)*75*dt}pl.x=R.clamp(pl.x,15,625);pl.y=R.clamp(pl.y,15,465);cool-=dt;if(e.keys.has('Space')&&cool<=0){fire(pl);cool=.3}
+   for(const q of en){q.cool-=dt;const ta=Math.atan2(pl.y-q.y,pl.x-q.x),d=Math.atan2(Math.sin(ta-q.a),Math.cos(ta-q.a));q.a+=Math.sign(d)*1.5*dt;if(Math.abs(d)<.35&&q.cool<=0){fire(q,true);q.cool=R.rand(.7,1.4)}}
+   for(const b of shots){b.x+=b.vx*dt;b.y+=b.vy*dt;b.t-=dt;if(b.enemy&&Math.hypot(b.x-pl.x,b.y-pl.y)<15){b.t=0;lives--;if(lives<=0){over=true;api.finish('撃破された')}}if(!b.enemy)for(const q of en)if(Math.hypot(b.x-q.x,b.y-q.y)<16){b.t=0;q.hp--;if(q.hp<=0){q.dead=true;api.addScore(100)}}}shots=shots.filter(b=>b.t>0&&b.x>0&&b.x<640&&b.y>0&&b.y<480);en=en.filter(q=>!q.dead);if(!en.length){over=true;api.addScore(1000);api.setStatus('勝利')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#182313');for(const q of en)drawTank(g,q,p.enemy||'#d66');drawTank(g,pl,p.player||'#8fd');for(const b of shots)rect(g,b.x-2,b.y-2,4,4,b.enemy?'#f66':'#fff');txt(g,'残機 '+lives,10,470,12,'#fff')},
+ });
+ function drawTank(g,o,col){g.save();g.translate(o.x,o.y);g.rotate(o.a);rect(g,-11,-8,22,16,col);rect(g,0,-2,18,4,'#ddd');g.restore()}
+}
+
+function sports(p,api){
+ const c=p.cfg||{},type=c.type||'goal';let pl,ai,ball,scoreA,scoreB,time,over,meter;
+ function reset(){pl={x:160,y:240};ai={x:480,y:240};ball={x:320,y:240,vx:0,vy:0};scoreA=scoreB=0;time=c.time||60;over=false;meter=0;api.setStatus(c.objective||'試合開始')}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const tx=ball.x,ty=ball.y;if(pl.x<tx-12)press(e,'ArrowRight');if(pl.x>tx+12)press(e,'ArrowLeft');if(pl.y<ty-12)press(e,'ArrowDown');if(pl.y>ty+12)press(e,'ArrowUp');if(Math.hypot(pl.x-ball.x,pl.y-ball.y)<38)press(e,'Space')},
+  update(e,dt){if(over)return;time-=dt;const sp=190;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;if(e.keys.has('ArrowUp'))pl.y-=sp*dt;if(e.keys.has('ArrowDown'))pl.y+=sp*dt;pl.x=R.clamp(pl.x,20,620);pl.y=R.clamp(pl.y,35,445);const n=norm(ball.x-ai.x,ball.y-ai.y);ai.x+=n.x*(c.aiSpeed||130)*dt;ai.y+=n.y*(c.aiSpeed||130)*dt;if(e.keys.has('Space')&&Math.hypot(pl.x-ball.x,pl.y-ball.y)<42){const d=norm(640-ball.x,240-ball.y);ball.vx=d.x*(c.ballSpeed||330);ball.vy=d.y*(c.ballSpeed||330)}if(Math.hypot(ai.x-ball.x,ai.y-ball.y)<38){const d=norm(-ball.x,240-ball.y);ball.vx=d.x*280;ball.vy=d.y*280}ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;ball.vx*=.992;ball.vy*=.992;if(ball.y<25||ball.y>455)ball.vy*=-1;if(ball.x>632){scoreA++;api.addScore(100);ball={x:320,y:240,vx:0,vy:0}}if(ball.x<8){scoreB++;ball={x:320,y:240,vx:0,vy:0}}if(time<=0){over=true;api.setStatus(scoreA>=scoreB?'勝利':'試合終了')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#145b2c');line(g,320,20,320,460,'#fff8',2);g.strokeStyle='#fff8';g.beginPath();g.arc(320,240,70,0,6.28);g.stroke();rect(g,8,190,12,100,'#fff');rect(g,620,190,12,100,'#fff');rect(g,pl.x-10,pl.y-10,20,20,p.player||'#7df');rect(g,ai.x-10,ai.y-10,20,20,p.enemy||'#f66');g.fillStyle='#fff';g.beginPath();g.arc(ball.x,ball.y,8,0,6.28);g.fill();txt(g,scoreA+' - '+scoreB,320,32,20,'#fff','center');txt(g,Math.max(0,Math.ceil(time))+'秒',320,468,12,'#fff','center')}
+ })
+}
+
+function adventure(p,api){
+ const c=p.cfg||{},W=20,H=14,S=28,OX=40,OY=36;let grid,pl,en,items,keys,exit,lives,over,moveT;
+ function reset(){grid=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>x===0||y===0||x===W-1||y===H-1||Math.random()<.08));pl={x:1,y:1};en=Array.from({length:c.enemies||6},()=>({x:Math.floor(R.rand(3,W-2)),y:Math.floor(R.rand(3,H-2)),hp:c.tough?2:1}));items=Array.from({length:c.items||5},()=>({x:Math.floor(R.rand(2,W-2)),y:Math.floor(R.rand(2,H-2)),taken:false}));keys=0;exit={x:W-2,y:H-2};lives=3;over=false;moveT=0;api.setStatus(c.objective||'遺物を集め出口へ')}reset();
+ const dirs=[['ArrowRight',1,0],['ArrowLeft',-1,0],['ArrowDown',0,1],['ArrowUp',0,-1]],open=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&!grid[y][x];
+ function autoDir(){const target=items.find(x=>!x.taken)||exit;let best=null;for(const[k,dx,dy]of dirs){const nx=pl.x+dx,ny=pl.y+dy;if(!open(nx,ny))continue;let s=-(Math.abs(target.x-nx)+Math.abs(target.y-ny));for(const q of en)s+=Math.min(7,Math.abs(q.x-nx)+Math.abs(q.y-ny));if(!best||s>best.s)best={k,s}}return best?.k}
+ return api.canvas({
+  reset,auto(e){const k=autoDir();if(k)press(e,k);if(en.some(q=>Math.abs(q.x-pl.x)+Math.abs(q.y-pl.y)<=1))press(e,'Space')},
+  update(e,dt){if(over)return;moveT+=dt;if(moveT<.11)return;moveT=0;if(e.keys.has('Space'))for(const q of en)if(Math.abs(q.x-pl.x)+Math.abs(q.y-pl.y)<=1){q.hp--;if(q.hp<=0){q.dead=true;api.addScore(50)}}for(const[k,dx,dy]of dirs)if(e.keys.has(k)&&open(pl.x+dx,pl.y+dy)){pl.x+=dx;pl.y+=dy;break}en=en.filter(q=>!q.dead);for(const q of en){if(Math.random()<.6){const o=dirs.filter(d=>open(q.x+d[1],q.y+d[2]));if(o.length){o.sort((a,b)=>Math.abs(q.x+a[1]-pl.x)+Math.abs(q.y+a[2]-pl.y)-Math.abs(q.x+b[1]-pl.x)-Math.abs(q.y+b[2]-pl.y));q.x+=o[0][1];q.y+=o[0][2]}}if(q.x===pl.x&&q.y===pl.y){lives--;pl={x:1,y:1};if(lives<=0){over=true;api.finish('倒れた')}}}for(const it of items)if(!it.taken&&it.x===pl.x&&it.y===pl.y){it.taken=true;keys++;api.addScore(100)}if(keys===items.length&&pl.x===exit.x&&pl.y===exit.y){over=true;api.addScore(1000);api.setStatus('冒険クリア')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#132117');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(grid[y][x])rect(g,OX+x*S,OY+y*S,S-2,S-2,p.wall||'#3b5137');for(const it of items)if(!it.taken)txt(g,'◆',OX+it.x*S+14,OY+it.y*S+20,15,'#ffd54b','center');rect(g,OX+exit.x*S+5,OY+exit.y*S+5,S-10,S-10,keys===items.length?'#6f6':'#555');for(const q of en)rect(g,OX+q.x*S+6,OY+q.y*S+6,S-12,S-12,p.enemy||'#f66');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,p.player||'#fff');txt(g,'遺物 '+keys+'/'+items.length+'  残機 '+lives,10,470,12,'#fff')}
+ })
+}
+
+function strategy(p,api){
+ const c=p.cfg||{},W=12,H=8,S=42,OX=68,OY=70;let cells,res,pop,enemy,turn,over,autoT;
+ function reset(){cells=Array.from({length:H},()=>Array(W).fill(0));res=120;pop=5;enemy=0;turn=0;over=false;autoT=0;api.setStatus(c.objective||'街を発展させる')}reset();
+ function place(x,y,t){if(over||cells[y]?.[x]||res<(t===1?20:35))return false;cells[y][x]=t;res-=t===1?20:35;return true}
+ function autoPlace(){let best=null;for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(!cells[y][x]){let n=0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])if(cells[y+dy]?.[x+dx])n++;if(!best||n>best.n)best={x,y,n}}if(best)place(best.x,best.y,res>80?2:1)}
+ return api.canvas({
+  reset,auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.25+(1-cfg.skill)*.8;autoPlace()}},
+  pointerDown(e,pnt){const x=Math.floor((pnt.x-OX)/S),y=Math.floor((pnt.y-OY)/S);if(x>=0&&x<W&&y>=0&&y<H)place(x,y,1)},
+  update(e,dt){if(over)return;turn+=dt;if(turn>=1){turn=0;const homes=cells.flat().filter(x=>x===1).length,prod=cells.flat().filter(x=>x===2).length;res+=4+prod*5;pop+=homes*.15;enemy+=c.pressure||.45;if(enemy>20+prod*3){pop-=1;enemy*=.6}api.setScore(Math.floor(pop*20+res));if(pop<=0){over=true;api.finish('都市崩壊')}if(pop>=(c.goal||60)){over=true;api.addScore(1000);api.setStatus('目標達成')}}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#1b2d1d');for(let y=0;y<H;y++)for(let x=0;x<W;x++){const v=cells[y][x],xx=OX+x*S,yy=OY+y*S;rect(g,xx,yy,S-3,S-3,v===1?'#77b6ff':v===2?'#f7c75f':'#24422b');if(v===1)txt(g,'住',xx+S/2,yy+26,14,'#fff','center');if(v===2)txt(g,'産',xx+S/2,yy+26,14,'#222','center')}txt(g,'資源 '+Math.floor(res),12,24,13,'#fff');txt(g,'人口 '+Math.floor(pop),200,24,13,'#fff');txt(g,'脅威 '+Math.floor(enemy),400,24,13,'#fff')}
+ })
+}
+
+function stealth(p,api){
+ const c=p.cfg||{},W=20,H=14,S=28,OX=40,OY=36;let walls,pl,guards,target,exit,over,moveT,alert;
+ function reset(){walls=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>x===0||y===0||x===W-1||y===H-1||Math.random()<.09));pl={x:1,y:H-2};guards=Array.from({length:c.guards||5},()=>({x:Math.floor(R.rand(3,W-2)),y:Math.floor(R.rand(2,H-2)),dir:choose([[1,0],[-1,0],[0,1],[0,-1]])}));target={x:W-2,y:1,taken:false};exit={x:1,y:H-2};over=false;moveT=0;alert=0;api.setStatus(c.objective||'見つからず目標を回収')}reset();
+ const dirs=[['ArrowRight',1,0],['ArrowLeft',-1,0],['ArrowDown',0,1],['ArrowUp',0,-1]],open=(x,y)=>!walls[y]?.[x];
+ function seen(g){if(g.x===pl.x){const sy=Math.sign(pl.y-g.y);if(sy===g.dir[1]&&Math.abs(pl.y-g.y)<=5)return true}if(g.y===pl.y){const sx=Math.sign(pl.x-g.x);if(sx===g.dir[0]&&Math.abs(pl.x-g.x)<=5)return true}return false}
+ return api.canvas({
+  reset,
+  auto(e){const t=target.taken?exit:target;let best=null;for(const[k,dx,dy]of dirs){const nx=pl.x+dx,ny=pl.y+dy;if(!open(nx,ny))continue;let risk=0;for(const g of guards)risk+=Math.max(0,6-(Math.abs(g.x-nx)+Math.abs(g.y-ny)))*3;const s=-(Math.abs(t.x-nx)+Math.abs(t.y-ny))-risk;if(!best||s>best.s)best={k,s}}if(best)press(e,best.k)},
+  update(e,dt){if(over)return;moveT+=dt;if(moveT<.12)return;moveT=0;for(const[k,dx,dy]of dirs)if(e.keys.has(k)&&open(pl.x+dx,pl.y+dy)){pl.x+=dx;pl.y+=dy;break}for(const g of guards){if(Math.random()<.35){const o=dirs.filter(d=>open(g.x+d[1],g.y+d[2]));if(o.length){const d=choose(o);g.x+=d[1];g.y+=d[2];g.dir=[d[1],d[2]]}}if(seen(g))alert++}if(alert>5){over=true;api.finish('発見された')}if(!target.taken&&pl.x===target.x&&pl.y===target.y){target.taken=true;api.addScore(500);api.setStatus('脱出地点へ')}if(target.taken&&pl.x===exit.x&&pl.y===exit.y){over=true;api.addScore(1000);api.setStatus('任務完了')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#08140f');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(walls[y][x])rect(g,OX+x*S,OY+y*S,S-2,S-2,'#27342f');for(const q of guards){rect(g,OX+q.x*S+7,OY+q.y*S+7,S-14,S-14,'#e66');line(g,OX+q.x*S+14,OY+q.y*S+14,OX+(q.x+q.dir[0]*3)*S+14,OY+(q.y+q.dir[1]*3)*S+14,'#f668',3)}if(!target.taken)txt(g,'★',OX+target.x*S+14,OY+target.y*S+21,17,'#fd5','center');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,'#8ff');txt(g,'警戒 '+alert,10,470,12,'#fff')}
+ })
+}
+
+function rhythm(p,api){
+ let notes=[],spawn=0,combo=0,time=0,miss=0,over=false;const c=p.cfg||{},lanes=4,keys=['ArrowLeft','ArrowDown','ArrowUp','ArrowRight'];
+ function reset(){notes=[];spawn=.4;combo=0;time=c.time||60;miss=0;over=false;api.setStatus('リズムに合わせろ')}reset();
+ function hitLane(l){let best=null;for(const n of notes)if(!n.hit&&n.lane===l){const d=Math.abs(n.y-390);if(!best||d<best.d)best={n,d}}if(best&&best.d<48){best.n.hit=true;combo++;api.addScore(best.d<12?100:best.d<25?70:40);api.beep(500+l*90,.025)}else{combo=0;miss++}}
+ return api.canvas({
+  reset,auto(e,dt,cfg){for(const n of notes)if(!n.hit&&n.y>370&&n.y<400&&Math.random()<cfg.skill*.95+(1-cfg.skill)*.3)press(e,keys[n.lane])},
+  keyDown(e,k){const i=keys.indexOf(k);if(i>=0)hitLane(i)},
+  update(e,dt){if(over)return;time-=dt;spawn-=dt;if(spawn<=0){notes.push({lane:Math.floor(R.rand(0,lanes)),y:-20,hit:false});spawn=(c.interval||.6)*R.rand(.75,1.2)}for(const n of notes)n.y+=(c.speed||220)*dt;for(const n of notes)if(!n.hit&&n.y>430){n.hit=true;combo=0;miss++}notes=notes.filter(n=>n.y<470);if(time<=0){over=true;api.setStatus('終了')}} ,
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#100720');for(let i=0;i<lanes;i++){rect(g,120+i*100,20,80,420,'#ffffff08');rect(g,120+i*100,390,80,4,p.accent||'#6ff');txt(g,['←','↓','↑','→'][i],160+i*100,425,22,'#fff','center')}for(const n of notes)if(!n.hit)rect(g,135+n.lane*100,n.y,50,14,p.note||'#ff69c8');txt(g,'コンボ '+combo,10,25,13,'#fff');txt(g,'ミス '+miss,630,25,13,'#fff','right');txt(g,Math.max(0,Math.ceil(time))+'秒',320,25,13,'#fff','center')}
+ })
+}
+
+function physics(p,api){
+ let angle,power,proj,target,wind,shots,over;const c=p.cfg||{};
+ function reset(){angle=45;power=65;proj=null;target={x:R.rand(430,590),y:385,r:18};wind=R.rand(-20,20);shots=c.shots||10;over=false;api.setStatus('角度と威力を合わせろ')}reset();
+ function fire(){if(proj||shots<=0)return;const a=-angle*Math.PI/180;proj={x:70,y:390,vx:Math.cos(a)*power*4,vy:Math.sin(a)*power*4};shots--;api.beep(250,.03)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const dx=target.x-70,dy=390-target.y;let best=null;for(let a=15;a<=75;a+=2)for(let pw=35;pw<=95;pw+=3){const rad=a*Math.PI/180,vx=Math.cos(rad)*pw*4,vy=Math.sin(rad)*pw*4,tt=dx/Math.max(1,vx),y=390-vy*tt+0.5*(180)*tt*tt;if(!best||Math.abs(y-target.y)<best.err)best={a,pw,err:Math.abs(y-target.y)}}angle=best.a+human(cfg,8);power=best.pw+human(cfg,10);press(e,'Space')},
+  keyDown(e,k){if(k==='Space')fire()},
+  update(e,dt){if(over)return;if(e.keys.has('ArrowUp'))angle=Math.min(80,angle+40*dt);if(e.keys.has('ArrowDown'))angle=Math.max(10,angle-40*dt);if(e.keys.has('ArrowRight'))power=Math.min(100,power+45*dt);if(e.keys.has('ArrowLeft'))power=Math.max(20,power-45*dt);if(proj){proj.vx+=wind*dt;proj.vy+=180*dt;proj.x+=proj.vx*dt;proj.y+=proj.vy*dt;if(Math.hypot(proj.x-target.x,proj.y-target.y)<target.r+6){api.addScore(500+shots*20);target={x:R.rand(430,590),y:385,r:18};proj=null;wind=R.rand(-20,20)}else if(proj.y>430||proj.x>650){proj=null;if(shots<=0){over=true;api.finish('弾切れ')}}}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#1b2947');rect(g,0,410,640,70,'#4a5534');g.fillStyle=p.target||'#f65';g.beginPath();g.arc(target.x,target.y,target.r,0,6.28);g.fill();const rad=-angle*Math.PI/180;line(g,70,390,70+Math.cos(rad)*50,390+Math.sin(rad)*50,'#fff',4);if(proj){g.fillStyle='#fff';g.beginPath();g.arc(proj.x,proj.y,6,0,6.28);g.fill()}txt(g,'角度 '+Math.round(angle),10,24,13,'#fff');txt(g,'威力 '+Math.round(power),180,24,13,'#fff');txt(g,'風 '+wind.toFixed(1),360,24,13,'#fff');txt(g,'残弾 '+shots,630,24,13,'#fff','right')}
+ })
+}
+
+function management(p,api){
+ const c=p.cfg||{};let needs,money,day,autoT,over,selected;
+ function reset(){needs={energy:70,food:70,fun:60,social:55};money=100;day=1;autoT=0;over=false;selected='work';api.setStatus(c.objective||'生活を維持する')}reset();
+ const actions={work:()=>{money+=25;needs.energy-=14;needs.fun-=8},eat:()=>{if(money>=8){money-=8;needs.food+=32}},rest:()=>{needs.energy+=35;needs.food-=7},fun:()=>{if(money>=5){money-=5;needs.fun+=30;needs.social+=8}},social:()=>{needs.social+=30;needs.fun+=10;needs.energy-=5}};
+ function doAction(a){actions[a]?.();for(const k in needs)needs[k]=R.clamp(needs[k],0,100);api.addScore(10)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.35+(1-cfg.skill)*.7;const low=Object.entries(needs).sort((a,b)=>a[1]-b[1])[0][0];doAction(low==='energy'?'rest':low==='food'?'eat':low==='fun'?'fun':low==='social'?'social':'work')}},
+  keyDown(e,k){const m={ArrowUp:'work',ArrowDown:'rest',ArrowLeft:'eat',ArrowRight:'fun',Space:'social'};if(m[k])doAction(m[k])},
+  update(e,dt){if(over)return;day+=dt*.08;needs.food-=dt*1.1;needs.energy-=dt*.7;needs.fun-=dt*.45;needs.social-=dt*.35;for(const k in needs)needs[k]=R.clamp(needs[k],0,100);if(Object.values(needs).some(v=>v<=0)){over=true;api.finish('生活崩壊')}if(day>=(c.days||30)){over=true;api.addScore(Math.floor(money*5));api.setStatus('期間終了')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#24304a');txt(g,p.title||'LIFE',320,55,24,'#fff','center');const arr=[['体力','energy','#65d4ff'],['食事','food','#7ee081'],['楽しさ','fun','#ffcc5c'],['交流','social','#f58ad5']];arr.forEach((q,i)=>{txt(g,q[0],120,130+i*60,14,'#fff');rect(g,200,115+i*60,320,24,'#0006');rect(g,200,115+i*60,320*needs[q[1]]/100,24,q[2]);txt(g,Math.round(needs[q[1]])+'%',530,133+i*60,12,'#fff')});txt(g,'所持 '+Math.floor(money),120,390,16,'#fff');txt(g,'日 '+Math.floor(day),520,390,16,'#fff','right');txt(g,'↑仕事　←食事　↓休息　→遊び　Space交流',320,445,13,'#ddd','center')}
+ })
+}
+
+const engines={fixedShooter,scrollShooter,arena,platform,racer,maze,tank,sports,adventure,strategy,stealth,rhythm,physics,management};
+K.make=(p)=>{const fn=engines[p.kind]||arena;return (host,api)=>fn(p,api)};
+K.registerMany=(profiles)=>{for(const p of profiles)R.register(commonMeta(p),K.make(p))};
+K.engines=engines;
+window.RetroGameKit=K;
+})();
