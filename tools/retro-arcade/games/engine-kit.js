@@ -5,7 +5,7 @@ const K={};
 const txt=(c,t,x,y,s=16,col='#fff',a='left')=>{c.fillStyle=col;c.font=s+'px monospace';c.textAlign=a;c.fillText(t,x,y)};
 const rect=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
 const line=(c,x1,y1,x2,y2,col='#fff',w=2)=>{c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()};
-const press=(e,k)=>e.autoKeys.add(k);
+const press=(e,k,interval=.10)=>{if(e.autoTap&&['Space','KeyX','KeyZ'].includes(k))e.autoTap(k,interval);else e.autoKeys.add(k)};
 const choose=(a)=>a[Math.floor(Math.random()*a.length)];
 const norm=(x,y)=>{const d=Math.hypot(x,y)||1;return{x:x/d,y:y/d}};
 const human=(cfg,s=1)=>R.rand(-1,1)*(cfg.humanize||0)*s*(1-(cfg.skill||.75)*.45);
@@ -76,7 +76,7 @@ function platform(p,api){
  function reset(){pl={x:70,y:350,vx:0,vy:0,on:false};cam=0;lives=3;over=false;attackCd=0;en=Array.from({length:c.enemies||10},(_,i)=>({x:260+i*(levelW-400)/(c.enemies||10)+R.rand(-50,50),y:360,hp:c.beat?2:1}));coins=Array.from({length:18},(_,i)=>({x:150+i*(levelW-250)/18,y:300-R.rand(0,130),taken:false}));goal=levelW-110;api.setStatus(c.objective||'ゴールへ進め')}reset();
  return api.canvas({
   reset,
-  auto(e,dt,cfg){const near=en.find(q=>Math.abs(q.x-pl.x)<85);if(near&&c.beat){press(e,'Space');if(near.x<pl.x)press(e,'ArrowLeft');else press(e,'ArrowRight')}else press(e,'ArrowRight');if((near&&!c.beat)||Math.sin(pl.x*.02)>0.82)press(e,'ArrowUp')},
+  auto(e,dt,cfg){const near=en.find(q=>Math.abs(q.x-pl.x)<85);if(near&&c.beat){press(e,'Space');if(near.x<pl.x)press(e,'ArrowLeft');else press(e,'ArrowRight')}else press(e,'ArrowRight');if((near&&!c.beat)||Math.sin(pl.x*.02)>0.82){if(e.autoTap)e.autoTap('ArrowUp',.18);else press(e,'ArrowUp')}},
   keyDown(e,k){if(k==='ArrowUp'&&pl.on){pl.vy=-(c.jump||330);pl.on=false}if(k==='Space'&&c.beat&&attackCd<=0)attackCd=.35},
   update(e,dt){if(over)return;const accel=c.beat?300:480;if(e.keys.has('ArrowLeft'))pl.vx-=accel*dt;if(e.keys.has('ArrowRight'))pl.vx+=accel*dt;pl.vx*=Math.pow(c.slippery?.992:.94,dt*60);pl.vy+=(c.gravity||700)*dt;pl.x+=pl.vx*dt;pl.y+=pl.vy*dt;const ground=390+Math.sin(pl.x*.006)*16;if(pl.y>ground){pl.y=ground;pl.vy=0;pl.on=true}pl.x=R.clamp(pl.x,0,levelW);attackCd=Math.max(0,attackCd-dt);for(const q of en){if(c.beat){if(Math.abs(q.x-pl.x)<45&&attackCd>.25){q.hp--;q.x+=Math.sign(q.x-pl.x)*35;if(q.hp<=0){q.dead=true;api.addScore(100)}}else if(Math.abs(q.x-pl.x)<18){lives--;pl.x=Math.max(0,pl.x-120)}}else if(Math.abs(q.x-pl.x)<18&&Math.abs(q.y-pl.y)<28){if(pl.vy>40){q.dead=true;pl.vy=-220;api.addScore(100)}else{lives--;pl.x=Math.max(0,pl.x-100)}}}en=en.filter(q=>!q.dead);for(const coin of coins)if(!coin.taken&&Math.hypot(coin.x-pl.x,coin.y-pl.y)<24){coin.taken=true;api.addScore(20)}if(lives<=0){over=true;api.finish('ゲームオーバー')}if(pl.x>=goal){over=true;api.addScore(1000);api.setStatus('クリア！')}cam=R.clamp(pl.x-190,0,levelW-640)},
   draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#203b7c');rect(g,0,400,640,80,p.ground||'#5f9b43');for(const coin of coins)if(!coin.taken&&coin.x-cam>-20&&coin.x-cam<660){g.fillStyle='#ffd84a';g.beginPath();g.arc(coin.x-cam,coin.y,7,0,6.28);g.fill()}for(const q of en)if(q.x-cam>-30&&q.x-cam<670)rect(g,q.x-cam-10,q.y-20,20,20,p.enemy||'#e55');rect(g,pl.x-cam-10,pl.y-24,20,24,p.player||'#fff');rect(g,goal-cam,330,8,70,'#fff');txt(g,'残機 '+lives,10,470,12,'#fff')}
@@ -179,7 +179,7 @@ function rhythm(p,api){
  function reset(){notes=[];spawn=.4;combo=0;time=c.time||60;miss=0;over=false;api.setStatus('リズムに合わせろ')}reset();
  function hitLane(l){let best=null;for(const n of notes)if(!n.hit&&n.lane===l){const d=Math.abs(n.y-390);if(!best||d<best.d)best={n,d}}if(best&&best.d<48){best.n.hit=true;combo++;api.addScore(best.d<12?100:best.d<25?70:40);api.beep(500+l*90,.025)}else{combo=0;miss++}}
  return api.canvas({
-  reset,auto(e,dt,cfg){for(const n of notes)if(!n.hit&&n.y>370&&n.y<400&&Math.random()<cfg.skill*.95+(1-cfg.skill)*.3)press(e,keys[n.lane])},
+  reset,auto(e,dt,cfg){for(const n of notes)if(!n.hit&&n.y>370&&n.y<400&&Math.random()<cfg.skill*.95+(1-cfg.skill)*.3){if(e.autoTap)e.autoTap(keys[n.lane],.055);else press(e,keys[n.lane])}},
   keyDown(e,k){const i=keys.indexOf(k);if(i>=0)hitLane(i)},
   update(e,dt){if(over)return;time-=dt;spawn-=dt;if(spawn<=0){notes.push({lane:Math.floor(R.rand(0,lanes)),y:-20,hit:false});spawn=(c.interval||.6)*R.rand(.75,1.2)}for(const n of notes)n.y+=(c.speed||220)*dt;for(const n of notes)if(!n.hit&&n.y>430){n.hit=true;combo=0;miss++}notes=notes.filter(n=>n.y<470);if(time<=0){over=true;api.setStatus('終了')}} ,
   draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#100720');for(let i=0;i<lanes;i++){rect(g,120+i*100,20,80,420,'#ffffff08');rect(g,120+i*100,390,80,4,p.accent||'#6ff');txt(g,['←','↓','↑','→'][i],160+i*100,425,22,'#fff','center')}for(const n of notes)if(!n.hit)rect(g,135+n.lane*100,n.y,50,14,p.note||'#ff69c8');txt(g,'コンボ '+combo,10,25,13,'#fff');txt(g,'ミス '+miss,630,25,13,'#fff','right');txt(g,Math.max(0,Math.ceil(time))+'秒',320,25,13,'#fff','center')}
@@ -220,7 +220,7 @@ function fighter(p,api){
  function attack(from,to,strong=false){if(from.cool>0)return;from.cool=strong?.45:.28;const range=strong?62:48,damage=strong?(c.heavy||13):(c.light||7);if(Math.abs(from.x-to.x)<range&&Math.abs(from.y-to.y)<42){to.hp-=damage;to.vx+=Math.sign(to.x-from.x)*(strong?105:65);if(from===a){combo++;api.addScore(damage*combo)}api.beep(strong?160:260,.03)}else if(from===a)combo=0}
  return api.canvas({
   reset,
-  auto(e,dt,cfg){const d=b.x-a.x;if(Math.abs(d)>52)press(e,d>0?'ArrowRight':'ArrowLeft');else{if(Math.random()<.03+cfg.skill*.06)press(e,'KeyX');else press(e,'Space')}if(b.cool<.1&&Math.abs(d)<58&&Math.random()<.02)press(e,'ArrowUp')},
+  auto(e,dt,cfg){const d=b.x-a.x;if(Math.abs(d)>52)press(e,d>0?'ArrowRight':'ArrowLeft');else{if(Math.random()<.03+cfg.skill*.06)press(e,'KeyX');else press(e,'Space')}if(b.cool<.1&&Math.abs(d)<58&&Math.random()<.02){if(e.autoTap)e.autoTap('ArrowUp',.22);else press(e,'ArrowUp')}},
   keyDown(e,k){if(k==='Space')attack(a,b,false);if(k==='KeyX')attack(a,b,true);if(k==='ArrowUp'&&a.on){a.vy=-300;a.on=false}},
   update(e,dt){if(over)return;time-=dt;a.cool=Math.max(0,a.cool-dt);b.cool=Math.max(0,b.cool-dt);const sp=c.speed||170;if(e.keys.has('ArrowLeft'))a.x-=sp*dt;if(e.keys.has('ArrowRight'))a.x+=sp*dt;a.vy+=650*dt;a.y+=a.vy*dt;if(a.y>=350){a.y=350;a.vy=0;a.on=true}a.x=R.clamp(a.x,30,610);
    const d=a.x-b.x;if(Math.abs(d)>58)b.x+=Math.sign(d)*(c.aiSpeed||120)*dt;else if(b.cool<=0&&Math.random()<dt*(c.aiAggro||2.2))attack(b,a,Math.random()<.3);b.vx*=.9;a.vx*=.9;b.x+=b.vx*dt;a.x+=a.vx*dt;
