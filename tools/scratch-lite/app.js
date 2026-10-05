@@ -199,9 +199,16 @@ function readSettingsUI(){
 async function exportOffline(){
  const btn=$('#offline-export'),old=btn.textContent;btn.disabled=true;btn.textContent='完全ローカル版を作成中…';
  try{
-  const [runtime,css,js]=await Promise.all([fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),fetch('style.css?v=1').then(r=>r.text()),fetch('app.js?v=1').then(r=>r.text())]);
+  const [runtime,css,js,baseHTML]=await Promise.all([
+    fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),
+    fetch('style.css?v=1').then(r=>r.text()),
+    fetch('app.js?v=1').then(r=>r.text()),
+    fetch('index.html').then(r=>r.text())
+  ]);
   const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script');
-  const out='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Scratch Lite Launcher Offline</title><style>'+css+'</style></head><body>'+document.body.innerHTML.replace(/<script src="app\.js[^>]*><\/script>/,'')+'<script>window.__SL_STANDALONE__=true;<\/script><script>'+safeRuntime+'<\/script><script>'+safeJS+'<\/script></body></html>';
+  const cleanBody=(baseHTML.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1]||'')
+    .replace(/<script src="app\.js[^>]*><\/script>/i,'');
+  const out='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#10141c"><title>Scratch Lite Launcher Offline</title><style>'+css+'</style></head><body>'+cleanBody+'<script>window.__SL_STANDALONE__=true;<\/script><script>'+safeRuntime+'<\/script><script>'+safeJS+'<\/script></body></html>';
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'text/html'}));a.download='scratch-lite-offline.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
  }catch(e){fail(e)}finally{btn.disabled=false;btn.textContent=old}
 }
