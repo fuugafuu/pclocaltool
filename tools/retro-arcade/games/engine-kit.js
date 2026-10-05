@@ -163,14 +163,49 @@ function strategy(p,api){
 
 function stealth(p,api){
  const c=p.cfg||{},W=20,H=14,S=28,OX=40,OY=36;let walls,pl,guards,target,exit,over,moveT,alert;
- function reset(){walls=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>x===0||y===0||x===W-1||y===H-1||Math.random()<.09));pl={x:1,y:H-2};guards=Array.from({length:c.guards||5},()=>({x:Math.floor(R.rand(3,W-2)),y:Math.floor(R.rand(2,H-2)),dir:choose([[1,0],[-1,0],[0,1],[0,-1]])}));target={x:W-2,y:1,taken:false};exit={x:1,y:H-2};over=false;moveT=0;alert=0;api.setStatus(c.objective||'見つからず目標を回収')}reset();
- const dirs=[['ArrowRight',1,0],['ArrowLeft',-1,0],['ArrowDown',0,1],['ArrowUp',0,-1]],open=(x,y)=>!walls[y]?.[x];
- function seen(g){if(g.x===pl.x){const sy=Math.sign(pl.y-g.y);if(sy===g.dir[1]&&Math.abs(pl.y-g.y)<=5)return true}if(g.y===pl.y){const sx=Math.sign(pl.x-g.x);if(sx===g.dir[0]&&Math.abs(pl.x-g.x)<=5)return true}return false}
+ const dirs=[['ArrowRight',1,0],['ArrowLeft',-1,0],['ArrowDown',0,1],['ArrowUp',0,-1]];
+ function reset(){
+  walls=Array.from({length:H},(_,y)=>Array.from({length:W},(_,x)=>x===0||y===0||x===W-1||y===H-1||Math.random()<.075));
+  pl={x:1,y:H-2};target={x:W-2,y:1,taken:false};exit={x:1,y:H-2};
+  walls[pl.y][pl.x]=false;walls[target.y][target.x]=false;walls[exit.y][exit.x]=false;
+  for(let x=1;x<W-1;x++){walls[H-2][x]=false;if(x%3===0)walls[H-3][x]=false}
+  for(let y=1;y<H-1;y++){walls[y][W-2]=false;if(y%3===0)walls[y][W-3]=false}
+  guards=Array.from({length:c.guards||5},()=>{let x,y;do{x=Math.floor(R.rand(3,W-2));y=Math.floor(R.rand(2,H-2))}while(walls[y][x]||(x===target.x&&y===target.y));return{x,y,dir:choose([[1,0],[-1,0],[0,1],[0,-1]])}});
+  over=false;moveT=0;alert=0;api.setStatus(c.objective||'見つからず目標を回収')
+ }
+ reset();
+ const open=(x,y)=>x>=0&&y>=0&&x<W&&y<H&&!walls[y][x];
+ function seen(g){
+  if(g.x===pl.x){const sy=Math.sign(pl.y-g.y);if(sy===g.dir[1]&&Math.abs(pl.y-g.y)<=5)return true}
+  if(g.y===pl.y){const sx=Math.sign(pl.x-g.x);if(sx===g.dir[0]&&Math.abs(pl.x-g.x)<=5)return true}
+  return false
+ }
+ function risk(x,y){let r=0;for(const g of guards){const d=Math.abs(g.x-x)+Math.abs(g.y-y);r+=Math.max(0,6-d)*2.5}return r}
+ function nextPath(targetPos){
+  const q=[[pl.x,pl.y,[]]],seenSet=new Set([pl.x+','+pl.y]);let best=null;
+  while(q.length){
+   const [x,y,path]=q.shift();if(x===targetPos.x&&y===targetPos.y)return path[0]||null;
+   for(const d of dirs){const nx=x+d[1],ny=y+d[2],id=nx+','+ny;if(seenSet.has(id)||!open(nx,ny))continue;seenSet.add(id);const np=path.concat(d[0]);const score=np.length+risk(nx,ny)*.35;q.push([nx,ny,np]);if(!best||score<best.score)best={key:np[0],score}}
+  }
+  return best?.key||null
+ }
  return api.canvas({
   reset,
-  auto(e){const t=target.taken?exit:target;let best=null;for(const[k,dx,dy]of dirs){const nx=pl.x+dx,ny=pl.y+dy;if(!open(nx,ny))continue;let risk=0;for(const g of guards)risk+=Math.max(0,6-(Math.abs(g.x-nx)+Math.abs(g.y-ny)))*3;const s=-(Math.abs(t.x-nx)+Math.abs(t.y-ny))-risk;if(!best||s>best.s)best={k,s}}if(best)press(e,best.k)},
-  update(e,dt){if(over)return;moveT+=dt;if(moveT<.12)return;moveT=0;for(const[k,dx,dy]of dirs)if(e.keys.has(k)&&open(pl.x+dx,pl.y+dy)){pl.x+=dx;pl.y+=dy;break}for(const g of guards){if(Math.random()<.35){const o=dirs.filter(d=>open(g.x+d[1],g.y+d[2]));if(o.length){const d=choose(o);g.x+=d[1];g.y+=d[2];g.dir=[d[1],d[2]]}}if(seen(g))alert++}if(alert>5){over=true;api.finish('発見された')}if(!target.taken&&pl.x===target.x&&pl.y===target.y){target.taken=true;api.addScore(500);api.setStatus('脱出地点へ')}if(target.taken&&pl.x===exit.x&&pl.y===exit.y){over=true;api.addScore(1000);api.setStatus('任務完了')}},
-  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#08140f');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(walls[y][x])rect(g,OX+x*S,OY+y*S,S-2,S-2,'#27342f');for(const q of guards){rect(g,OX+q.x*S+7,OY+q.y*S+7,S-14,S-14,'#e66');line(g,OX+q.x*S+14,OY+q.y*S+14,OX+(q.x+q.dir[0]*3)*S+14,OY+(q.y+q.dir[1]*3)*S+14,'#f668',3)}if(!target.taken)txt(g,'★',OX+target.x*S+14,OY+target.y*S+21,17,'#fd5','center');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,'#8ff');txt(g,'警戒 '+alert,10,470,12,'#fff')}
+  auto(e){const t=target.taken?exit:target;const k=nextPath(t);if(k)press(e,k)},
+  update(e,dt){
+   if(over)return;moveT+=dt;if(moveT<.12)return;moveT=0;
+   for(const[k,dx,dy]of dirs)if(e.keys.has(k)&&open(pl.x+dx,pl.y+dy)){pl.x+=dx;pl.y+=dy;break}
+   let spotted=false;
+   for(const g of guards){
+    if(Math.random()<.35){const o=dirs.filter(d=>open(g.x+d[1],g.y+d[2]));if(o.length){o.sort((a,b)=>risk(g.x+a[1],g.y+a[2])-risk(g.x+b[1],g.y+b[2]));const d=choose(o.slice(0,Math.min(2,o.length)));g.x+=d[1];g.y+=d[2];g.dir=[d[1],d[2]]}}
+    if(seen(g))spotted=true
+   }
+   alert=R.clamp(alert+(spotted?1:-.35),0,7);
+   if(alert>=7){over=true;api.finish('発見された')}
+   if(!target.taken&&pl.x===target.x&&pl.y===target.y){target.taken=true;alert=Math.max(0,alert-2);api.addScore(500);api.setStatus('目標回収。脱出地点へ')}
+   if(target.taken&&pl.x===exit.x&&pl.y===exit.y){over=true;api.addScore(1000);api.setStatus('任務完了')}
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#08140f');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(walls[y][x])rect(g,OX+x*S,OY+y*S,S-2,S-2,'#27342f');for(const q of guards){rect(g,OX+q.x*S+7,OY+q.y*S+7,S-14,S-14,'#e66');line(g,OX+q.x*S+14,OY+q.y*S+14,OX+(q.x+q.dir[0]*3)*S+14,OY+(q.y+q.dir[1]*3)*S+14,'#f668',3)}if(!target.taken)txt(g,'★',OX+target.x*S+14,OY+target.y*S+21,17,'#fd5','center');else txt(g,'出口',OX+exit.x*S+14,OY+exit.y*S+20,10,'#6f6','center');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,'#8ff');txt(g,'警戒 '+alert.toFixed(1),10,470,12,'#fff')}
  })
 }
 
@@ -268,14 +303,14 @@ function raycast(p,api){
 function runGun(p,api){
  const c=p.cfg||{};let pl,cam,en,shots,enemyShots,spawn,cool,lives,over,combo;
  const world=c.levelW||3000;
- function reset(){pl={x:70,y:360,vx:0,vy:0,on:true};cam=0;en=[];shots=[];enemyShots=[];spawn=.4;cool=0;lives=3;over=false;combo=0;api.setStatus(c.objective||'前進しながら敵を倒せ')}reset();
+ function reset(){pl={x:70,y:360,vx:0,vy:0,on:true};cam=0;en=[];shots=[];enemyShots=[];spawn=.4;cool=0;lives=c.lives||4;over=false;combo=0;api.setStatus(c.objective||'前進しながら敵を倒せ')}reset();
  function shoot(){if(cool>0)return;cool=c.fireDelay||.16;shots.push({x:pl.x+14,y:pl.y-20,vx:430});api.beep(600,.02)}
  return api.canvas({
   reset,
-  auto(e,dt,cfg){const t=en.filter(q=>q.x>pl.x-40).sort((a,b)=>a.x-b.x)[0];press(e,'ArrowRight');if(t&&t.x-pl.x<360)press(e,'Space',.09);if((t&&t.x-pl.x<80)||Math.sin(pl.x*.025)>.88){e.autoTap?.('ArrowUp',.22)}},
+  auto(e,dt,cfg){const t=en.filter(q=>q.x>pl.x-40).sort((a,b)=>a.x-b.x)[0],danger=enemyShots.filter(b=>b.x>pl.x&&b.x-pl.x<145).sort((a,b)=>a.x-b.x)[0];press(e,'ArrowRight');if(t&&t.x-pl.x<430)press(e,'Space',.08);if(danger||(t&&t.x-pl.x<90)||Math.sin(pl.x*.025)>.88)e.autoTap?.('ArrowUp',.18)},
   keyDown(e,k){if(k==='ArrowUp'&&pl.on){pl.vy=-(c.jump||350);pl.on=false}if(k==='Space')shoot()},
   update(e,dt){if(over)return;cool=Math.max(0,cool-dt);const accel=420;if(e.keys.has('ArrowLeft'))pl.vx-=accel*dt;if(e.keys.has('ArrowRight'))pl.vx+=accel*dt;pl.vx*=Math.pow(.90,dt*60);pl.vy+=(c.gravity||780)*dt;pl.x+=pl.vx*dt;pl.y+=pl.vy*dt;const ground=390+Math.sin(pl.x*.008)*10;if(pl.y>=ground){pl.y=ground;pl.vy=0;pl.on=true}pl.x=R.clamp(pl.x,0,world);
-   spawn-=dt;if(spawn<=0&&pl.x<world-400){en.push({x:pl.x+R.rand(360,620),y:390,hp:c.tough?2:1,cool:R.rand(.4,1.2)});spawn=R.rand(.55,1.1)}
+   spawn-=dt;if(spawn<=0&&pl.x<world-400){en.push({x:pl.x+R.rand(360,620),y:390,hp:c.tough?2:1,cool:R.rand(.4,1.2)});spawn=R.rand(.7,1.25)}
    for(const q of en){q.cool-=dt;if(q.x-pl.x<420&&q.cool<=0){enemyShots.push({x:q.x-8,y:q.y-22,vx:-230});q.cool=R.rand(.7,1.4)}}
    for(const b of shots)b.x+=b.vx*dt;for(const b of enemyShots)b.x+=b.vx*dt;
    for(const b of shots)for(const q of en)if(!b.dead&&!q.dead&&Math.abs(b.x-q.x)<18&&Math.abs(b.y-(q.y-18))<22){b.dead=true;q.hp--;if(q.hp<=0){q.dead=true;combo++;api.addScore(50+combo*5)}}
