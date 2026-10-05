@@ -62,5 +62,15 @@ set(['dragon-quest','dragon-quest-3','final-fantasy','phantasy-star-2','ultima-6
 set(['lemmings'],'lemmings',{});
 set(['pilotwings'],'flightChallenge',{});
 
+
+set(['simcity'],'cityBuilder',{});
+set(['dune-2','warcraft','warcraft-2','command-conquer','age-of-empires','starcraft'],'rts',{});
+set(['xcom-ufo','heroes-might-magic'],'tactics',{});
+set(['theme-park','rollercoaster-tycoon'],'park',{});
+set(['twisted-metal'],'vehicleCombat',{});
+set(['crazy-taxi'],'taxi',{});
+set(['qbert'],'qbert',{});
+set(['dig-dug'],'digger',{});
+
 window.RetroQuality=Q;
 })();
