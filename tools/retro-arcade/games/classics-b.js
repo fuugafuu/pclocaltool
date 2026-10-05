@@ -4,7 +4,7 @@ const R=window.RetroArcade;
 const txt=(c,t,x,y,s=18,col='#fff',a='left')=>{c.fillStyle=col;c.font=s+'px monospace';c.textAlign=a;c.fillText(t,x,y)};
 const rect=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
 const line=(c,x1,y1,x2,y2,col='#fff',w=2)=>{c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()};
-const press=(e,k)=>e.autoKeys.add(k);
+const press=(e,k,interval=.10)=>{if(e.autoTap&&['Space','KeyX','KeyZ'].includes(k))e.autoTap(k,interval);else e.autoKeys.add(k)};
 const humanError=(cfg,scale=1)=>R.rand(-1,1)*(cfg.humanize||0)*scale*(1-(cfg.skill||.75)*.5);
 
 R.register({id:'pac-maze',title:'PAC-MAN',year:1980,system:'ARCADE',genre:'Maze',color:'#ffe347',description:'迷路のドットを食べながら追跡者を避けるドットイート迷路ゲーム。',classic:'迷路内のドットを全回収。パワー状態では追跡者へ反撃できる。',modern:'方向予約を広めに受付し、連続回収ボーナスと視認性を補強。',controls:'矢印キー',auto:'近いドットへ向かいながら追跡者との距離を評価'},(host,api)=>{
