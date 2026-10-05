@@ -50,5 +50,17 @@ set(['paperboy'],'racer',{lanes:4,maxSpeed:220,lapLength:4300});
 set(['twisted-metal'],'racer',{lanes:5,maxSpeed:280,lapLength:5200});
 set(['marble-madness','tony-hawk-pro-skater'],'racer',{lanes:5,maxSpeed:235,lapLength:4300});
 set(['pilotwings'],'racer',{lanes:5,maxSpeed:220,lapLength:4200});
+
+set(['atari-basketball'],'basketball',{});
+set(['atari-football','tecmo-bowl'],'gridiron',{});
+set(['sprint-2','rc-pro-am','micro-machines'],'topRace',{});
+set(['marble-madness'],'rolling',{});
+set(['tony-hawk-pro-skater'],'skate',{});
+set(['dragons-lair'],'qte',{});
+set(['myst','day-tentacle','kings-quest'],'pointClick',{});
+set(['dragon-quest','dragon-quest-3','final-fantasy','phantasy-star-2','ultima-6','earthbound','chrono-trigger','pokemon-red-green','diablo','final-fantasy-7','fallout'],'dungeonRPG',{items:7,enemies:8});
+set(['lemmings'],'lemmings',{});
+set(['pilotwings'],'flightChallenge',{});
+
 window.RetroQuality=Q;
 })();
