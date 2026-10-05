@@ -3,7 +3,7 @@
 const R=window.RetroArcade;
 const txt=(c,t,x,y,s=18,col='#fff',a='left')=>{c.fillStyle=col;c.font=s+'px monospace';c.textAlign=a;c.fillText(t,x,y)};
 const rect=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
-const press=(e,k)=>e.autoKeys.add(k);
+const press=(e,k,interval=.10)=>{if(e.autoTap&&['Space','KeyX','KeyZ'].includes(k))e.autoTap(k,interval);else e.autoKeys.add(k)};
 
 R.register({id:'tetris',title:'Tetris',year:1984,system:'COMPUTER / GB',genre:'Puzzle',color:'#66b8ff',description:'7種の4ブロック片を積み、横一列を完成させて消す落ち物パズル。',classic:'回転・左右移動・落下でラインを消去。積み上がりが上端を越えると終了。',modern:'ゴースト、ハードドロップ、ホールドを自然に追加。',controls:'←→ / ↑ 回転 / ↓ 落下 / スペース ハードドロップ / X ホールド',auto:'盤面の穴・高さ・凸凹・ライン消去を評価して最善配置へ移動'},(host,api)=>{
  const W=10,H=20,S=22,OX=210,OY=18;
