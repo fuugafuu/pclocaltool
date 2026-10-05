@@ -6,7 +6,8 @@ set(['sea-wolf','duck-hunt','operation-wolf'],'galleryShooter',{time:55,shots:45
 set(['space-harrier','after-burner','star-fox','panzer-dragoon','star-fox-64'],'railShooter',{enemySpeed:.32,tough:true});
 set(['contra','mega-man','mega-man-2','mega-man-3','shinobi','bionic-commando','metal-slug'],'runGun',{levelW:3100,fireDelay:.14});
 set(['double-dragon','golden-axe','final-fight','streets-rage','kung-fu-master'],'beatEmUp',{tough:true,enemySpeed:82});
-set(['mario-bros','burgertime','bubble-bobble','bomb-jack'],'fixedPlatform',{enemies:7,items:9});
+set(['mario-bros'],'marioBros',{});
+set(['burgertime','bubble-bobble','bomb-jack'],'fixedPlatform',{enemies:7,items:9});
 set(['track-field'],'trackField',{time:40});
 set(['tapper'],'serviceGame',{time:65});
 set(['robotron-2084','commando','ikari-warriors'],'arena',{enemySpeed:92,enemyScore:35});
@@ -88,7 +89,7 @@ set(['pac-land'],'platform',{enemies:11,levelW:2500,jump:330,gravity:720});
 set(['kid-icarus'],'runGun',{enemies:12,levelW:2700,jump:350,gravity:700,fireDelay:.18});
 set(['rampage'],'beatEmUp',{tough:true,enemySpeed:72});
 set(['solomons-key'],'fixedPlatform',{enemies:6,items:8,jump:325});
-set(['wonder-boy'],'platform',{enemies:12,levelW:2600,jump:340,gravity:760});
+set(['wonder-boy'],'wonderBoy',{});
 set(['rad-racer'],'racer',{lanes:4,maxSpeed:300,lapLength:6000});
 set(['ninja-gaiden'],'runGun',{enemies:15,levelW:2850,jump:360,gravity:790,fireDelay:.17});
 set(['actraiser'],'platform',{enemies:13,levelW:2600,jump:335,gravity:740});
