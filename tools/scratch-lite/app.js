@@ -1,0 +1,225 @@
+'use strict';
+(() => {
+const VERSION='1.0.0';
+const RUNTIME_VERSION='0.4.0';
+const RUNTIME_URL='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@'+RUNTIME_VERSION+'/dist/scaffolding-min.js';
+const OFFLINE_RUNTIME_URL='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@'+RUNTIME_VERSION+'/dist/scaffolding-with-music.js';
+const $=s=>document.querySelector(s);
+const state={runner:null,projectBuffer:null,projectName:'',analysis:null,device:null,profile:null,settings:null,loading:false,autoMonitor:null,rafStats:[],slowWindows:0,fastWindows:0,lastAdjust:0};
+
+const DEFAULTS={mode:'auto',quality:'auto',fps:'auto',interpolation:'auto',hqPen:'auto',turbo:'off',warp:'auto',clones:'auto',fencing:'auto',misc:'auto',autostart:true};
+const loadSettings=()=>({...DEFAULTS,...JSON.parse(localStorage.getItem('scratchLiteSettings')||'{}')});
+const saveSettings=()=>localStorage.setItem('scratchLiteSettings',JSON.stringify(state.settings));
+const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v};
+const show=(id,on=true)=>$(id)?.classList.toggle('hidden',!on);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function deviceProfile(){
+ const cores=navigator.hardwareConcurrency||4,mem=navigator.deviceMemory||4,mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent),save=!!navigator.connection?.saveData;
+ let score=0;if(cores>=8)score+=3;else if(cores>=4)score+=2;else score+=1;if(mem>=8)score+=3;else if(mem>=4)score+=2;else score+=1;if(mobile)score-=1;if(save)score-=1;
+ const tier=score>=5?'高性能':score>=3?'標準':'軽量';
+ return {cores,mem,mobile,save,score,tier};
+}
+function formatBytes(n){if(!Number.isFinite(n))return '不明';const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return (i? n.toFixed(n>=100?0:n>=10?1:2):Math.round(n))+' '+u[i]}
+
+async function loadRuntime(){
+ if(window.Scaffolding)return;
+ setText('#engine-state','ランタイム読込中');
+ let code=null;
+ if(location.protocol!=='file:'){
+   try{const r=await fetch('./vendor/scaffolding-min.js',{cache:'force-cache'});if(r.ok)code=await r.text()}catch{}
+   if(!code&&'caches' in window){try{const hit=await caches.match(RUNTIME_URL);if(hit)code=await hit.text()}catch{}}
+ }
+ if(!code){
+   const r=await fetch(RUNTIME_URL,{cache:'force-cache'});if(!r.ok)throw new Error('TurboWarpランタイムを取得できません');
+   const clone=r.clone();code=await r.text();
+   if('caches' in window&&location.protocol!=='file:'){try{const c=await caches.open('scratch-lite-runtime-v1');await c.put(RUNTIME_URL,clone)}catch{}}
+ }
+ await new Promise((resolve,reject)=>{const blob=new Blob([code],{type:'text/javascript'}),url=URL.createObjectURL(blob),s=document.createElement('script');s.src=url;s.onload=()=>{URL.revokeObjectURL(url);resolve()};s.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('ランタイム実行に失敗'))};document.head.appendChild(s)});
+ if(!window.Scaffolding)throw new Error('Scaffoldingが初期化されませんでした');
+ $('#engine-state')?.classList.add('ready');setText('#engine-state','TurboWarp準備完了');
+}
+
+function createRunner(){
+ if(state.runner){try{state.runner.vm?.stopAll?.()}catch{};try{state.runner.root?.remove?.()}catch{}}
+ const r=new Scaffolding.Scaffolding();
+ r.width=480;r.height=360;r.resizeMode='preserve-ratio';r.editableLists=false;r.shouldConnectPeripherals=true;r.usePackagedRuntime=false;r.setup();
+ const st=r.storage;
+ try{st.addWebStore([st.AssetType.ImageVector,st.AssetType.ImageBitmap,st.AssetType.Sound],asset=>'https://assets.scratch.mit.edu/internalapi/asset/'+asset.assetId+'.'+asset.dataFormat+'/get/')}catch{}
+ r.appendTo($('#project-mount'));state.runner=r;return r;
+}
+
+async function unzipProjectJSON(buffer){
+ try{
+  const dv=new DataView(buffer);let eocd=-1;for(let i=Math.max(0,buffer.byteLength-65557);i<=buffer.byteLength-22;i++){if(dv.getUint32(i,true)===0x06054b50)eocd=i}
+  if(eocd<0)return null;const count=dv.getUint16(eocd+10,true),cd=dv.getUint32(eocd+16,true);let p=cd;
+  for(let n=0;n<count;n++){
+   if(dv.getUint32(p,true)!==0x02014b50)break;
+   const method=dv.getUint16(p+10,true),comp=dv.getUint32(p+20,true),nameLen=dv.getUint16(p+28,true),extra=dv.getUint16(p+30,true),comment=dv.getUint16(p+32,true),local=dv.getUint32(p+42,true);
+   const name=new TextDecoder().decode(new Uint8Array(buffer,p+46,nameLen));
+   if(name==='project.json'){
+    const ln=dv.getUint16(local+26,true),le=dv.getUint16(local+28,true),start=local+30+ln+le;let bytes=new Uint8Array(buffer,start,comp);
+    if(method===8&&typeof DecompressionStream!=='undefined'){const ds=new DecompressionStream('deflate-raw');bytes=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer())}
+    else if(method!==0)return null;
+    return JSON.parse(new TextDecoder().decode(bytes));
+   }
+   p+=46+nameLen+extra+comment;
+  }
+ }catch(e){console.warn('project.json pre-analysis skipped',e)}
+ return null;
+}
+
+function analyzeJSON(json,size){
+ const a={size,targets:0,blocks:0,costumes:0,sounds:0,monitors:Array.isArray(json?.monitors)?json.monitors.length:0,pen:false,threeD:false,cloneBlocks:0,warpProcedures:0,video:false,music:false,largeLists:0};
+ const targets=json?.targets||[];a.targets=targets.length;
+ for(const t of targets){
+  a.costumes+=(t.costumes||[]).length;a.sounds+=(t.sounds||[]).length;
+  for(const v of Object.values(t.lists||{})){if(Array.isArray(v?.[1])&&v[1].length>1000)a.largeLists++}
+  const blocks=t.blocks||{};a.blocks+=Object.keys(blocks).length;
+  for(const b of Object.values(blocks)){
+   const op=String(b?.opcode||'').toLowerCase();if(op.startsWith('pen_'))a.pen=true;if(op.includes('3d')||op.includes('raycast'))a.threeD=true;if(op==='control_create_clone_of')a.cloneBlocks++;if(op.startsWith('videosensing_'))a.video=true;if(op.startsWith('music_'))a.music=true;
+   if(b?.mutation?.warp==='true'||b?.mutation?.warp===true)a.warpProcedures++;
+  }
+ }
+ const mb=size/1048576;a.complexity=mb*2+a.blocks/900+a.targets*.35+a.costumes*.08+a.sounds*.12+a.largeLists*2+a.cloneBlocks*.45;
+ a.level=a.complexity>22?'超重量':a.complexity>12?'重量':a.complexity>6?'中量':'軽量';
+ return a;
+}
+async function analyzeProject(buffer){
+ const json=await unzipProjectJSON(buffer);return json?analyzeJSON(json,buffer.byteLength):{size:buffer.byteLength,level:buffer.byteLength>25e6?'重量':'不明',complexity:buffer.byteLength/1048576,targets:0,blocks:0,costumes:0,sounds:0,pen:false,threeD:false,cloneBlocks:0,warpProcedures:0,video:false,music:false,largeLists:0};
+}
+
+function autoProfile(a,d,mode){
+ const heavy=a.complexity>12||a.size>18e6,veryHeavy=a.complexity>22||a.size>35e6,low=d.score<3,high=d.score>=5;
+ if(mode==='compat')return {label:'互換重視',quality:1,fps:30,interpolation:false,hqPen:false,turbo:false,warpTimer:true,maxClones:300,fencing:true,miscLimits:true};
+ if(mode==='performance')return {label:'速度重視',quality:low?.55:.7,fps:30,interpolation:false,hqPen:false,turbo:false,warpTimer:false,maxClones:low?900:3000,fencing:false,miscLimits:false};
+ let quality=veryHeavy||low?.55:heavy?.7:high?1:.85;
+ let interpolation=!a.pen&&!a.threeD&&!heavy&&!low;
+ let hqPen=!!a.pen&&high&&!heavy;
+ let maxClones=low?600:heavy?1200:Infinity;
+ return {label:veryHeavy||low?'軽量AUTO':heavy?'性能AUTO':'高品質AUTO',quality,fps:30,interpolation,hqPen,turbo:false,warpTimer:false,maxClones,fencing:false,miscLimits:false};
+}
+function resolvedProfile(){
+ const s=state.settings,a=state.analysis||{complexity:0,size:0},d=state.device||deviceProfile();let p=autoProfile(a,d,s.mode==='manual'?'auto':s.mode);
+ if(s.mode==='manual'||s.mode==='auto'){
+  if(s.quality!=='auto')p.quality=Number(s.quality);if(s.fps!=='auto')p.fps=Number(s.fps);
+  if(s.interpolation!=='auto')p.interpolation=s.interpolation==='on';if(s.hqPen!=='auto')p.hqPen=s.hqPen==='on';
+  if(s.warp!=='auto')p.warpTimer=s.warp==='on';if(s.clones!=='auto')p.maxClones=s.clones==='inf'?Infinity:Number(s.clones);
+  if(s.fencing!=='auto')p.fencing=s.fencing==='on';if(s.misc!=='auto')p.miscLimits=s.misc==='on';
+ }
+ p.turbo=s.turbo==='on';return p;
+}
+function applyProfile(){
+ if(!state.runner)return;const p=state.profile=resolvedProfile(),vm=state.runner.vm;
+ try{vm.runtime?.setCompilerOptions?.({enabled:true,warpTimer:p.warpTimer})}catch(e){console.warn(e)}
+ try{vm.runtime?.setRuntimeOptions?.({maxClones:p.maxClones,fencing:p.fencing,miscLimits:p.miscLimits})}catch(e){console.warn(e)}
+ try{vm.setInterpolation?.(p.interpolation)}catch(e){console.warn(e)}
+ try{vm.renderer?.setUseHighQualityRender?.(p.hqPen)}catch(e){console.warn(e)}
+ try{vm.runtime?.frameLoop?.setFramerate?.(p.fps)}catch(e){console.warn(e)}
+ try{vm.setTurboMode?.(p.turbo)}catch(e){console.warn(e)}
+ applyQuality(p.quality);
+ setText('#auto-state',p.label);setText('#quality-state',Math.round(p.quality*100)+'%');setText('#fps-state',p.fps===0?'同期':String(p.fps));setText('#interp-state',p.interpolation?'ON':'OFF');
+ updateAnalysisText();
+}
+function applyQuality(q){
+ q=Math.max(.35,Math.min(1,Number(q)||1));const surface=$('#project-surface');if(!surface)return;surface.style.width=(q*100)+'%';surface.style.height=(q*100)+'%';surface.style.transform='scale('+(1/q)+')';requestAnimationFrame(()=>state.runner?.relayout?.());
+}
+function updateAnalysisText(){
+ const a=state.analysis,d=state.device,p=state.profile;if(!a||!d)return;
+ setText('#weight-state',a.level+' / '+formatBytes(a.size));setText('#device-state',d.tier+' '+d.cores+'C/'+d.mem+'GB');
+ setText('#analysis-details','作品: '+a.level+'、'+formatBytes(a.size)+' / ブロック '+a.blocks.toLocaleString()+' / ターゲット '+a.targets+' / コスチューム '+a.costumes+' / 音 '+a.sounds+' / クローン生成 '+a.cloneBlocks+' / ペン '+(a.pen?'あり':'なし')+' / 3D系 '+(a.threeD?'検出':'未検出')+'。端末: '+d.tier+'、CPU論理 '+d.cores+'、メモリ目安 '+d.mem+'GB。適用: '+(p?.label||'未適用')+'。');
+}
+
+function setProgress(text,pct=null,detail=''){show('#load-progress',true);setText('#progress-text',text);setText('#progress-value',detail);if(pct!==null)$('#progress-bar').style.width=Math.max(0,Math.min(100,pct))+'%'}
+function hideProgress(){show('#load-progress',false);$('#progress-bar').style.width='0%'}
+async function readFile(file){
+ return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onprogress=e=>{if(e.lengthComputable)setProgress('ファイルを読み込んでいます',e.loaded/e.total*40,Math.round(e.loaded/e.total*100)+'%')};fr.onerror=()=>reject(fr.error);fr.onload=()=>resolve(fr.result);fr.readAsArrayBuffer(file)});
+}
+async function fetchBuffer(url,label='ダウンロード中'){
+ const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);const total=Number(r.headers.get('content-length'))||0;if(!r.body)return r.arrayBuffer();
+ const reader=r.body.getReader(),parts=[];let got=0;while(true){const {done,value}=await reader.read();if(done)break;parts.push(value);got+=value.length;setProgress(label,total?got/total*40:20,total?Math.round(got/total*100)+'%':formatBytes(got))}
+ const out=new Uint8Array(got);let off=0;for(const p of parts){out.set(p,off);off+=p.length}return out.buffer;
+}
+function projectIdFrom(input){
+ const s=input.trim();if(/^\d+$/.test(s))return s;const m=s.match(/(?:scratch\.mit\.edu\/projects\/|turbowarp\.org\/)(\d+)/i);return m?.[1]||null;
+}
+async function loadURL(input){
+ const id=projectIdFrom(input);if(id){
+  setProgress('Scratchプロジェクト情報を取得',4,'ID '+id);
+  const meta=await fetch('https://trampoline.turbowarp.org/api/projects/'+id);if(!meta.ok)throw new Error('共有されていないか、存在しないプロジェクトです');
+  const j=await meta.json();return fetchBuffer('https://projects.scratch.mit.edu/'+id+'?token='+encodeURIComponent(j.project_token),'プロジェクトを取得しています');
+ }
+ let url=input.trim();if(!/^https?:\/\//i.test(url))throw new Error('URLまたはScratchプロジェクトIDを入力してください');
+ return fetchBuffer(url,'URLから取得しています');
+}
+
+async function loadBuffer(buffer,name){
+ if(state.loading)return;state.loading=true;state.projectBuffer=buffer;state.projectName=name||'Scratch Project';show('#stage-loading',true);setText('#stage-loading-text','作品を先読み解析しています…');setProgress('作品を解析しています',45,formatBytes(buffer.byteLength));
+ try{
+  state.analysis=await analyzeProject(buffer);state.device=deviceProfile();setProgress('端末に合わせて最適化',55,state.analysis.level);
+  const r=createRunner();applyProfile();setText('#stage-loading-text','TurboWarpコンパイラで読み込んでいます…');setProgress('プロジェクトをコンパイル・展開',68,'');
+  await r.loadProject(buffer);setProgress('描画を準備',96,'');
+  show('#loader',false);show('#player-panel',true);setText('#project-name',state.projectName);setText('#project-info',state.analysis.level+' · '+formatBytes(state.analysis.size)+' · コード表示なし');
+  requestAnimationFrame(()=>r.relayout?.());await sleep(60);if(state.settings.autostart)r.greenFlag();startAutoMonitor();setProgress('完了',100,'');await sleep(250);hideProgress();
+ }finally{show('#stage-loading',false);state.loading=false}
+}
+async function fromFile(file){if(!file)return;const buffer=await readFile(file);await loadBuffer(buffer,file.name)}
+async function fromURL(){const input=$('#url-input').value.trim();if(!input)return;try{const b=await loadURL(input);await loadBuffer(b,projectIdFrom(input)?'Scratch #'+projectIdFrom(input):input.split('/').pop()||'URL Project')}catch(e){fail(e)}}
+function fail(e){console.error(e);hideProgress();show('#stage-loading',false);state.loading=false;alert('読み込みに失敗しました。\n'+String(e?.message||e))}
+
+function startAutoMonitor(){
+ stopAutoMonitor();let last=performance.now(),sum=0,count=0,windowStart=last;
+ const tick=now=>{const dt=now-last;last=now;if(dt<250){sum+=dt;count++}if(now-windowStart>=3000){const avg=count?sum/count:16.7;autoAdjust(avg);sum=0;count=0;windowStart=now}state.autoMonitor=requestAnimationFrame(tick)};state.autoMonitor=requestAnimationFrame(tick);
+}
+function stopAutoMonitor(){if(state.autoMonitor)cancelAnimationFrame(state.autoMonitor);state.autoMonitor=null}
+function autoAdjust(avg){
+ if(state.settings.mode!=='auto'||!state.profile)return;const now=performance.now();if(now-state.lastAdjust<5000)return;
+ if(avg>27){state.slowWindows++;state.fastWindows=0}else if(avg<19){state.fastWindows++;state.slowWindows=0}else{state.slowWindows=state.fastWindows=0}
+ if(state.slowWindows>=2){
+  const q=state.profile.quality;state.profile.quality=q>.85?.85:q>.7?.7:q>.55?.55:.4;state.profile.interpolation=false;state.profile.hqPen=false;state.lastAdjust=now;state.slowWindows=0;
+  try{state.runner.vm.setInterpolation?.(false);state.runner.vm.renderer?.setUseHighQualityRender?.(false)}catch{}applyQuality(state.profile.quality);setText('#auto-state','負荷軽減AUTO');setText('#quality-state',Math.round(state.profile.quality*100)+'%');setText('#interp-state','OFF');
+ }else if(state.fastWindows>=4){
+  const ceiling=autoProfile(state.analysis,state.device,'auto').quality,q=state.profile.quality;if(q<ceiling){state.profile.quality=Math.min(ceiling,q+.15);applyQuality(state.profile.quality);setText('#quality-state',Math.round(state.profile.quality*100)+'%');state.lastAdjust=now}state.fastWindows=0;
+ }
+}
+
+function stopProject(){try{state.runner?.vm?.stopAll?.()}catch{try{state.runner?.vm?.runtime?.stopAll?.()}catch{}}}
+function greenFlag(){try{state.runner?.greenFlag?.()}catch(e){fail(e)}}
+async function reloadProject(){if(!state.projectBuffer)return;stopAutoMonitor();$('#project-mount').innerHTML='';await loadBuffer(state.projectBuffer,state.projectName)}
+function newProject(){stopProject();stopAutoMonitor();try{state.runner?.root?.remove?.()}catch{}state.runner=null;$('#project-mount').innerHTML='';show('#player-panel',false);show('#loader',true);hideProgress()}
+async function fullscreen(){const el=$('#stage-viewport');try{if(document.fullscreenElement)await document.exitFullscreen();else await el.requestFullscreen();setTimeout(()=>state.runner?.relayout?.(),80)}catch{}}
+
+function syncSettingsUI(){
+ const s=state.settings;$('#quick-mode').value=s.mode;$('#autostart').checked=s.autostart;
+ for(const [id,key] of [['#set-mode','mode'],['#set-quality','quality'],['#set-fps','fps'],['#set-interpolation','interpolation'],['#set-hq-pen','hqPen'],['#set-turbo','turbo'],['#set-warp','warp'],['#set-clones','clones'],['#set-fencing','fencing'],['#set-misc','misc']])$(id).value=String(s[key]);
+}
+function readSettingsUI(){
+ const s={...state.settings};for(const [id,key] of [['#set-mode','mode'],['#set-quality','quality'],['#set-fps','fps'],['#set-interpolation','interpolation'],['#set-hq-pen','hqPen'],['#set-turbo','turbo'],['#set-warp','warp'],['#set-clones','clones'],['#set-fencing','fencing'],['#set-misc','misc']])s[key]=$(id).value;s.autostart=$('#autostart').checked;return s;
+}
+async function exportOffline(){
+ const btn=$('#offline-export'),old=btn.textContent;btn.disabled=true;btn.textContent='完全ローカル版を作成中…';
+ try{
+  const [runtime,css,js]=await Promise.all([fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),fetch('style.css?v=1').then(r=>r.text()),fetch('app.js?v=1').then(r=>r.text())]);
+  const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script');
+  const out='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Scratch Lite Launcher Offline</title><style>'+css+'</style></head><body>'+document.body.innerHTML.replace(/<script src="app\.js[^>]*><\/script>/,'')+'<script>window.__SL_STANDALONE__=true;<\/script><script>'+safeRuntime+'<\/script><script>'+safeJS+'<\/script></body></html>';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'text/html'}));a.download='scratch-lite-offline.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+ }catch(e){fail(e)}finally{btn.disabled=false;btn.textContent=old}
+}
+
+function bind(){
+ $('#file-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>fromFile(e.target.files[0]).catch(fail);$('#url-btn').onclick=()=>fromURL();$('#url-input').onkeydown=e=>{if(e.key==='Enter')fromURL()};
+ const dz=$('#drop-zone');['dragenter','dragover'].forEach(x=>dz.addEventListener(x,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(x=>dz.addEventListener(x,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>fromFile(e.dataTransfer.files[0]).catch(fail));dz.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')$('#file-input').click()};
+ $('#flag-btn').onclick=greenFlag;$('#stop-btn').onclick=stopProject;$('#reload-btn').onclick=()=>reloadProject().catch(fail);$('#new-btn').onclick=newProject;$('#fullscreen-btn').onclick=fullscreen;
+ $('#settings-btn').onclick=()=>{syncSettingsUI();updateAnalysisText();$('#settings-dialog').showModal()};$('#apply-btn').onclick=()=>{state.settings=readSettingsUI();saveSettings();$('#quick-mode').value=state.settings.mode;if(state.runner)applyProfile();$('#settings-dialog').close()};
+ $('#defaults-btn').onclick=()=>{state.settings={...DEFAULTS};syncSettingsUI()};$('#quick-mode').onchange=e=>{state.settings.mode=e.target.value;saveSettings();syncSettingsUI();if(state.runner)applyProfile()};$('#autostart').onchange=e=>{state.settings.autostart=e.target.checked;saveSettings()};
+ $('#offline-export').onclick=exportOffline;
+ window.addEventListener('resize',()=>state.runner?.relayout?.());document.addEventListener('visibilitychange',()=>{if(!document.hidden)state.runner?.relayout?.()});
+}
+
+async function boot(){
+ state.settings=loadSettings();state.device=deviceProfile();syncSettingsUI();bind();setText('#device-state',state.device.tier+' '+state.device.cores+'C/'+state.device.mem+'GB');
+ try{await loadRuntime()}catch(e){setText('#engine-state','ランタイム取得失敗');$('#engine-state')?.classList.add('error');console.error(e)}
+ if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=1').catch(()=>{});
+}
+boot();
+})();
