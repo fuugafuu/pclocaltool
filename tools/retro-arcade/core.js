@@ -174,7 +174,7 @@ function boot(){
  setTheme(db.settings.theme||'dark');populateSettingsTargets();render();
 
  on('#search','input',()=>{page=1;render()});on('#genre-filter','change',()=>{page=1;render()});on('#era-filter','change',()=>{page=1;render()});on('#sort-filter','change',()=>{page=1;render()});
- on('#favorites-only','click',()=>{favOnly=!favOnly;page=1;$('#favorites-only')?.classList.toggle('active',favOnly);render()});on('#prev-page','click',()=>{if(page>1){page--;render();document.querySelector('main')?.scrollIntoView({block:'start'})}});on('#next-page','click',()=>{page++;render();document.querySelector('main')?.scrollIntoView({block:'start'})}});
+ on('#favorites-only','click',()=>{favOnly=!favOnly;page=1;$('#favorites-only')?.classList.toggle('active',favOnly);render()});on('#prev-page','click',()=>{if(page>1){page--;render();document.querySelector('main')?.scrollIntoView({block:'start'})}});on('#next-page','click',()=>{page++;render();document.querySelector('main')?.scrollIntoView({block:'start'})});
  on('#theme-toggle','click',()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark'));
  on('#launcher-settings','click',openSettings);on('#settings-close','click',()=>$('#settings-dialog')?.close());on('#settings-target','change',loadSettingsForm);
  ['setting-skill','setting-humanize','setting-crt'].forEach(id=>on('#'+id,'input',updateSettingLabels));
