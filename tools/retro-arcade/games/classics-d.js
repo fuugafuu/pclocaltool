@@ -4,7 +4,7 @@ const R=window.RetroArcade;
 const txt=(c,t,x,y,s=18,col='#fff',a='left')=>{c.fillStyle=col;c.font=s+'px monospace';c.textAlign=a;c.fillText(t,x,y)};
 const rect=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
 const line=(c,x1,y1,x2,y2,col='#fff',w=2)=>{c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()};
-const press=(e,k)=>e.autoKeys.add(k);
+const press=(e,k,interval=.10)=>{if(e.autoTap&&['Space','KeyX','KeyZ'].includes(k))e.autoTap(k,interval);else e.autoKeys.add(k)};
 
 R.register({id:'arkanoid',title:'Arkanoid',year:1986,system:'ARCADE',genre:'Action',color:'#7be1ff',description:'ブロック崩しを発展させ、硬いブロックやカプセルを加えたパドルアクション。',classic:'反射角を調整して面を攻略。硬い壁や落下カプセルで展開が変化。',modern:'レーザー/ワイド/マルチ系ボーナスを整理し、視認性を向上。',controls:'←→ / スペース（レーザー時）',auto:'ボール軌道と落下カプセルを評価し、パドルを最適位置へ移動'},(host,api)=>{
  let paddle,balls,bricks,caps,laser,cool,lives,stage,wide,over;
