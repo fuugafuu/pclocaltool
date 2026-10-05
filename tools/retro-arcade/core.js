@@ -13,7 +13,7 @@ const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 function fresh(){return{version:1,favorites:[],scores:{},played:{},settings:{theme:'dark',global:{...DEFAULTS},perGame:{}},stats:{}}}
 function migrate(d){const x=d&&d.version===1?d:fresh();x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.scores=x.scores||{};x.played=x.played||{};x.stats=x.stats||{};x.settings=x.settings||{};x.settings.theme=x.settings.theme||'dark';x.settings.global={...DEFAULTS,...(x.settings.global||{})};x.settings.perGame=x.settings.perGame||{};return x}
 function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY)))}catch{return fresh()}}
-let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false, speed=1, autoEnabled=false, autoSkill=75, humanize=15, currentCfg={...DEFAULTS};
+let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false, speed=1, autoEnabled=false, autoSkill=75, humanize=15, currentCfg={...DEFAULTS}, page=1, pageSize=48;
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
 function cfgFor(id){return{...DEFAULTS,...db.settings.global,...(db.settings.perGame?.[id]||{})}}
 function setTheme(t){db.settings.theme=t;document.documentElement.dataset.theme=t;setText('#theme-toggle',t==='dark'?'☀️':'🌙');save()}
@@ -64,18 +64,26 @@ function createCanvasGame(api,spec){
  const host=$('#game-host');host.innerHTML='';
  const canvas=document.createElement('canvas');canvas.width=spec.width||640;canvas.height=spec.height||480;host.appendChild(canvas);
  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
- const manualKeys=new Set(),autoKeys=new Set();let prevAutoKeys=new Set();
- const keys={has:c=>manualKeys.has(c)||autoKeys.has(c),add:c=>manualKeys.add(c),delete:c=>manualKeys.delete(c),clear:()=>{manualKeys.clear();autoKeys.clear()}};
+ const manualKeys=new Set(),autoKeys=new Set(),pulseKeys=new Set();let prevAutoKeys=new Set(),simTime=0;const tapRequests=[],lastTap=new Map();
+ const keys={has:c=>manualKeys.has(c)||autoKeys.has(c)||pulseKeys.has(c),add:c=>manualKeys.add(c),delete:c=>manualKeys.delete(c),clear:()=>{manualKeys.clear();autoKeys.clear();pulseKeys.clear()}};
  let paused=false,dead=false,last=performance.now(),pointer={x:0,y:0,down:false};
- const env={canvas,ctx,keys,manualKeys,autoKeys,pointer,api,get mode(){return mode},get paused(){return paused},get speed(){return speed},get auto(){return autoEnabled}};
+ const env={canvas,ctx,keys,manualKeys,autoKeys,pulseKeys,pointer,api,autoTap(code,interval=.10){tapRequests.push({code,interval:Math.max(.035,interval)})},get mode(){return mode},get paused(){return paused},get speed(){return speed},get auto(){return autoEnabled}};
  if(spec.init)spec.init(env);
  function step(dt){
-   autoKeys.clear();
+   simTime+=dt;autoKeys.clear();pulseKeys.clear();tapRequests.length=0;
    if(autoEnabled&&spec.auto)spec.auto(env,dt,{skill:autoSkill/100,humanize:humanize/100,speed,mode});
-   for(const code of autoKeys)if(!prevAutoKeys.has(code))spec.keyDown?.(env,code,{auto:true});
-   for(const code of prevAutoKeys)if(!autoKeys.has(code))spec.keyUp?.(env,code,{auto:true});
+   for(const code of autoKeys)if(!prevAutoKeys.has(code))spec.keyDown?.(env,code,{auto:true,kind:'hold'});
+   for(const code of prevAutoKeys)if(!autoKeys.has(code))spec.keyUp?.(env,code,{auto:true,kind:'hold'});
    prevAutoKeys=new Set(autoKeys);
+   for(const req of tapRequests){
+     const last=lastTap.get(req.code)??-999;
+     if(simTime-last>=req.interval){
+       lastTap.set(req.code,simTime);pulseKeys.add(req.code);
+       spec.keyDown?.(env,req.code,{auto:true,kind:'tap'});
+     }
+   }
    if(spec.update)spec.update(env,dt);
+   for(const code of pulseKeys)spec.keyUp?.(env,code,{auto:true,kind:'tap'});
  }
  function frame(now){
    if(dead)return;
@@ -97,7 +105,7 @@ function createCanvasGame(api,spec){
    keyUp(code,e){manualKeys.delete(code);spec.keyUp?.(env,code,e)},
    pause(v){paused=v==null?!paused:!!v;spec.pause?.(env,paused);return paused},
    reset(){keys.clear();api.setScore(0);api.setStatus('');spec.reset?.(env)},
-   destroy(){dead=true;for(const code of prevAutoKeys)spec.keyUp?.(env,code,{auto:true});prevAutoKeys.clear();keys.clear();spec.destroy?.(env);host.innerHTML=''},
+   destroy(){dead=true;for(const code of prevAutoKeys)spec.keyUp?.(env,code,{auto:true,kind:'hold'});for(const code of pulseKeys)spec.keyUp?.(env,code,{auto:true,kind:'tap'});prevAutoKeys.clear();tapRequests.length=0;lastTap.clear();keys.clear();spec.destroy?.(env);host.innerHTML=''},
    modeChanged(){spec.modeChanged?.(env,mode)},
    runtimeChanged(){spec.runtimeChanged?.(env,{mode,speed,auto:autoEnabled,skill:autoSkill/100,humanize:humanize/100})}
  };
@@ -111,9 +119,13 @@ function card(g){
  <span class="card-score">最高 ${String(hi).padStart(6,'0')}</span></article>`;
 }
 function render(){
- const q=$('#search').value.trim().toLowerCase(),genre=$('#genre-filter').value,era=$('#era-filter').value;
- const list=REG.filter(({meta:m})=>(!q||(`${m.title} ${m.description} ${m.genre} ${m.year}`.toLowerCase().includes(q)))&&(!genre||m.genre===genre)&&(!era||String(m.year).startsWith(era.slice(0,3)))&&(!favOnly||db.favorites.includes(m.id)));
- $('#game-grid').innerHTML=list.length?list.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
+ const search=$('#search'),genreEl=$('#genre-filter'),eraEl=$('#era-filter'),sortEl=$('#sort-filter');
+ const q=(search?.value||'').trim().toLowerCase(),genre=genreEl?.value||'',era=eraEl?.value||'',sort=sortEl?.value||'year';
+ let list=REG.filter(({meta:m})=>(!q||(`${m.title} ${m.description} ${m.genre} ${m.year} ${m.system||''}`.toLowerCase().includes(q)))&&(!genre||m.genre===genre)&&(!era||String(m.year).startsWith(era.slice(0,3)))&&(!favOnly||db.favorites.includes(m.id)));
+ list=[...list].sort((a,b)=>sort==='title'?a.meta.title.localeCompare(b.meta.title,'ja'):sort==='played'?(db.played[b.meta.id]||0)-(db.played[a.meta.id]||0)||a.meta.year-b.meta.year:a.meta.year-b.meta.year||a.meta.title.localeCompare(b.meta.title,'ja'));
+ const pages=Math.max(1,Math.ceil(list.length/pageSize));page=clamp(page,1,pages);const start=(page-1)*pageSize,shown=list.slice(start,start+pageSize);
+ const grid=$('#game-grid');if(grid)grid.innerHTML=shown.length?shown.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
+ setText('#result-count',list.length+'本');setText('#page-label',page+' / '+pages);const prev=$('#prev-page'),next=$('#next-page');if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
  $$('[data-game]').forEach(el=>el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)});
  $$('[data-fav]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFavorite(b.dataset.fav);render()});updateStats();
 }
@@ -161,8 +173,8 @@ function boot(){
  if(genreEl){const genres=[...new Set(REG.map(x=>x.meta.genre))].sort();genreEl.innerHTML='<option value="">すべてのジャンル</option>'+genres.map(g=>`<option value="${g}">${jpGenre(g)}</option>`).join('')}
  setTheme(db.settings.theme||'dark');populateSettingsTargets();render();
 
- on('#search','input',render);on('#genre-filter','change',render);on('#era-filter','change',render);
- on('#favorites-only','click',()=>{favOnly=!favOnly;$('#favorites-only')?.classList.toggle('active',favOnly);render()});
+ on('#search','input',()=>{page=1;render()});on('#genre-filter','change',()=>{page=1;render()});on('#era-filter','change',()=>{page=1;render()});on('#sort-filter','change',()=>{page=1;render()});
+ on('#favorites-only','click',()=>{favOnly=!favOnly;page=1;$('#favorites-only')?.classList.toggle('active',favOnly);render()});on('#prev-page','click',()=>{if(page>1){page--;render();document.querySelector('main')?.scrollIntoView({block:'start'})}});on('#next-page','click',()=>{page++;render();document.querySelector('main')?.scrollIntoView({block:'start'})}});
  on('#theme-toggle','click',()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark'));
  on('#launcher-settings','click',openSettings);on('#settings-close','click',()=>$('#settings-dialog')?.close());on('#settings-target','change',loadSettingsForm);
  ['setting-skill','setting-humanize','setting-crt'].forEach(id=>on('#'+id,'input',updateSettingLabels));
