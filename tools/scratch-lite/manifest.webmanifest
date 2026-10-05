@@ -1,0 +1,10 @@
+{
+  "name":"Scratch Lite Launcher",
+  "short_name":"Scratch Lite",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#0c1016",
+  "theme_color":"#10141c",
+  "description":"TurboWarp Scaffolding を使った再生専用の軽量Scratchランチャー"
+}
