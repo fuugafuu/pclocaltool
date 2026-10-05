@@ -373,8 +373,9 @@ function serviceGame(p,api){
 }
 
 const engines={fixedShooter,scrollShooter,arena,platform,racer,maze,tank,sports,adventure,strategy,stealth,rhythm,physics,management,fighter,puzzle,raycast,runGun,beatEmUp,fixedPlatform,galleryShooter,railShooter,trackField,serviceGame};
-K.make=(p)=>{const fn=engines[p.kind]||arena;return (host,api)=>fn(p,api)};
-K.registerMany=(profiles)=>{for(const p of profiles)R.register(commonMeta(p),K.make(p))};
+K.resolve=(p)=>{const q=window.RetroQuality?.[p.id]||{};return {...p,...q,cfg:{...(p.cfg||{}),...(q.cfg||{})}}};
+K.make=(p)=>{const spec=K.resolve(p);const fn=engines[spec.kind]||arena;return (host,api)=>fn(spec,api)};
+K.registerMany=(profiles)=>{for(const p of profiles){const spec=K.resolve(p);R.register(commonMeta(spec),K.make(spec))}};
 K.engines=engines;
 window.RetroGameKit=K;
 })();
