@@ -10,7 +10,7 @@ const press=(e,k,interval=.1)=>{if(e.autoTap&&['Space','KeyX','KeyZ'].includes(k
 
 E.basketball=function(p,api){
  let pl,ai,ball,owner,scoreA,scoreB,time,shotCd,over;
- function reset(){pl={x:150,y:240};ai={x:470,y:240};ball={x:320,y:240,vx:0,vy:0};owner=null;scoreA=scoreB=0;time=60;shotCd=0;over=false;api.setStatus('相手ゴールへシュート')}reset();
+ function reset(){pl={x:150,y:240};ai={x:470,y:240};ball={x:pl.x+9,y:pl.y,vx:0,vy:0};owner=pl;scoreA=scoreB=0;time=60;shotCd=0;over=false;api.setStatus('相手ゴールへシュート')}reset();
  function shoot(who){if(owner!==who||shotCd>0)return;shotCd=.5;owner=null;const target=who===pl?{x:585,y:185}:{x:55,y:185},n=norm(target.x-who.x,target.y-who.y);ball={x:who.x,y:who.y-8,vx:n.x*360,vy:n.y*360-110}}
  return api.canvas({
   reset,
@@ -213,13 +213,13 @@ E.park=function(p,api){
 
 E.vehicleCombat=function(p,api){
  let pl,en,shots,cool,hp,over,spawn;
- function reset(){pl={x:320,y:360,a:-Math.PI/2,v:0};en=[];shots=[];cool=0;hp=100;over=false;spawn=.3;api.setStatus('敵車両を破壊')}reset();
+ function reset(){pl={x:320,y:360,a:-Math.PI/2,v:0};en=[{x:320,y:120,hp:2,a:Math.PI/2},{x:500,y:210,hp:2,a:Math.PI}];shots=[];cool=0;hp=100;over=false;spawn=2;api.setStatus('敵車両を破壊')}reset();
  function fire(){if(cool>0)return;cool=.22;shots.push({x:pl.x,y:pl.y,vx:Math.cos(pl.a)*360,vy:Math.sin(pl.a)*360,t:1.6});api.beep(180,.03)}
  return api.canvas({
   reset,
   auto(e,dt,cfg){const t=en[0];if(t){const ta=Math.atan2(t.y-pl.y,t.x-pl.x),d=Math.atan2(Math.sin(ta-pl.a),Math.cos(ta-pl.a));if(d>.08)press(e,'ArrowRight');if(d<-.08)press(e,'ArrowLeft');if(Math.abs(d)<.28)press(e,'Space',.12)}press(e,'ArrowUp')},
   keyDown(e,k){if(k==='Space')fire()},
-  update(e,dt){if(over)return;cool=Math.max(0,cool-dt);if(e.keys.has('ArrowLeft'))pl.a-=2.3*dt;if(e.keys.has('ArrowRight'))pl.a+=2.3*dt;if(e.keys.has('ArrowUp'))pl.v+=130*dt;if(e.keys.has('ArrowDown'))pl.v-=150*dt;pl.v=R.clamp(pl.v,-60,180);pl.v*=Math.pow(.985,dt*60);pl.x+=Math.cos(pl.a)*pl.v*dt;pl.y+=Math.sin(pl.a)*pl.v*dt;pl.x=R.clamp(pl.x,20,620);pl.y=R.clamp(pl.y,45,455);spawn-=dt;if(spawn<=0){en.push({x:R.rand(50,590),y:R.rand(60,300),hp:3,a:R.rand(0,6.28)});spawn=R.rand(1.2,2)}
+  update(e,dt){if(over)return;cool=Math.max(0,cool-dt);if(e.keys.has('ArrowLeft'))pl.a-=2.3*dt;if(e.keys.has('ArrowRight'))pl.a+=2.3*dt;if(e.keys.has('ArrowUp'))pl.v+=130*dt;if(e.keys.has('ArrowDown'))pl.v-=150*dt;pl.v=R.clamp(pl.v,-60,180);pl.v*=Math.pow(.985,dt*60);pl.x+=Math.cos(pl.a)*pl.v*dt;pl.y+=Math.sin(pl.a)*pl.v*dt;pl.x=R.clamp(pl.x,20,620);pl.y=R.clamp(pl.y,45,455);spawn-=dt;if(spawn<=0){en.push({x:R.rand(50,590),y:R.rand(60,300),hp:2,a:R.rand(0,6.28)});spawn=R.rand(1.2,2)}
    for(const q of en){const n=norm(pl.x-q.x,pl.y-q.y);q.x+=n.x*55*dt;q.y+=n.y*55*dt;if(Math.hypot(q.x-pl.x,q.y-pl.y)<24){hp-=15;q.dead=true;if(hp<=0){over=true;api.finish('車両大破')}}}
    for(const b of shots){b.x+=b.vx*dt;b.y+=b.vy*dt;b.t-=dt;for(const q of en)if(!q.dead&&Math.hypot(q.x-b.x,q.y-b.y)<18){q.hp--;b.t=0;if(q.hp<=0){q.dead=true;api.addScore(100)}}}en=en.filter(q=>!q.dead);shots=shots.filter(b=>b.t>0&&b.x>0&&b.x<640&&b.y>0&&b.y<480)
   },
@@ -266,6 +266,43 @@ E.digger=function(p,api){
   keyDown(e,k){if(k==='Space')pump()},
   update(e,dt){if(over)return;moveT+=dt;if(moveT>=.11){moveT=0;for(const[k,dx,dy]of dirs)if(e.keys.has(k)){pl.x=R.clamp(pl.x+dx,1,W-2);pl.y=R.clamp(pl.y+dy,1,H-2);dug[pl.y][pl.x]=true;break}}for(const q of en){if(q.dead)continue;if(Math.random()<dt*2){const opts=dirs.filter(d=>dug[q.y+d[2]]?.[q.x+d[1]]);if(opts.length){const d=opts[Math.floor(R.rand(0,opts.length))];q.x+=d[1];q.y+=d[2]}}if(q.x===pl.x&&q.y===pl.y){lives--;pl={x:1,y:1};if(lives<=0){over=true;api.finish('ゲームオーバー')}}}en=en.filter(q=>!q.dead);if(!en.length){over=true;api.addScore(1000);api.setStatus('地下を制圧')}},
   draw(e){const g=e.ctx;rect(g,0,0,640,480,'#5b3d28');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(dug[y][x])rect(g,OX+x*S,OY+y*S,S-1,S-1,'#17110e');for(const q of en)rect(g,OX+q.x*S+6,OY+q.y*S+6,S-12,S-12,p.enemy||'#f66');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,p.player||'#7df');txt(g,'残機 '+lives,15,25,12,'#fff')}
+ })
+};
+
+
+E.marioBros=function(p,api){
+ const plats=[{x:45,y:400,w:550},{x:95,y:310,w:185},{x:365,y:310,w:180},{x:180,y:220,w:280},{x:75,y:130,w:170},{x:395,y:130,w:165}];
+ let pl,en,lives,wave,over,vy,cool;
+ function reset(){pl={x:320,y:382,on:true};lives=3;wave=1;over=false;vy=0;cool=0;spawnWave();api.setStatus('下から突き上げて敵をひっくり返せ')} 
+ function spawnWave(){en=Array.from({length:4+Math.min(4,wave)},(_,i)=>({x:90+(i*93)%470,y:plats[1+i%(plats.length-1)].y-17,dir:i%2?1:-1,stun:0}))}
+ function floorY(x,y){let best=420;for(const q of plats)if(x>=q.x&&x<=q.x+q.w&&q.y>=y-4)best=Math.min(best,q.y);return best}
+ function bump(){for(const q of en){const above=q.y<pl.y&&pl.y-q.y<82&&Math.abs(q.x-pl.x)<35;if(above){q.stun=2.3;api.addScore(60);api.beep(330,.03)}}}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const target=[...en].sort((a,b)=>Math.abs(a.x-pl.x)+Math.abs(a.y-pl.y)-Math.abs(b.x-pl.x)-Math.abs(b.y-pl.y))[0];if(!target)return;if(Math.abs(target.x-pl.x)>10)press(e,target.x>pl.x?'ArrowRight':'ArrowLeft');if(target.y<pl.y-20)e.autoTap?.('ArrowUp',.18);if(target.stun>0&&Math.abs(target.x-pl.x)<38)press(e,'Space',.12)},
+  keyDown(e,k){if(k==='ArrowUp'&&pl.on){vy=-355;pl.on=false;bump()}if(k==='Space'){for(const q of en)if(q.stun>0&&Math.abs(q.x-pl.x)<38&&Math.abs(q.y-pl.y)<38){q.dead=true;api.addScore(140)}}},
+  update(e,dt){if(over)return;const sp=185;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;pl.x=R.clamp(pl.x,35,605);vy+=700*dt;pl.y+=vy*dt;const fy=floorY(pl.x,pl.y);if(pl.y>=fy-18&&vy>=0){pl.y=fy-18;vy=0;pl.on=true}
+   for(const q of en){q.stun=Math.max(0,q.stun-dt);if(q.stun<=0)q.x+=q.dir*(65+wave*4)*dt;if(q.x<50||q.x>590)q.dir*=-1;if(q.stun<=0&&Math.hypot(q.x-pl.x,q.y-pl.y)<20){lives--;pl={x:320,y:382,on:true};vy=0;if(lives<=0){over=true;api.finish('ゲームオーバー')}}}
+   en=en.filter(q=>!q.dead);if(!en.length){wave++;api.addScore(300);spawnWave();api.setStatus('ウェーブ '+wave)}
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#10182b');for(const q of plats)rect(g,q.x,q.y,q.w,8,'#d75a6e');for(const q of en){rect(g,q.x-10,q.y-16,20,16,q.stun>0?'#ffd45c':'#67d67c');if(q.stun>0)txt(g,'!',q.x,q.y-24,12,'#fff','center')}rect(g,pl.x-10,pl.y-20,20,20,'#7dc9ff');txt(g,'残機 '+lives,12,25,12,'#fff');txt(g,'ウェーブ '+wave,628,25,12,'#fff','right')}
+ })
+};
+
+E.wonderBoy=function(p,api){
+ const world=2800;let pl,cam,en,foods,vitality,lives,over,vy;
+ function reset(){pl={x:60,y:380,vx:0,on:true};cam=0;vitality=100;lives=3;over=false;vy=0;en=Array.from({length:13},(_,i)=>({x:300+i*175,y:390}));foods=Array.from({length:18},(_,i)=>({x:180+i*140,y:310-R.rand(0,80),taken:false}));api.setStatus('食べ物で体力を保ちながらゴールへ')}reset();
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){press(e,'ArrowRight');const foe=en.find(q=>q.x>pl.x&&q.x-pl.x<90),food=foods.find(q=>!q.taken&&q.x>pl.x&&q.x-pl.x<100);if(foe||Math.sin(pl.x*.021)>.91)e.autoTap?.('ArrowUp',.18);if(food&&food.y<pl.y-35)e.autoTap?.('ArrowUp',.18)},
+  keyDown(e,k){if(k==='ArrowUp'&&pl.on){vy=-345;pl.on=false}},
+  update(e,dt){if(over)return;vitality-=dt*2.2;if(e.keys.has('ArrowRight'))pl.vx+=420*dt;if(e.keys.has('ArrowLeft'))pl.vx-=350*dt;pl.vx*=Math.pow(.91,dt*60);vy+=760*dt;pl.x+=pl.vx*dt;pl.y+=vy*dt;const gy=390+Math.sin(pl.x*.009)*8;if(pl.y>=gy){pl.y=gy;vy=0;pl.on=true}pl.x=R.clamp(pl.x,0,world);
+   for(const q of en)if(Math.abs(q.x-pl.x)<20&&Math.abs(q.y-pl.y)<28){vitality-=28;q.x+=90}
+   for(const f of foods)if(!f.taken&&Math.hypot(f.x-pl.x,f.y-pl.y)<28){f.taken=true;vitality=Math.min(100,vitality+24);api.addScore(50)}
+   if(vitality<=0){lives--;vitality=100;pl.x=Math.max(0,pl.x-180);if(lives<=0){over=true;api.finish('力尽きた')}}
+   if(pl.x>=world-70){over=true;api.addScore(1000);api.setStatus('ゴール！')}api.setScore(Math.max(api.getScore(),Math.floor(pl.x/8)));cam=R.clamp(pl.x-180,0,world-640)
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#79b8de');rect(g,0,400,640,80,'#63a552');for(const f of foods)if(!f.taken&&f.x-cam>-20&&f.x-cam<660){g.fillStyle='#ffd35a';g.beginPath();g.arc(f.x-cam,f.y,8,0,6.28);g.fill()}for(const q of en)if(q.x-cam>-30&&q.x-cam<670)rect(g,q.x-cam-10,q.y-20,20,20,'#e86b54');rect(g,pl.x-cam-10,pl.y-24,20,24,'#fff');rect(g,15,16,200,10,'#492');rect(g,15,16,200*vitality/100,10,vitality>35?'#f1d35f':'#f56');txt(g,'残機 '+lives,625,25,12,'#fff','right')}
  })
 };
 
