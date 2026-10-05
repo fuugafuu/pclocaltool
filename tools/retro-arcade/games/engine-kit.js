@@ -264,7 +264,115 @@ function raycast(p,api){
  })
 }
 
-const engines={fixedShooter,scrollShooter,arena,platform,racer,maze,tank,sports,adventure,strategy,stealth,rhythm,physics,management,fighter,puzzle,raycast};
+
+function runGun(p,api){
+ const c=p.cfg||{};let pl,cam,en,shots,enemyShots,spawn,cool,lives,over,combo;
+ const world=c.levelW||3000;
+ function reset(){pl={x:70,y:360,vx:0,vy:0,on:true};cam=0;en=[];shots=[];enemyShots=[];spawn=.4;cool=0;lives=3;over=false;combo=0;api.setStatus(c.objective||'前進しながら敵を倒せ')}reset();
+ function shoot(){if(cool>0)return;cool=c.fireDelay||.16;shots.push({x:pl.x+14,y:pl.y-20,vx:430});api.beep(600,.02)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=en.filter(q=>q.x>pl.x-40).sort((a,b)=>a.x-b.x)[0];press(e,'ArrowRight');if(t&&t.x-pl.x<360)press(e,'Space',.09);if((t&&t.x-pl.x<80)||Math.sin(pl.x*.025)>.88){e.autoTap?.('ArrowUp',.22)}},
+  keyDown(e,k){if(k==='ArrowUp'&&pl.on){pl.vy=-(c.jump||350);pl.on=false}if(k==='Space')shoot()},
+  update(e,dt){if(over)return;cool=Math.max(0,cool-dt);const accel=420;if(e.keys.has('ArrowLeft'))pl.vx-=accel*dt;if(e.keys.has('ArrowRight'))pl.vx+=accel*dt;pl.vx*=Math.pow(.90,dt*60);pl.vy+=(c.gravity||780)*dt;pl.x+=pl.vx*dt;pl.y+=pl.vy*dt;const ground=390+Math.sin(pl.x*.008)*10;if(pl.y>=ground){pl.y=ground;pl.vy=0;pl.on=true}pl.x=R.clamp(pl.x,0,world);
+   spawn-=dt;if(spawn<=0&&pl.x<world-400){en.push({x:pl.x+R.rand(360,620),y:390,hp:c.tough?2:1,cool:R.rand(.4,1.2)});spawn=R.rand(.55,1.1)}
+   for(const q of en){q.cool-=dt;if(q.x-pl.x<420&&q.cool<=0){enemyShots.push({x:q.x-8,y:q.y-22,vx:-230});q.cool=R.rand(.7,1.4)}}
+   for(const b of shots)b.x+=b.vx*dt;for(const b of enemyShots)b.x+=b.vx*dt;
+   for(const b of shots)for(const q of en)if(!b.dead&&!q.dead&&Math.abs(b.x-q.x)<18&&Math.abs(b.y-(q.y-18))<22){b.dead=true;q.hp--;if(q.hp<=0){q.dead=true;combo++;api.addScore(50+combo*5)}}
+   for(const b of enemyShots)if(!b.dead&&Math.abs(b.x-pl.x)<16&&Math.abs(b.y-(pl.y-18))<24){b.dead=true;lives--;combo=0;if(lives<=0){over=true;api.finish('ゲームオーバー')}}
+   shots=shots.filter(b=>!b.dead&&b.x<pl.x+700);enemyShots=enemyShots.filter(b=>!b.dead&&b.x>pl.x-500);en=en.filter(q=>!q.dead&&q.x>pl.x-200);
+   if(pl.x>=world-80){over=true;api.addScore(1000);api.setStatus('ステージクリア')}cam=R.clamp(pl.x-170,0,world-640)
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#17253b');for(let x=Math.floor(cam/80)*80;x<cam+720;x+=80){rect(g,x-cam,402,78,78,(Math.floor(x/80)%2)?'#31432c':'#394b31')}for(const q of en)if(q.x-cam>-30&&q.x-cam<670){rect(g,q.x-cam-10,q.y-38,20,38,p.enemy||'#e85f55')}rect(g,pl.x-cam-10,pl.y-40,20,40,p.player||'#72d9ff');for(const b of shots)rect(g,b.x-cam,b.y,8,3,'#fff');for(const b of enemyShots)rect(g,b.x-cam,b.y,7,3,'#ff6b70');txt(g,'残機 '+lives,10,24,12,'#fff');txt(g,'コンボ '+combo,630,24,12,'#fff','right')}
+ })
+}
+
+function beatEmUp(p,api){
+ const c=p.cfg||{};let pl,en,spawn,lives,over,combo,attackCd,stageX;
+ function reset(){pl={x:120,y:315,hp:100};en=[];spawn=.3;lives=3;over=false;combo=0;attackCd=0;stageX=0;api.setStatus(c.objective||'敵を倒して進め')}reset();
+ function attack(strong=false){if(attackCd>0)return;attackCd=strong?.42:.24;let hitAny=false;for(const q of en)if(!q.dead&&Math.abs(q.x-pl.x)<(strong?72:55)&&Math.abs(q.y-pl.y)<38){q.hp-=strong?2:1;q.x+=Math.sign(q.x-pl.x)*(strong?28:16);hitAny=true;if(q.hp<=0){q.dead=true;combo++;api.addScore(80+combo*8)}}if(!hitAny)combo=0;api.beep(strong?150:240,.025)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=[...en].filter(q=>!q.dead).sort((a,b)=>Math.hypot(a.x-pl.x,a.y-pl.y)-Math.hypot(b.x-pl.x,b.y-pl.y))[0];if(!t){press(e,'ArrowRight');return}const dx=t.x-pl.x,dy=t.y-pl.y;if(Math.abs(dx)>42)press(e,dx>0?'ArrowRight':'ArrowLeft');if(Math.abs(dy)>18)press(e,dy>0?'ArrowDown':'ArrowUp');if(Math.abs(dx)<60&&Math.abs(dy)<30)press(e,Math.random()<.25?'KeyX':'Space',.11)},
+  keyDown(e,k){if(k==='Space')attack(false);if(k==='KeyX')attack(true)},
+  update(e,dt){if(over)return;attackCd=Math.max(0,attackCd-dt);const sp=c.speed||180;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;if(e.keys.has('ArrowUp'))pl.y-=sp*.7*dt;if(e.keys.has('ArrowDown'))pl.y+=sp*.7*dt;pl.x=R.clamp(pl.x,25,615);pl.y=R.clamp(pl.y,235,385);
+   spawn-=dt;if(spawn<=0&&stageX<6){en.push({x:R.rand(390,610),y:R.rand(245,375),hp:c.tough?4:3,cool:R.rand(.2,.8)});stageX++;spawn=R.rand(.7,1.3)}
+   for(const q of en){q.cool-=dt;const d=Math.hypot(q.x-pl.x,q.y-pl.y);if(d>45){const n=norm(pl.x-q.x,pl.y-q.y);q.x+=n.x*(c.enemySpeed||75)*dt;q.y+=n.y*(c.enemySpeed||75)*dt}else if(q.cool<=0){pl.hp-=c.enemyDamage||8;q.cool=R.rand(.7,1.2);combo=0;if(pl.hp<=0){lives--;pl.hp=100;if(lives<=0){over=true;api.finish('ゲームオーバー')}}}}
+   en=en.filter(q=>!q.dead);if(stageX>=6&&!en.length){stageX=0;api.addScore(500);api.setStatus('次の区画')}
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#202736');rect(g,0,220,640,200,p.ground||'#4a403d');for(let x=0;x<640;x+=80)line(g,x,220,x+35,420,'#ffffff0d');for(const q of en)rect(g,q.x-12,q.y-34,24,34,p.enemy||'#e66');rect(g,pl.x-12,pl.y-38,24,38,p.player||'#7df');rect(g,20,18,220,12,'#411');rect(g,20,18,220*pl.hp/100,12,'#5e8');txt(g,'残機 '+lives,10,455,12,'#fff');txt(g,'コンボ '+combo,630,455,12,'#fff','right')}
+ })
+}
+
+function fixedPlatform(p,api){
+ const c=p.cfg||{};let pl,en,items,lives,over,vy,moveCd;
+ const plats=[{x:40,y:410,w:560},{x:70,y:320,w:190},{x:365,y:320,w:205},{x:155,y:230,w:330},{x:75,y:140,w:180},{x:390,y:140,w:175}];
+ function reset(){pl={x:100,y:390,on:true};en=Array.from({length:c.enemies||6},(_,i)=>({x:R.rand(70,570),y:plats[1+i%(plats.length-1)].y-18,dir:Math.random()<.5?-1:1}));items=Array.from({length:c.items||8},(_,i)=>({x:R.rand(80,560),y:plats[i%plats.length].y-28,taken:false}));lives=3;over=false;vy=0;moveCd=0;api.setStatus(c.objective||'画面内の目標を集めろ')}reset();
+ function floorY(x,y){let best=430;for(const q of plats)if(x>=q.x&&x<=q.x+q.w&&q.y>=y-6)best=Math.min(best,q.y);return best}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const target=items.filter(i=>!i.taken).sort((a,b)=>Math.abs(a.x-pl.x)+Math.abs(a.y-pl.y)-Math.abs(b.x-pl.x)-Math.abs(b.y-pl.y))[0];if(!target)return;if(Math.abs(target.x-pl.x)>15)press(e,target.x>pl.x?'ArrowRight':'ArrowLeft');if(target.y<pl.y-35)e.autoTap?.('ArrowUp',.18)},
+  keyDown(e,k){if(k==='ArrowUp'&&pl.on){vy=-(c.jump||330);pl.on=false}},
+  update(e,dt){if(over)return;const sp=190;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;pl.x=R.clamp(pl.x,30,610);vy+=680*dt;pl.y+=vy*dt;const fy=floorY(pl.x,pl.y);if(pl.y>=fy-18&&vy>=0){pl.y=fy-18;vy=0;pl.on=true}for(const q of en){q.x+=q.dir*(c.enemySpeed||70)*dt;if(q.x<45||q.x>595)q.dir*=-1;if(Math.hypot(q.x-pl.x,q.y-pl.y)<22){lives--;pl.x=100;pl.y=390;vy=0;if(lives<=0){over=true;api.finish('ゲームオーバー')}}}for(const it of items)if(!it.taken&&Math.hypot(it.x-pl.x,it.y-pl.y)<24){it.taken=true;api.addScore(100)}if(items.every(i=>i.taken)){over=true;api.addScore(700);api.setStatus('クリア！')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#11172a');for(const q of plats)rect(g,q.x,q.y,q.w,8,p.platform||'#d55d75');for(const it of items)if(!it.taken)txt(g,'◆',it.x,it.y,16,'#ffd65f','center');for(const q of en)rect(g,q.x-9,q.y-18,18,18,p.enemy||'#f66');rect(g,pl.x-9,pl.y-20,18,20,p.player||'#7df');txt(g,'残機 '+lives,10,465,12,'#fff')}
+ })
+}
+
+function galleryShooter(p,api){
+ const c=p.cfg||{};let aim,targets,spawn,time,shots,hits,over,cool;
+ function reset(){aim={x:320,y:240};targets=[];spawn=.1;time=c.time||60;shots=c.shots||40;hits=0;over=false;cool=0;api.setStatus(c.objective||'標的を狙え')}reset();
+ function fire(){if(over||cool>0||shots<=0)return;cool=.12;shots--;let best=null;for(const t of targets){const d=Math.hypot(t.x-aim.x,t.y-aim.y);if(!best||d<best.d)best={t,d}}if(best&&best.d<best.t.r+12){best.t.dead=true;hits++;api.addScore(50+Math.max(0,30-Math.floor(best.d)));api.beep(560,.025)}else api.beep(130,.03)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=targets[0];if(!t)return;aim.x+=((t.x+human(cfg,18))-aim.x)*Math.min(1,dt*(5+cfg.skill*10));aim.y+=((t.y+human(cfg,18))-aim.y)*Math.min(1,dt*(5+cfg.skill*10));if(Math.hypot(t.x-aim.x,t.y-aim.y)<20+cfg.skill*18)press(e,'Space',.12)},
+  keyDown(e,k){if(k==='Space')fire()},
+  pointerMove(e,pnt){aim.x=pnt.x;aim.y=pnt.y},pointerDown(e,pnt){aim.x=pnt.x;aim.y=pnt.y;fire()},
+  update(e,dt){if(over)return;time-=dt;cool=Math.max(0,cool-dt);spawn-=dt;if(spawn<=0){targets.push({x:R.rand(60,580),y:R.rand(65,360),vx:R.rand(-55,55),vy:R.rand(-20,20),r:R.rand(12,20),life:R.rand(2.2,4)});spawn=R.rand(.35,.8)}for(const t of targets){t.x+=t.vx*dt;t.y+=t.vy*dt;t.life-=dt;if(t.x<30||t.x>610)t.vx*=-1;if(t.y<40||t.y>390)t.vy*=-1}targets=targets.filter(t=>!t.dead&&t.life>0);if(time<=0||shots<=0){over=true;api.setStatus('終了 命中 '+hits)}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#081018');for(const t of targets){g.strokeStyle=p.target||'#ffda64';g.lineWidth=3;g.beginPath();g.arc(t.x,t.y,t.r,0,6.28);g.stroke();g.beginPath();g.arc(t.x,t.y,t.r*.45,0,6.28);g.stroke()}line(g,aim.x-12,aim.y,aim.x+12,aim.y,'#fff');line(g,aim.x,aim.y-12,aim.x,aim.y+12,'#fff');txt(g,'残弾 '+shots,10,25,12,'#fff');txt(g,'命中 '+hits,630,25,12,'#fff','right');txt(g,Math.max(0,Math.ceil(time))+'秒',320,25,12,'#fff','center')}
+ })
+}
+
+function railShooter(p,api){
+ const c=p.cfg||{};let pl,en,shots,spawn,lives,dist,over,cool;
+ function reset(){pl={x:320,y:300};en=[];shots=[];spawn=.2;lives=3;dist=0;over=false;cool=0;api.setStatus(c.objective||'前方の敵を撃破')}reset();
+ function fire(){if(cool>0)return;cool=.14;shots.push({x:pl.x,y:pl.y,t:1});api.beep(620,.02)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const danger=en.filter(q=>q.z<.45).sort((a,b)=>a.z-b.z)[0];if(danger){if(pl.x<danger.x)press(e,'ArrowLeft');else press(e,'ArrowRight')}const t=en[0];if(t){if(Math.abs(pl.x-t.x)>10)press(e,pl.x<t.x?'ArrowRight':'ArrowLeft');if(Math.abs(pl.y-t.y)>10)press(e,pl.y<t.y?'ArrowDown':'ArrowUp');press(e,'Space',.1)}},
+  keyDown(e,k){if(k==='Space')fire()},
+  update(e,dt){if(over)return;const sp=230;if(e.keys.has('ArrowLeft'))pl.x-=sp*dt;if(e.keys.has('ArrowRight'))pl.x+=sp*dt;if(e.keys.has('ArrowUp'))pl.y-=sp*dt;if(e.keys.has('ArrowDown'))pl.y+=sp*dt;pl.x=R.clamp(pl.x,80,560);pl.y=R.clamp(pl.y,80,390);cool=Math.max(0,cool-dt);dist+=dt*120;spawn-=dt;if(spawn<=0){en.push({x:R.rand(100,540),y:R.rand(90,340),z:1,hp:c.tough?2:1});spawn=R.rand(.3,.65)}for(const q of en)q.z-=dt*(c.enemySpeed||.28);for(const b of shots){b.t-=dt;let best=en.filter(q=>q.z>.1).sort((a,b)=>Math.hypot(a.x-pl.x,a.y-pl.y)-Math.hypot(b.x-pl.x,b.y-pl.y))[0];if(best&&Math.hypot(best.x-pl.x,best.y-pl.y)<80){best.hp--;b.t=0;if(best.hp<=0){best.dead=true;api.addScore(60)}}}for(const q of en)if(q.z<=.05&&!q.dead){q.dead=true;lives--;if(lives<=0){over=true;api.finish('撃墜')}}en=en.filter(q=>!q.dead);shots=shots.filter(b=>b.t>0)},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#030716');for(let i=0;i<70;i++){const z=((i*37+dist)%500)/500,sz=1+z*3,x=320+(Math.sin(i*8.17)*290)*(1-z*.25),y=240+(Math.cos(i*3.31)*210)*(1-z*.25);rect(g,x,y,sz,sz,'#ffffff99')}for(const q of en){const size=12+(1-q.z)*55;rect(g,q.x-size/2,q.y-size/2,size,size,p.enemy||'#f66')}rect(g,pl.x-13,pl.y-8,26,16,p.player||'#7df');line(g,pl.x-15,pl.y,pl.x+15,pl.y,'#fff6');line(g,pl.x,pl.y-15,pl.x,pl.y+15,'#fff6');txt(g,'残機 '+lives,10,25,12,'#fff')}
+ })
+}
+
+function trackField(p,api){
+ const c=p.cfg||{};let speed,dist,time,event,over,lastTap,stamina;
+ function reset(){speed=0;dist=0;time=c.time||35;event=0;over=false;lastTap='';stamina=100;api.setStatus(c.objective||'記録を伸ばせ')}reset();
+ function stride(k){if(over||k===lastTap)return;lastTap=k;speed=Math.min(100,speed+8);stamina=Math.max(0,stamina-1.8);api.addScore(Math.max(1,Math.floor(speed*.2)))}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const k=Math.floor((time*14))%2?'ArrowLeft':'ArrowRight';e.autoTap?.(k,.045);if(dist>220&&dist<245)e.autoTap?.('Space',.18)},
+  keyDown(e,k){if(k==='ArrowLeft'||k==='ArrowRight')stride(k);if(k==='Space'&&dist>200){speed=Math.min(100,speed+18);api.addScore(100)}},
+  keyUp(e,k){if(k===lastTap)lastTap=''},
+  update(e,dt){if(over)return;time-=dt;speed=Math.max(0,speed-dt*(stamina>0?13:25));stamina=Math.min(100,stamina+dt*4);dist+=speed*dt;if(time<=0){over=true;api.setStatus('記録 '+Math.floor(dist)+'m')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#447dc0');rect(g,0,320,640,160,'#b65a46');for(let y=340;y<470;y+=32)line(g,0,y,640,y,'#fff8');const x=100+((dist*3)%470);rect(g,x-8,285,16,35,p.player||'#fff');txt(g,'速度 '+Math.floor(speed),20,40,14,'#fff');txt(g,'距離 '+Math.floor(dist)+'m',320,40,14,'#fff','center');txt(g,'残り '+Math.max(0,Math.ceil(time))+'秒',620,40,14,'#fff','right')}
+ })
+}
+
+function serviceGame(p,api){
+ const c=p.cfg||{};let rows,score,time,over,autoT;
+ function reset(){rows=Array.from({length:4},(_,i)=>({need:R.rand(10,60),served:0}));score=0;time=c.time||60;over=false;autoT=0;api.setStatus(c.objective||'要求が溜まる前に処理')}reset();
+ function serve(i){const r=rows[i];if(!r)return;r.need=Math.max(0,r.need-35);r.served++;score++;api.addScore(25+(r.need<20?10:0));api.beep(420+i*60,.02)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.12+(1-cfg.skill)*.35;let i=0;for(let k=1;k<rows.length;k++)if(rows[k].need>rows[i].need)i=k;e.autoTap?.(['ArrowUp','ArrowLeft','ArrowRight','ArrowDown'][i],.08)}},
+  keyDown(e,k){const map={ArrowUp:0,ArrowLeft:1,ArrowRight:2,ArrowDown:3};if(k in map)serve(map[k])},
+  update(e,dt){if(over)return;time-=dt;for(const r of rows)r.need+=dt*R.rand(4,9);if(rows.some(r=>r.need>=100)){over=true;api.finish('対応が間に合わなかった')}if(time<=0){over=true;api.setStatus('営業終了 '+score+'件')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,p.bg||'#39251c');const labels=['↑','←','→','↓'];for(let i=0;i<4;i++){const y=80+i*82;txt(g,'レーン '+(i+1),60,y+18,13,'#fff');rect(g,145,y,390,28,'#1b1512');rect(g,145,y,390*R.clamp(rows[i].need/100,0,1),28,rows[i].need>75?'#e65':'#e2b35f');txt(g,labels[i],560,y+21,18,'#fff','center')}txt(g,'処理 '+score,15,30,13,'#fff');txt(g,Math.max(0,Math.ceil(time))+'秒',625,30,13,'#fff','right')}
+ })
+}
+
+const engines={fixedShooter,scrollShooter,arena,platform,racer,maze,tank,sports,adventure,strategy,stealth,rhythm,physics,management,fighter,puzzle,raycast,runGun,beatEmUp,fixedPlatform,galleryShooter,railShooter,trackField,serviceGame};
 K.make=(p)=>{const fn=engines[p.kind]||arena;return (host,api)=>fn(p,api)};
 K.registerMany=(profiles)=>{for(const p of profiles)R.register(commonMeta(p),K.make(p))};
 K.engines=engines;
