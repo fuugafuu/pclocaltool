@@ -6,7 +6,7 @@ const rect=(c,x,y,w,h,col)=>{c.fillStyle=col;c.fillRect(x,y,w,h)};
 const line=(c,x1,y1,x2,y2,col='#fff',w=2)=>{c.strokeStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke()};
 const wrap=(o,w,h)=>{if(o.x<0)o.x+=w;if(o.x>w)o.x-=w;if(o.y<0)o.y+=h;if(o.y>h)o.y-=h};
 const angDiff=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
-const press=(e,k)=>e.autoKeys.add(k);
+const press=(e,k,interval=.10)=>{if(e.autoTap&&['Space','KeyX','KeyZ'].includes(k))e.autoTap(k,interval);else e.autoKeys.add(k)};
 const humanError=(cfg,scale=1)=>R.rand(-1,1)*(cfg.humanize||0)*scale*(1-(cfg.skill||.75)*.5);
 
 R.register({id:'pong',title:'PONG',year:1972,system:'ARCADE',genre:'Sports',color:'#f5f5ef',description:'白いパドルとボールだけで競う初期アーケードの象徴。',classic:'左右のパドルでボールを返す。11点先取、長いラリーほど球速が上がる。',modern:'ラリーボーナス、より滑らかな入力、オート対戦と速度変更を追加。',controls:'↑↓ または W/S',auto:'ボールの到達位置を予測してパドルを追従'},(host,api)=>{
