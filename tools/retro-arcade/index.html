@@ -37,11 +37,18 @@
   <div class="search-wrap"><span>⌕</span><input id="search" placeholder="ゲーム名・年代・ジャンルで検索"></div>
   <select id="genre-filter"><option value="">すべてのジャンル</option></select>
   <select id="era-filter"><option value="">すべての年代</option><option value="1970">1970年代</option><option value="1980">1980年代</option><option value="1990">1990年代</option></select>
+  <select id="sort-filter"><option value="year">年代順</option><option value="title">名前順</option><option value="played">よく遊ぶ順</option></select>
   <button id="favorites-only" class="secondary">☆ お気に入り</button>
+  <span id="result-count" class="result-count">0本</span>
 </section>
 
-<main>
+<main id="library-main">
   <div id="game-grid" class="game-grid"></div>
+  <nav class="pager" aria-label="ゲーム一覧ページ">
+    <button id="prev-page" class="secondary">← 前へ</button>
+    <span id="page-label">1 / 1</span>
+    <button id="next-page" class="secondary">次へ →</button>
+  </nav>
 </main>
 
 <footer>
