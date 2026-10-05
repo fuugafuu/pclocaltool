@@ -149,4 +149,124 @@ E.flightChallenge=function(p,api){
   draw(e){const g=e.ctx;rect(g,0,0,640,480,'#74a9d6');rect(g,0,420,640,60,'#527c3e');for(let i=idx;i<gates.length;i++){const q=gates[i];line(g,q.x,q.y-55,q.x,q.y+55,i===idx?'#6ff':'#fff8',4);txt(g,String(i+1),q.x+8,q.y-62,12,'#fff')}g.save();g.translate(craft.x,craft.y);g.rotate(Math.atan2(craft.vy,craft.vx));rect(g,-14,-6,28,12,p.player||'#fff');g.restore();txt(g,'ゲート '+idx+'/'+gates.length,15,25,12,'#fff');txt(g,Math.max(0,Math.ceil(time))+'秒',625,25,12,'#fff','right')}
  })
 };
+
+E.cityBuilder=function(p,api){
+ const W=12,H=8,S=42,OX=68,OY=80;let cells,money,pop,happy,demand,time,over,autoT;
+ function reset(){cells=Array.from({length:H},()=>Array(W).fill(0));money=500;pop=12;happy=65;demand={home:55,shop:35,industry:45};time=0;over=false;autoT=0;api.setStatus('住宅・商業・産業のバランスを取る')}reset();
+ function cost(t){return t===1?45:t===2?60:75}
+ function build(x,y,t){if(cells[y]?.[x]||money<cost(t))return false;cells[y][x]=t;money-=cost(t);return true}
+ function bestCell(){let b=null;for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(!cells[y][x]){let near=0;for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]])if(cells[y+dy]?.[x+dx])near++;if(!b||near>b.near)b={x,y,near}}return b}
+ function autoBuild(){const b=bestCell();if(!b)return;const t=demand.home>=demand.shop&&demand.home>=demand.industry?1:demand.shop>=demand.industry?2:3;build(b.x,b.y,t)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.3+(1-cfg.skill)*.8;autoBuild()}},
+  pointerDown(e,pnt){const x=Math.floor((pnt.x-OX)/S),y=Math.floor((pnt.y-OY)/S);if(x>=0&&x<W&&y>=0&&y<H)build(x,y,1)},
+  keyDown(e,k){if(k==='Space')autoBuild()},
+  update(e,dt){if(over)return;time+=dt;if(time>=1){time=0;const homes=cells.flat().filter(x=>x===1).length,shops=cells.flat().filter(x=>x===2).length,inds=cells.flat().filter(x=>x===3).length;pop+=homes*.45-Math.max(0,inds-shops)*.08;money+=shops*7+inds*10-homes*2;happy=R.clamp(70+shops*1.8-homes*.4-Math.max(0,inds-homes)*2,0,100);demand.home=R.clamp(70-homes*3+shops*2,5,100);demand.shop=R.clamp(30+homes*2-shops*4,5,100);demand.industry=R.clamp(35+homes*1.5-inds*3,5,100);api.setScore(Math.floor(pop*25+money+happy*3));if(pop>=120){over=true;api.addScore(1500);api.setStatus('大都市へ成長')}}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#193224');for(let y=0;y<H;y++)for(let x=0;x<W;x++){const v=cells[y][x],xx=OX+x*S,yy=OY+y*S;rect(g,xx,yy,S-3,S-3,v===1?'#6ea6ff':v===2?'#f2c45f':v===3?'#a98a72':'#28583b');if(v)txt(g,v===1?'住':v===2?'商':'産',xx+S/2,yy+27,14,v===2?'#222':'#fff','center')}txt(g,'資金 '+Math.floor(money),18,30,12,'#fff');txt(g,'人口 '+Math.floor(pop),210,30,12,'#fff');txt(g,'満足 '+Math.floor(happy)+'%',410,30,12,'#fff');txt(g,'需要 住'+Math.floor(demand.home)+' 商'+Math.floor(demand.shop)+' 産'+Math.floor(demand.industry),320,458,11,'#ddd','center')}
+ })
+};
+
+E.rts=function(p,api){
+ let base,enemyBase,units,enemies,res,time,over,autoT;
+ function reset(){base={x:80,y:240,hp:100};enemyBase={x:560,y:240,hp:100};units=[];enemies=[];res=100;time=0;over=false;autoT=0;api.setStatus('資源を集め、兵を生産して敵拠点を破壊')}reset();
+ function spawnUnit(enemy=false){if(enemy){enemies.push({x:enemyBase.x-20,y:R.rand(130,350),hp:3,cool:0});return}if(res<30)return;res-=30;units.push({x:base.x+20,y:R.rand(130,350),hp:3,cool:0})}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.35+(1-cfg.skill)*.6;if(res>=30)spawnUnit(false)}},
+  keyDown(e,k){if(k==='Space')spawnUnit(false)},
+  update(e,dt){if(over)return;time+=dt;res+=dt*8;if(Math.floor(time*2)%9===0&&Math.random()<dt*.8)spawnUnit(true);
+   for(const u of units){const t=enemies[0]||enemyBase,uN=norm(t.x-u.x,t.y-u.y);if(Math.hypot(t.x-u.x,t.y-u.y)>28){u.x+=uN.x*55*dt;u.y+=uN.y*55*dt}else{u.cool-=dt;if(u.cool<=0){t.hp-=1;u.cool=.55}}}
+   for(const u of enemies){const t=units[0]||base,n=norm(t.x-u.x,t.y-u.y);if(Math.hypot(t.x-u.x,t.y-u.y)>28){u.x+=n.x*48*dt;u.y+=n.y*48*dt}else{u.cool-=dt;if(u.cool<=0){t.hp-=1;u.cool=.65}}}
+   units=units.filter(u=>u.hp>0);enemies=enemies.filter(u=>u.hp>0);if(enemyBase.hp<=0){over=true;api.addScore(2000);api.setStatus('敵拠点を破壊')}if(base.hp<=0){over=true;api.finish('拠点陥落')}api.setScore(Math.floor((100-enemyBase.hp)*20+res))
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#243726');rect(g,45,180,70,120,p.player||'#568fe0');rect(g,525,180,70,120,p.enemy||'#c95858');txt(g,'自軍',80,170,12,'#fff','center');txt(g,'敵軍',560,170,12,'#fff','center');for(const u of units)rect(g,u.x-7,u.y-7,14,14,'#7db9ff');for(const u of enemies)rect(g,u.x-7,u.y-7,14,14,'#ff7b72');txt(g,'資源 '+Math.floor(res),15,25,12,'#fff');txt(g,'自軍 '+base.hp+' / 敵 '+enemyBase.hp,625,25,12,'#fff','right');txt(g,'スペース:兵を生産',320,455,12,'#ddd','center')}
+ })
+};
+
+E.tactics=function(p,api){
+ const W=10,H=7,S=52,OX=60,OY=75;let allies,enemies,turn,over,cursor,autoT;
+ function reset(){allies=[{x:1,y:5,hp:5},{x:2,y:5,hp:5},{x:1,y:4,hp:5}];enemies=[{x:8,y:1,hp:4},{x:7,y:1,hp:4},{x:8,y:2,hp:4}];turn=0;over=false;cursor={x:1,y:5};autoT=0;api.setStatus('交互に移動・攻撃して敵を全滅')}reset();
+ function act(unit,target){const d=Math.abs(unit.x-target.x)+Math.abs(unit.y-target.y);if(d<=1){target.hp-=2;api.addScore(60)}else{unit.x+=Math.sign(target.x-unit.x);if(unit.x===target.x)unit.y+=Math.sign(target.y-unit.y)}turn++}
+ function autoAct(){const unit=allies[turn%Math.max(1,allies.length)];if(!unit)return;const t=[...enemies].sort((a,b)=>Math.abs(a.x-unit.x)+Math.abs(a.y-unit.y)-Math.abs(b.x-unit.x)-Math.abs(b.y-unit.y))[0];if(t)act(unit,t)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.35+(1-cfg.skill)*.55;autoAct()}},
+  keyDown(e,k){if(k==='Space')autoAct()},
+  update(e,dt){if(over)return;allies=allies.filter(u=>u.hp>0);enemies=enemies.filter(u=>u.hp>0);if(turn>0&&turn%Math.max(1,allies.length)===0&&enemies.length){for(const q of enemies){const t=[...allies].sort((a,b)=>Math.abs(a.x-q.x)+Math.abs(a.y-q.y)-Math.abs(b.x-q.x)-Math.abs(b.y-q.y))[0];if(t){const d=Math.abs(t.x-q.x)+Math.abs(t.y-q.y);if(d<=1)t.hp-=1;else{q.x+=Math.sign(t.x-q.x);if(q.x===t.x)q.y+=Math.sign(t.y-q.y)}}}}if(!enemies.length){over=true;api.addScore(1200);api.setStatus('勝利')}if(!allies.length){over=true;api.finish('部隊全滅')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#1d2b35');for(let y=0;y<H;y++)for(let x=0;x<W;x++){rect(g,OX+x*S,OY+y*S,S-2,S-2,(x+y)%2?'#35495a':'#304252')}for(const u of allies){rect(g,OX+u.x*S+13,OY+u.y*S+13,24,24,'#6fb7ff');txt(g,String(u.hp),OX+u.x*S+25,OY+u.y*S+30,11,'#fff','center')}for(const u of enemies){rect(g,OX+u.x*S+13,OY+u.y*S+13,24,24,'#ef6d6d');txt(g,String(u.hp),OX+u.x*S+25,OY+u.y*S+30,11,'#fff','center')}txt(g,'スペース:自動で次手',320,460,12,'#ddd','center')}
+ })
+};
+
+E.park=function(p,api){
+ let rides,visitors,money,happy,time,over,autoT;
+ function reset(){rides=[];visitors=20;money=700;happy=65;time=0;over=false;autoT=0;api.setStatus('乗り物を増やし来園者を満足させる')}reset();
+ function buildRide(){const cost=120+rides.length*30;if(money<cost||rides.length>=10)return;money-=cost;rides.push({x:90+(rides.length%5)*105,y:120+Math.floor(rides.length/5)*145,fun:R.rand(8,16)});api.addScore(100)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.6+(1-cfg.skill);if(money>180)buildRide()}},
+  keyDown(e,k){if(k==='Space')buildRide()},pointerDown(){buildRide()},
+  update(e,dt){if(over)return;time+=dt;const fun=rides.reduce((a,b)=>a+b.fun,0);visitors+=dt*Math.max(-2,rides.length*1.2-(100-happy)*.03);visitors=R.clamp(visitors,0,300);money+=dt*(visitors*.18-rides.length*1.1);happy=R.clamp(45+Math.min(45,fun*.45)-Math.max(0,visitors-rides.length*25)*.15,0,100);api.setScore(Math.floor(visitors*10+money+happy*4));if(time>90||visitors>=180){over=true;api.addScore(1500);api.setStatus('パーク評価完了')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#477b50');for(const r of rides){rect(g,r.x,r.y,70,60,'#e7b65c');g.strokeStyle='#fff8';g.beginPath();g.arc(r.x+35,r.y+28,20,0,6.28);g.stroke()}txt(g,'資金 '+Math.floor(money),15,25,12,'#fff');txt(g,'来園者 '+Math.floor(visitors),250,25,12,'#fff');txt(g,'満足 '+Math.floor(happy)+'%',625,25,12,'#fff','right');txt(g,'スペース/クリック:乗り物を建設',320,455,12,'#fff','center')}
+ })
+};
+
+E.vehicleCombat=function(p,api){
+ let pl,en,shots,cool,hp,over,spawn;
+ function reset(){pl={x:320,y:360,a:-Math.PI/2,v:0};en=[];shots=[];cool=0;hp=100;over=false;spawn=.3;api.setStatus('敵車両を破壊')}reset();
+ function fire(){if(cool>0)return;cool=.22;shots.push({x:pl.x,y:pl.y,vx:Math.cos(pl.a)*360,vy:Math.sin(pl.a)*360,t:1.6});api.beep(180,.03)}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=en[0];if(t){const ta=Math.atan2(t.y-pl.y,t.x-pl.x),d=Math.atan2(Math.sin(ta-pl.a),Math.cos(ta-pl.a));if(d>.08)press(e,'ArrowRight');if(d<-.08)press(e,'ArrowLeft');if(Math.abs(d)<.28)press(e,'Space',.12)}press(e,'ArrowUp')},
+  keyDown(e,k){if(k==='Space')fire()},
+  update(e,dt){if(over)return;cool=Math.max(0,cool-dt);if(e.keys.has('ArrowLeft'))pl.a-=2.3*dt;if(e.keys.has('ArrowRight'))pl.a+=2.3*dt;if(e.keys.has('ArrowUp'))pl.v+=130*dt;if(e.keys.has('ArrowDown'))pl.v-=150*dt;pl.v=R.clamp(pl.v,-60,180);pl.v*=Math.pow(.985,dt*60);pl.x+=Math.cos(pl.a)*pl.v*dt;pl.y+=Math.sin(pl.a)*pl.v*dt;pl.x=R.clamp(pl.x,20,620);pl.y=R.clamp(pl.y,45,455);spawn-=dt;if(spawn<=0){en.push({x:R.rand(50,590),y:R.rand(60,300),hp:3,a:R.rand(0,6.28)});spawn=R.rand(1.2,2)}
+   for(const q of en){const n=norm(pl.x-q.x,pl.y-q.y);q.x+=n.x*55*dt;q.y+=n.y*55*dt;if(Math.hypot(q.x-pl.x,q.y-pl.y)<24){hp-=15;q.dead=true;if(hp<=0){over=true;api.finish('車両大破')}}}
+   for(const b of shots){b.x+=b.vx*dt;b.y+=b.vy*dt;b.t-=dt;for(const q of en)if(!q.dead&&Math.hypot(q.x-b.x,q.y-b.y)<18){q.hp--;b.t=0;if(q.hp<=0){q.dead=true;api.addScore(100)}}}en=en.filter(q=>!q.dead);shots=shots.filter(b=>b.t>0&&b.x>0&&b.x<640&&b.y>0&&b.y<480)
+  },
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#393b40');for(let x=0;x<640;x+=80)for(let y=0;y<480;y+=80)g.strokeRect(x,y,80,80);for(const q of en)rect(g,q.x-12,q.y-18,24,36,'#e65');g.save();g.translate(pl.x,pl.y);g.rotate(pl.a);rect(g,-12,-18,24,36,p.player||'#6cf');g.restore();for(const b of shots)rect(g,b.x-2,b.y-2,4,4,'#fff');rect(g,15,15,200,10,'#411');rect(g,15,15,200*hp/100,10,'#5e8')}
+ })
+};
+
+E.taxi=function(p,api){
+ const roads=[80,200,320,440,560];let car,passenger,dest,has,time,fares,over;
+ function newJob(){passenger={x:roads[Math.floor(R.rand(0,roads.length))],y:roads[Math.floor(R.rand(0,4))]+20};dest={x:roads[Math.floor(R.rand(0,roads.length))],y:roads[Math.floor(R.rand(0,4))]+20};if(Math.hypot(dest.x-passenger.x,dest.y-passenger.y)<100)dest.x=roads[(roads.indexOf(dest.x)+2)%roads.length]}
+ function reset(){car={x:80,y:100};has=false;time=70;fares=0;over=false;newJob();api.setStatus('客を拾い目的地へ送る')}reset();
+ function target(){return has?dest:passenger}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const t=target();if(car.x<t.x-8)press(e,'ArrowRight');if(car.x>t.x+8)press(e,'ArrowLeft');if(car.y<t.y-8)press(e,'ArrowDown');if(car.y>t.y+8)press(e,'ArrowUp')},
+  update(e,dt){if(over)return;time-=dt;const sp=230;if(e.keys.has('ArrowLeft'))car.x-=sp*dt;if(e.keys.has('ArrowRight'))car.x+=sp*dt;if(e.keys.has('ArrowUp'))car.y-=sp*dt;if(e.keys.has('ArrowDown'))car.y+=sp*dt;car.x=R.clamp(car.x,35,605);car.y=R.clamp(car.y,45,435);const t=target();if(Math.hypot(car.x-t.x,car.y-t.y)<24){if(!has){has=true;api.setStatus('目的地へ！')}else{has=false;fares++;api.addScore(250+Math.floor(time)*2);newJob();api.setStatus('次の客を探せ')}}if(time<=0){over=true;api.setStatus('営業終了 '+fares+'組')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#647a5b');for(const x of roads)rect(g,x-24,0,48,480,'#444');for(const y of [100,220,340,460])rect(g,0,y-24,640,48,'#444');const t=target();g.fillStyle=has?'#59d6a4':'#ffd65c';g.beginPath();g.arc(t.x,t.y,14,0,6.28);g.fill();rect(g,car.x-12,car.y-18,24,36,'#f2d34f');txt(g,'送迎 '+fares,15,25,12,'#fff');txt(g,has?'乗車中':'迎車中',320,25,12,'#fff','center');txt(g,Math.max(0,Math.ceil(time))+'秒',625,25,12,'#fff','right')}
+ })
+};
+
+E.qbert=function(p,api){
+ const rows=7;let pos,tiles,en,lives,over,autoT;
+ function key(r,c){return r+','+c}
+ function reset(){pos={r:0,c:0};tiles=new Set();en={r:rows-1,c:Math.floor(rows/2)};lives=3;over=false;autoT=0;api.setStatus('すべてのキューブを踏め')}reset();
+ function move(dr,dc){const nr=pos.r+dr,nc=pos.c+dc;if(nr<0||nr>=rows||nc<0||nc>nr)return;pos={r:nr,c:nc};tiles.add(key(nr,nc));api.addScore(10)}
+ const moves=[['ArrowDown',1,0],['ArrowRight',1,1],['ArrowLeft',-1,-1],['ArrowUp',-1,0]];
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){autoT-=dt;if(autoT<=0){autoT=.12+(1-cfg.skill)*.25;let best=null;for(const[k,dr,dc]of moves){const nr=pos.r+dr,nc=pos.c+dc;if(nr<0||nr>=rows||nc<0||nc>nr)continue;let score=tiles.has(key(nr,nc))?0:10;score+=Math.abs(en.r-nr)+Math.abs(en.c-nc);if(!best||score>best.s)best={k,s:score}}if(best)e.autoTap?.(best.k,.08)}},
+  keyDown(e,k){const d=moves.find(x=>x[0]===k);if(d)move(d[1],d[2])},
+  update(e,dt){if(over)return;if(Math.random()<dt*1.2){if(en.r>pos.r)en.r--;else en.r=Math.min(rows-1,en.r+1);en.c=R.clamp(en.c+Math.sign(pos.c-en.c),0,en.r)}if(en.r===pos.r&&en.c===pos.c){lives--;pos={r:0,c:0};if(lives<=0){over=true;api.finish('捕まった')}}if(tiles.size>=rows*(rows+1)/2){over=true;api.addScore(1000);api.setStatus('全キューブ完成')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#15102b');const size=44;for(let r=0;r<rows;r++)for(let c=0;c<=r;c++){const x=320+(c-r/2)*size*1.45,y=70+r*50,col=tiles.has(key(r,c))?'#f0c85b':'#5f5ba8';g.fillStyle=col;g.beginPath();g.moveTo(x,y-18);g.lineTo(x+28,y);g.lineTo(x,y+18);g.lineTo(x-28,y);g.closePath();g.fill()}const xy=(o)=>({x:320+(o.c-o.r/2)*size*1.45,y:70+o.r*50});let a=xy(pos),b=xy(en);rect(g,a.x-8,a.y-28,16,20,p.player||'#ff8e4e');rect(g,b.x-8,b.y-28,16,20,p.enemy||'#79d8ff');txt(g,'残機 '+lives,15,25,12,'#fff');txt(g,'踏破 '+tiles.size+'/'+(rows*(rows+1)/2),625,25,12,'#fff','right')}
+ })
+};
+
+E.digger=function(p,api){
+ const W=20,H=14,S=28,OX=40,OY=44;let dug,pl,en,score,lives,over,moveT;
+ function reset(){dug=Array.from({length:H},()=>Array(W).fill(false));pl={x:1,y:1};dug[1][1]=true;en=Array.from({length:5},(_,i)=>({x:W-2-i,y:H-2,hp:2}));score=0;lives=3;over=false;moveT=0;api.setStatus('地下を掘り敵を倒せ')}reset();
+ const dirs=[['ArrowRight',1,0],['ArrowLeft',-1,0],['ArrowDown',0,1],['ArrowUp',0,-1]];
+ function pump(){const q=[...en].sort((a,b)=>Math.abs(a.x-pl.x)+Math.abs(a.y-pl.y)-Math.abs(b.x-pl.x)-Math.abs(b.y-pl.y))[0];if(q&&Math.abs(q.x-pl.x)+Math.abs(q.y-pl.y)<=2){q.hp--;if(q.hp<=0){q.dead=true;api.addScore(200)}}}
+ return api.canvas({
+  reset,
+  auto(e,dt,cfg){const q=en.find(x=>!x.dead);if(q){if(Math.abs(q.x-pl.x)+Math.abs(q.y-pl.y)<=2)press(e,'Space',.13);else{const dx=Math.sign(q.x-pl.x),dy=Math.sign(q.y-pl.y);press(e,Math.abs(q.x-pl.x)>Math.abs(q.y-pl.y)?(dx>0?'ArrowRight':'ArrowLeft'):(dy>0?'ArrowDown':'ArrowUp'))}}},
+  keyDown(e,k){if(k==='Space')pump()},
+  update(e,dt){if(over)return;moveT+=dt;if(moveT>=.11){moveT=0;for(const[k,dx,dy]of dirs)if(e.keys.has(k)){pl.x=R.clamp(pl.x+dx,1,W-2);pl.y=R.clamp(pl.y+dy,1,H-2);dug[pl.y][pl.x]=true;break}}for(const q of en){if(q.dead)continue;if(Math.random()<dt*2){const opts=dirs.filter(d=>dug[q.y+d[2]]?.[q.x+d[1]]);if(opts.length){const d=opts[Math.floor(R.rand(0,opts.length))];q.x+=d[1];q.y+=d[2]}}if(q.x===pl.x&&q.y===pl.y){lives--;pl={x:1,y:1};if(lives<=0){over=true;api.finish('ゲームオーバー')}}}en=en.filter(q=>!q.dead);if(!en.length){over=true;api.addScore(1000);api.setStatus('地下を制圧')}},
+  draw(e){const g=e.ctx;rect(g,0,0,640,480,'#5b3d28');for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(dug[y][x])rect(g,OX+x*S,OY+y*S,S-1,S-1,'#17110e');for(const q of en)rect(g,OX+q.x*S+6,OY+q.y*S+6,S-12,S-12,p.enemy||'#f66');rect(g,OX+pl.x*S+6,OY+pl.y*S+6,S-12,S-12,p.player||'#7df');txt(g,'残機 '+lives,15,25,12,'#fff')}
+ })
+};
+
 })();
