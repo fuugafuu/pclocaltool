@@ -96,5 +96,12 @@ set(['commander-keen'],'runGun',{enemies:11,levelW:2600,jump:360,gravity:720,fir
 set(['kirbys-dream-land'],'platform',{enemies:9,levelW:2400,jump:350,gravity:650});
 set(['wario-land'],'platform',{enemies:10,levelW:2500,jump:330,gravity:730});
 
+
+set(['ghosts-goblins'],'runGun',{levelW:2800,fireDelay:.17,jump:330,gravity:790,lives:5});
+set(['bionic-commando','ninja-gaiden'],'runGun',{lives:5,fireDelay:.15});
+set(['prince-persia'],'platform',{beat:true,enemies:9,levelW:2600,jump:320,gravity:780});
+set(['zelda-1986','secret-mana','ocarina-time'],'dungeonRPG',{items:8,enemies:7,tough:true});
+set(['alone-dark','resident-evil'],'dungeonRPG',{items:6,enemies:5,tough:true});
+
 window.RetroQuality=Q;
 })();
