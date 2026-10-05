@@ -134,18 +134,27 @@ function updateStats(){
 }
 function toggleFavorite(id){const i=db.favorites.indexOf(id);if(i>=0)db.favorites.splice(i,1);else db.favorites.push(id);save();if(currentMeta?.id===id)$('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆'}
 function instantiate(g){
- $('#score').textContent='000000';$('#highscore').textContent=String(highScore(g.meta.id,mode)).padStart(6,'0');$('#status-info').textContent='';
- const api=apiFor(g.meta);current={...g.factory($('#game-host'),api),api};syncRuntimeUI();updateTouch(g.meta);
+ setText('#score','000000');setText('#highscore',String(highScore(g.meta.id,mode)).padStart(6,'0'));setText('#status-info','');
+ const host=$('#game-host'),api=apiFor(g.meta);if(host)host.innerHTML='';
+ try{
+   current={...g.factory(host,api),api};syncRuntimeUI();updateTouch(g.meta);setText('#status-info','準備完了');
+   return true;
+ }catch(err){
+   console.error('Game failed:',g.meta.id,err);current=null;
+   if(host)host.innerHTML='<div class="game-error"><b>このゲームの起動に失敗しました</b><span>'+String(err?.message||err)+'</span><small>他のゲームはそのまま遊べます。</small></div>';
+   setText('#status-info','ゲーム単体の起動エラー');
+   return false;
+ }
 }
 function openGame(id){
  const g=REG.find(x=>x.meta.id===id);if(!g)return;closeGame();currentMeta=g.meta;applyRuntime(id);db.played[id]=(db.played[id]||0)+1;save();
  $('#overlay')?.classList.remove('hidden');setText('#game-title',g.meta.title);setText('#game-era',`${g.meta.year} · ${jpSystem(g.meta.system||'ARCADE')} · ${jpGenre(g.meta.genre)}`);setText('#game-subtitle',g.meta.description||'');
  setText('#classic-info',g.meta.classic);setText('#modern-info',g.meta.modern);setText('#control-info',g.meta.controls+' / オート: '+(g.meta.auto||'専用AI'));
- $('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆';$$('[data-play-mode]').forEach(b=>b.classList.toggle('active',b.dataset.playMode===mode));instantiate(g);
+ const fav=$('#favorite-game');if(fav)fav.textContent=db.favorites.includes(id)?'★':'☆';$$('[data-play-mode]').forEach(b=>b.classList.toggle('active',b.dataset.playMode===mode));instantiate(g);
 }
-function closeGame(){if(current?.destroy)current.destroy();current=null;currentMeta=null;$('#overlay')?.classList.add('hidden')}
-function restart(){if(!currentMeta)return;const g=REG.find(x=>x.meta.id===currentMeta.id);current?.destroy?.();instantiate(g)}
-function updateTouch(meta){const cfg=currentMeta?cfgFor(currentMeta.id):db.settings.global,coarse=matchMedia?.('(pointer:coarse)').matches;const need=cfg.touch==='always'||(cfg.touch==='auto'&&coarse);$('#touch-controls').style.display=need?'flex':'none'}
+function closeGame(){try{current?.destroy?.()}catch(err){console.warn('destroy failed',err)}current=null;currentMeta=null;$('#overlay')?.classList.add('hidden')}
+function restart(){if(!currentMeta)return;const g=REG.find(x=>x.meta.id===currentMeta.id);try{current?.destroy?.()}catch(err){console.warn('restart cleanup failed',err)}instantiate(g)}
+function updateTouch(meta){const cfg=currentMeta?cfgFor(currentMeta.id):db.settings.global,coarse=matchMedia?.('(pointer:coarse)').matches;const need=cfg.touch==='always'||(cfg.touch==='auto'&&coarse);const touch=$('#touch-controls');if(touch)touch.style.display=need?'flex':'none'}
 function cycleSpeed(){const vals=[.5,.75,1,1.25,1.5,2,3,4],i=vals.findIndex(v=>Math.abs(v-speed)<.001);speed=vals[(i+1+vals.length)%vals.length];syncRuntimeUI();current?.runtimeChanged?.()}
 function populateSettingsTargets(){const s=$('#settings-target'),value=s.value||'global';s.innerHTML='<option value="global">全ゲーム共通</option>'+REG.map(g=>`<option value="${g.meta.id}">${g.meta.title}</option>`).join('');if(value==='global'||REG.some(g=>g.meta.id===value))s.value=value}
 function formCfg(){return{mode:$('#setting-mode').value,speed:Number($('#setting-speed').value),auto:$('#setting-auto').value==='true',sound:$('#setting-sound').value==='true',autoSkill:Number($('#setting-skill').value),humanize:Number($('#setting-humanize').value),crt:Number($('#setting-crt').value),touch:$('#setting-touch').value}}
