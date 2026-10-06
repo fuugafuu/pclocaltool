@@ -1,11 +1,11 @@
 'use strict';
 (() => {
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 const RUNTIME_VERSION='0.4.0';
 const RUNTIME_URL='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@'+RUNTIME_VERSION+'/dist/scaffolding-min.js';
 const OFFLINE_RUNTIME_URL='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@'+RUNTIME_VERSION+'/dist/scaffolding-with-music.js';
 const $=s=>document.querySelector(s);
-const state={runner:null,projectBuffer:null,projectName:'',analysis:null,device:null,profile:null,settings:null,loading:false,autoMonitor:null,rafStats:[],slowWindows:0,fastWindows:0,lastAdjust:0};
+const state={runner:null,projectBuffer:null,projectName:'',analysis:null,device:null,profile:null,settings:null,loading:false,autoMonitor:null,rafStats:[],slowWindows:0,fastWindows:0,lastAdjust:0,recents:[],currentCacheId:null};
 
 const DEFAULTS={mode:'auto',quality:'auto',fps:'auto',interpolation:'auto',hqPen:'auto',turbo:'off',warp:'auto',clones:'auto',fencing:'auto',misc:'auto',autostart:true};
 const loadSettings=()=>({...DEFAULTS,...JSON.parse(localStorage.getItem('scratchLiteSettings')||'{}')});
@@ -13,6 +13,93 @@ const saveSettings=()=>localStorage.setItem('scratchLiteSettings',JSON.stringify
 const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v};
 const show=(id,on=true)=>$(id)?.classList.toggle('hidden',!on);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+const DB_NAME='scratch-lite-project-cache',DB_VERSION=1,CACHE_MAX_ITEMS=12,CACHE_MAX_BYTES=512*1024*1024;
+let dbPromise=null;
+const reqP=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('IndexedDB error'))});
+function openProjectDB(){
+ if(!('indexedDB' in window))return Promise.reject(new Error('このブラウザはプロジェクト保存に対応していません'));
+ if(dbPromise)return dbPromise;
+ dbPromise=new Promise((resolve,reject)=>{
+  const req=indexedDB.open(DB_NAME,DB_VERSION);
+  req.onupgradeneeded=()=>{
+   const db=req.result;
+   if(!db.objectStoreNames.contains('projects'))db.createObjectStore('projects',{keyPath:'id'});
+   if(!db.objectStoreNames.contains('recent')){
+    const st=db.createObjectStore('recent',{keyPath:'id'});
+    st.createIndex('sourceKey','sourceKey',{unique:false});
+    st.createIndex('lastUsed','lastUsed',{unique:false});
+   }
+  };
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+ });
+ return dbPromise;
+}
+function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('保存が中断されました'))})}
+async function cacheList(){
+ try{const db=await openProjectDB(),tx=db.transaction('recent','readonly'),items=await reqP(tx.objectStore('recent').getAll());return items.sort((a,b)=>b.lastUsed-a.lastUsed)}catch(e){console.warn('recent list unavailable',e);return[]}
+}
+async function cacheFindBySourceKey(sourceKey){
+ if(!sourceKey)return null;
+ try{const db=await openProjectDB(),tx=db.transaction('recent','readonly'),idx=tx.objectStore('recent').index('sourceKey');return await reqP(idx.get(sourceKey))||null}catch{return null}
+}
+async function cacheGet(id){
+ const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readonly');
+ const [project,meta]=await Promise.all([reqP(tx.objectStore('projects').get(id)),reqP(tx.objectStore('recent').get(id))]);
+ return project&&meta?{...project,meta}:null;
+}
+async function cacheTouch(id){
+ try{const db=await openProjectDB(),tx=db.transaction('recent','readwrite'),st=tx.objectStore('recent'),m=await reqP(st.get(id));if(m){m.lastUsed=Date.now();st.put(m)}await txDone(tx)}catch{}
+}
+async function cacheDelete(id){
+ try{const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');tx.objectStore('projects').delete(id);tx.objectStore('recent').delete(id);await txDone(tx)}catch(e){console.warn('cache delete failed',e)}
+ await renderRecents();
+}
+async function cacheClear(){
+ try{const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');tx.objectStore('projects').clear();tx.objectStore('recent').clear();await txDone(tx)}catch(e){console.warn('cache clear failed',e)}
+ state.recents=[];renderRecents();
+}
+async function pruneCache(keepId){
+ const items=await cacheList();let total=0,kept=0;
+ for(const item of items){
+  const shouldKeep=item.id===keepId||(kept<CACHE_MAX_ITEMS&&total+(item.size||0)<=CACHE_MAX_BYTES);
+  if(shouldKeep){kept++;total+=item.size||0}else await cacheDelete(item.id);
+ }
+}
+async function cacheProject(buffer,name,analysis,info={}){
+ if(!buffer?.byteLength)return;
+ const sourceKey=info.sourceKey||('memory:'+name+':'+buffer.byteLength),id=sourceKey;
+ const now=Date.now(),meta={id,sourceKey,name:name||'Scratch Project',size:buffer.byteLength,lastUsed:now,sourceType:info.sourceType||'file',source:info.source||'',analysis};
+ try{
+  const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');
+  tx.objectStore('projects').put({id,buffer,analysis});
+  tx.objectStore('recent').put(meta);
+  await txDone(tx);
+  state.currentCacheId=id;
+  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
+  await pruneCache(id);await renderRecents();
+ }catch(e){console.warn('project cache failed',e)}
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function recentSourceLabel(x){return x.sourceType==='scratch'?'Scratch':x.sourceType==='url'?'URL':'ファイル'}
+async function renderRecents(){
+ const box=$('#recent-projects'),section=$('#recent-section');if(!box||!section)return;
+ const list=state.recents=await cacheList();show('#recent-section',list.length>0);
+ if(!list.length){box.innerHTML='<div class="recent-empty">まだ保存されたプロジェクトはありません。</div>';return}
+ box.innerHTML=list.map((x,i)=>'<article class="recent-card" data-recent="'+i+'" tabindex="0"><div class="recent-icon">S</div><div class="recent-copy"><b>'+esc(x.name)+'</b><span>'+recentSourceLabel(x)+' · '+formatBytes(x.size)+' · '+esc(x.analysis?.level||'解析済み')+'</span></div><span class="recent-open">すぐ開く →</span><button class="recent-remove" data-remove="'+i+'" title="履歴から削除">×</button></article>').join('');
+ box.querySelectorAll('[data-recent]').forEach(el=>{const open=()=>loadCached(list[Number(el.dataset.recent)]?.id).catch(fail);el.onclick=e=>{if(!e.target.closest('[data-remove]'))open()};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('[data-remove]')){e.preventDefault();open()}}});
+ box.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const item=list[Number(btn.dataset.remove)];if(item)cacheDelete(item.id)});
+}
+async function loadCached(id){
+ const cached=await cacheGet(id);if(!cached)throw new Error('保存済みプロジェクトが見つかりません');
+ await cacheTouch(id);await renderRecents();
+ setProgress('保存済みデータから開いています',35,'再取得なし');
+ await loadBuffer(cached.buffer,cached.meta.name,{analysis:cached.analysis||cached.meta.analysis,skipCache:true,cacheId:id});
+}
+function sourceKeyForInput(input){
+ const id=projectIdFrom(input);return id?'scratch:'+id:'url:'+input.trim();
+}
+
 
 function deviceProfile(){
  const cores=navigator.hardwareConcurrency||4,mem=navigator.deviceMemory||4,mobile=/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent),save=!!navigator.connection?.saveData;
@@ -153,18 +240,18 @@ async function loadURL(input){
  return fetchBuffer(url,'URLから取得しています');
 }
 
-async function loadBuffer(buffer,name){
- if(state.loading)return;state.loading=true;state.projectBuffer=buffer;state.projectName=name||'Scratch Project';show('#stage-loading',true);setText('#stage-loading-text','作品を先読み解析しています…');setProgress('作品を解析しています',45,formatBytes(buffer.byteLength));
+async function loadBuffer(buffer,name,opts={}){
+ if(state.loading)return;state.loading=true;state.projectBuffer=buffer;state.projectName=name||'Scratch Project';state.currentCacheId=opts.cacheId||null;show('#stage-loading',true);setText('#stage-loading-text',opts.analysis?'保存済み解析結果を適用しています…':'作品を先読み解析しています…');setProgress(opts.analysis?'解析済みデータを再利用':'作品を解析しています',45,formatBytes(buffer.byteLength));
  try{
-  state.analysis=await analyzeProject(buffer);state.device=deviceProfile();setProgress('端末に合わせて最適化',55,state.analysis.level);
+  state.analysis=opts.analysis||await analyzeProject(buffer);state.device=deviceProfile();setProgress('端末に合わせて最適化',55,state.analysis.level);
   const r=createRunner();applyProfile();setText('#stage-loading-text','TurboWarpコンパイラで読み込んでいます…');setProgress('プロジェクトをコンパイル・展開',68,'');
   await r.loadProject(buffer);setProgress('描画を準備',96,'');
   show('#loader',false);show('#player-panel',true);setText('#project-name',state.projectName);setText('#project-info',state.analysis.level+' · '+formatBytes(state.analysis.size)+' · コード表示なし');
-  requestAnimationFrame(()=>r.relayout?.());await sleep(60);if(state.settings.autostart)r.greenFlag();startAutoMonitor();setProgress('完了',100,'');await sleep(250);hideProgress();
+  requestAnimationFrame(()=>r.relayout?.());await sleep(60);if(state.settings.autostart)r.greenFlag();startAutoMonitor();setProgress('完了',100,opts.skipCache?'保存済みから起動':'端末に保存');if(!opts.skipCache)cacheProject(buffer,state.projectName,state.analysis,opts.cacheInfo||{}).catch(()=>{});await sleep(250);hideProgress();
  }finally{show('#stage-loading',false);state.loading=false}
 }
-async function fromFile(file){if(!file)return;const buffer=await readFile(file);await loadBuffer(buffer,file.name)}
-async function fromURL(){const input=$('#url-input').value.trim();if(!input)return;try{const b=await loadURL(input);await loadBuffer(b,projectIdFrom(input)?'Scratch #'+projectIdFrom(input):input.split('/').pop()||'URL Project')}catch(e){fail(e)}}
+async function fromFile(file){if(!file)return;const sourceKey='file:'+file.name+':'+file.size+':'+(file.lastModified||0),hit=await cacheFindBySourceKey(sourceKey);if(hit)return loadCached(hit.id);const buffer=await readFile(file);await loadBuffer(buffer,file.name,{cacheInfo:{sourceKey,sourceType:'file',source:file.name}})}
+async function fromURL(){const input=$('#url-input').value.trim();if(!input)return;try{const sourceKey=sourceKeyForInput(input),hit=await cacheFindBySourceKey(sourceKey);if(hit)return loadCached(hit.id);const id=projectIdFrom(input),b=await loadURL(input);await loadBuffer(b,id?'Scratch #'+id:input.split('/').pop()||'URL Project',{cacheInfo:{sourceKey,sourceType:id?'scratch':'url',source:input}})}catch(e){fail(e)}}
 function fail(e){console.error(e);hideProgress();show('#stage-loading',false);state.loading=false;alert('読み込みに失敗しました。\n'+String(e?.message||e))}
 
 function startAutoMonitor(){
@@ -186,7 +273,7 @@ function autoAdjust(avg){
 function stopProject(){try{state.runner?.vm?.stopAll?.()}catch{try{state.runner?.vm?.runtime?.stopAll?.()}catch{}}}
 function greenFlag(){try{state.runner?.greenFlag?.()}catch(e){fail(e)}}
 async function reloadProject(){if(!state.projectBuffer)return;stopAutoMonitor();$('#project-mount').innerHTML='';await loadBuffer(state.projectBuffer,state.projectName)}
-function newProject(){stopProject();stopAutoMonitor();try{state.runner?.root?.remove?.()}catch{}state.runner=null;$('#project-mount').innerHTML='';show('#player-panel',false);show('#loader',true);hideProgress()}
+function newProject(){stopProject();stopAutoMonitor();try{state.runner?.root?.remove?.()}catch{}state.runner=null;state.currentCacheId=null;$('#project-mount').innerHTML='';show('#player-panel',false);show('#loader',true);hideProgress();renderRecents()}
 async function fullscreen(){const el=$('#stage-viewport');try{if(document.fullscreenElement)await document.exitFullscreen();else await el.requestFullscreen();setTimeout(()=>state.runner?.relayout?.(),80)}catch{}}
 
 function syncSettingsUI(){
@@ -201,8 +288,8 @@ async function exportOffline(){
  try{
   const [runtime,css,js,baseHTML]=await Promise.all([
     fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),
-    fetch('style.css?v=1').then(r=>r.text()),
-    fetch('app.js?v=1').then(r=>r.text()),
+    fetch('style.css?v=2').then(r=>r.text()),
+    fetch('app.js?v=2').then(r=>r.text()),
     fetch('index.html').then(r=>r.text())
   ]);
   const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script');
@@ -219,12 +306,12 @@ function bind(){
  $('#flag-btn').onclick=greenFlag;$('#stop-btn').onclick=stopProject;$('#reload-btn').onclick=()=>reloadProject().catch(fail);$('#new-btn').onclick=newProject;$('#fullscreen-btn').onclick=fullscreen;
  $('#settings-btn').onclick=()=>{syncSettingsUI();updateAnalysisText();$('#settings-dialog').showModal()};$('#apply-btn').onclick=()=>{state.settings=readSettingsUI();saveSettings();$('#quick-mode').value=state.settings.mode;if(state.runner)applyProfile();$('#settings-dialog').close()};
  $('#defaults-btn').onclick=()=>{state.settings={...DEFAULTS};syncSettingsUI()};$('#quick-mode').onchange=e=>{state.settings.mode=e.target.value;saveSettings();syncSettingsUI();if(state.runner)applyProfile()};$('#autostart').onchange=e=>{state.settings.autostart=e.target.checked;saveSettings()};
- $('#offline-export').onclick=exportOffline;
+ $('#offline-export').onclick=exportOffline;const clear=$('#clear-recents');if(clear)clear.onclick=()=>{if(confirm('保存済みプロジェクトをすべて削除しますか？'))cacheClear()};
  window.addEventListener('resize',()=>state.runner?.relayout?.());document.addEventListener('visibilitychange',()=>{if(!document.hidden)state.runner?.relayout?.()});
 }
 
 async function boot(){
- state.settings=loadSettings();state.device=deviceProfile();syncSettingsUI();bind();setText('#device-state',state.device.tier+' '+state.device.cores+'C/'+state.device.mem+'GB');
+ state.settings=loadSettings();state.device=deviceProfile();syncSettingsUI();bind();setText('#device-state',state.device.tier+' '+state.device.cores+'C/'+state.device.mem+'GB');renderRecents();
  try{await loadRuntime()}catch(e){setText('#engine-state','ランタイム取得失敗');$('#engine-state')?.classList.add('error');console.error(e)}
  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=1').catch(()=>{});
 }
