@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#10141c">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Scratch Lite Launcher</title>
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <div class="app">
@@ -39,6 +39,15 @@
     <label class="check"><input id="autostart" type="checkbox" checked><span>読み込み後に自動開始</span></label>
   </div>
   <div id="load-progress" class="progress hidden"><div class="progress-track"><i id="progress-bar"></i></div><div><span id="progress-text">準備中</span><b id="progress-value"></b></div></div>
+
+  <section id="recent-section" class="recent-section hidden">
+    <div class="recent-head">
+      <div><span class="kicker">QUICK LOAD</span><h3>最近開いたプロジェクト</h3></div>
+      <button id="clear-recents" class="ghost danger">すべて削除</button>
+    </div>
+    <div id="recent-projects" class="recent-projects"></div>
+    <p class="recent-note">プロジェクト本体をこのブラウザ内に保存します。同じファイルやURLをもう一度取得せず、すぐ起動できます。</p>
+  </section>
 </section>
 
 <section id="player-panel" class="player-panel hidden">
@@ -104,7 +113,7 @@
 </form>
 </dialog>
 
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </div>
 </body>
 </html>
