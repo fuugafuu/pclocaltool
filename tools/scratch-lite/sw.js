@@ -1,6 +1,6 @@
-const CACHE='scratch-lite-v1';
+const CACHE='scratch-lite-v2';
 const RUNTIME='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@0.4.0/dist/scaffolding-min.js';
-const SHELL=['./','./index.html','./style.css?v=1','./app.js?v=1','./manifest.webmanifest'];
+const SHELL=['./','./index.html','./style.css?v=2','./app.js?v=2','./manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
     const c=await caches.open(CACHE);
