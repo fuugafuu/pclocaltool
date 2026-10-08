@@ -11,6 +11,18 @@
   {id:'scratch-lite',title:'Scratch Lite Launcher',label:'⚡ Scratch再生'}
  ];
  const current=(location.pathname.match(/\/tools\/([^/]+)\//)||[])[1]||'';
+
+ // NEXT launcher: remember visits even when navigating from another tool.
+ try{
+  if(current&&APPS.some(a=>a.id===current)){
+   const key='pclocaltool_launcher_v2',path='tools/'+current+'/index.html',old=JSON.parse(localStorage.getItem(key)||'null')||{};
+   old.pinned=Array.isArray(old.pinned)?old.pinned:[];
+   old.recent=Array.isArray(old.recent)?old.recent:[];
+   old.recent=[path,...old.recent.filter(x=>x!==path)].slice(0,24);
+   localStorage.setItem(key,JSON.stringify(old));
+  }
+ }catch{}
+
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const validKey=k=>/^pclocaltool_[A-Za-z0-9_-]{1,100}$/.test(k)||/^retro:[A-Za-z0-9_.-]{1,100}:[A-Za-z0-9_.-]{1,100}$/.test(k)||k==='scratchLiteSettings';
  const errors=[];const MAX_ERRORS=40;
