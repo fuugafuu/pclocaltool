@@ -1,0 +1,27 @@
+#pct-tool-hub{position:fixed!important;right:16px;bottom:16px;z-index:2147483600!important;font-family:system-ui,-apple-system,"Yu Gothic",Meiryo,sans-serif;font-weight:400;font-size:14px;text-align:left;color:#f0f5fd;line-height:1.45}
+#pct-tool-hub *{box-sizing:border-box}
+#pct-hub-trigger{border:1px solid #6c8eac;background:#203149;color:#fff;padding:11px 15px;display:flex;align-items:center;gap:7px;justify-content:center;border-radius:999px;min-width:80px;min-height:43px;box-shadow:0 6px 26px #0008;cursor:pointer;font-weight:700}
+#pct-hub-panel{position:absolute;right:0;bottom:52px;width:min(360px,calc(100vw - 26px));max-height:min(690px,calc(100dvh - 92px));overflow-y:auto;background:#111a26;color:#edf3fb;border:1px solid #384a61;box-shadow:0 16px 65px #000b;border-radius:14px;padding:15px}
+#pct-hub-panel[hidden]{display:none!important}
+.pct-hub-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px}
+.pct-hub-header b{display:block;font-size:17px}.pct-hub-header small{display:block;color:#91a4bc;font-size:11px}
+#pct-tool-hub button{font:inherit;cursor:pointer}
+#pct-hub-close{border:0;background:transparent;color:#eff5ff;font-size:22px;padding:4px;min-width:35px}
+#pct-hub-panel label{display:block;color:#afc1d2;font-size:12px;margin-bottom:5px}
+#pct-hub-search{width:100%;background:#1b2a39;border:1px solid #435872;border-radius:8px;padding:10px;color:#fff;margin-bottom:8px;min-height:37px;font:inherit}
+#pct-hub-links{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#pct-hub-links a{color:#f1f6fd;background:#1b2838;border:1px solid #33475e;border-radius:8px;padding:9px 8px;text-decoration:none;font-size:12px;min-height:39px;display:flex;flex-wrap:wrap;gap:2px;align-items:center}
+#pct-hub-links a[aria-current="page"]{border-color:#61d9ae;color:#b6f9d9}
+#pct-hub-links span{font-size:10px;color:#67dcb0}
+.pct-hub-section{border-top:1px solid #3a4960;margin-top:14px;padding-top:12px}
+.pct-hub-section b{font-size:13px}.pct-hub-section p,.pct-hub-muted{color:#a7b7c8;font-size:12px;line-height:1.6}
+.pct-hub-buttons{display:flex;gap:7px}
+#pct-hub-panel .pct-hub-buttons button,#pct-hub-copy-errors{border:1px solid #46617e;background:#253a50;color:#fff;border-radius:8px;min-height:37px;padding:7px 10px;font-size:12px}
+#pct-hub-panel details summary{cursor:pointer;font-size:13px;font-weight:650}
+#pct-hub-errors{color:#93aabd;font-size:11px}
+.pct-hub-log{padding:6px 0;border-bottom:1px solid #344255;word-break:break-word}
+.pct-hub-log span{font-size:11px;color:#76d6b0}.pct-hub-log p{margin:2px 0}
+#pct-hub-status{color:#9cddc3;font-size:12px;line-height:1.5}#pct-hub-status[data-bad="1"]{color:#ff9da5}
+.pct-hub-home{display:block;color:#aad8ff;text-decoration:underline;font-size:12px;margin-top:8px}
+@media(max-width:600px){#pct-tool-hub{right:10px;bottom:10px}#pct-hub-trigger{padding:10px 12px;min-width:45px;font-size:12px}#pct-hub-panel{max-height:calc(100dvh - 80px)}}
+@media(prefers-reduced-motion:reduce){#pct-tool-hub *{animation:none!important;transition:none!important}}
