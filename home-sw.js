@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='pct-next-offline-v2';
+const CACHE='pct-next-offline-v3';
 const ASSETS=[
  './','./index.html','./home-next.js?v=2','./home-next.css?v=1','./manifest.webmanifest','./pct-next-icon.svg',
  './tools/_shared/tool-hub.js?v=3','./tools/_shared/tool-hub.css?v=2',
@@ -18,7 +18,7 @@ const ASSETS=[
  './tools/dev-os/desktop-shell.js','./tools/dev-os/package-manager.js','./tools/dev-os/malware-sim.js',
  './tools/dev-os/v2-integrate.js','./tools/dev-os/update-system-3.1.1.js','./tools/dev-os/v3-shell.js',
  './tools/dev-os/malware-advanced.js','./tools/dev-os/repair-ui.js?v=20261008-1',
- './tools/retro-arcade/index.html','./tools/retro-arcade/style.css?v=20261005-3','./tools/retro-arcade/core.js?v=20261008-2',
+ './tools/retro-arcade/index.html','./tools/retro-arcade/style.css?v=20261009-1','./tools/retro-arcade/core.js?v=20261009-2',
  './tools/retro-arcade/games/catalog.js?v=20261005-3',
  './tools/scratch-lite/index.html','./tools/scratch-lite/style.css?v=4','./tools/scratch-lite/app.js?v=4',
  './tools/scratch-lite/manifest.webmanifest'
