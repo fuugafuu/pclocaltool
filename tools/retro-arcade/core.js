@@ -14,7 +14,7 @@ function fresh(){return{version:1,favorites:[],scores:{},played:{},lastPlayed:{}
 function migrate(d){const x=d&&d.version===1?d:fresh();x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.scores=x.scores||{};x.played=x.played||{};x.lastPlayed=x.lastPlayed||{};x.stats=x.stats||{};x.settings=x.settings||{};x.settings.theme=x.settings.theme||'dark';x.settings.global={...DEFAULTS,...(x.settings.global||{})};x.settings.perGame=x.settings.perGame||{};return x}
 function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY)))}catch{return fresh()}}
 let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false, speed=1, autoEnabled=false, autoSkill=75, humanize=15, currentCfg={...DEFAULTS}, page=1, pageSize=48;
-function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){console.warn('ゲーム設定を保存できません:',e?.message||e)}}
 function cfgFor(id){return{...DEFAULTS,...db.settings.global,...(db.settings.perGame?.[id]||{})}}
 function setTheme(t){db.settings.theme=t;document.documentElement.dataset.theme=t;setText('#theme-toggle',t==='dark'?'☀️':'🌙');save()}
 function scoreKey(id,m){return id+':'+m}
@@ -126,12 +126,12 @@ function render(){
  list=[...list].sort((a,b)=>sort==='title'?a.meta.title.localeCompare(b.meta.title,'ja'):sort==='recent'?(db.lastPlayed[b.meta.id]||0)-(db.lastPlayed[a.meta.id]||0)||a.meta.year-b.meta.year:sort==='played'?(db.played[b.meta.id]||0)-(db.played[a.meta.id]||0)||a.meta.year-b.meta.year:a.meta.year-b.meta.year||a.meta.title.localeCompare(b.meta.title,'ja'));
  const pages=Math.max(1,Math.ceil(list.length/pageSize));page=clamp(page,1,pages);const start=(page-1)*pageSize,shown=list.slice(start,start+pageSize);
  const grid=$('#game-grid');if(grid)grid.innerHTML=shown.length?shown.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
- setText('#result-count',list.length+'本');setText('#page-label',page+' / '+pages);const prev=$('#prev-page'),next=$('#next-page');if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
- $$('[data-game]').forEach(el=>el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)});
+ setText('#result-count',list.length+' / '+REG.length+'本');setText('#page-label',list.length?(start+1)+'〜'+(start+shown.length)+' / '+list.length+'本（'+page+' / '+pages+'ページ）':'0 / 0本');const prev=$('#prev-page'),next=$('#next-page');if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
+ $('[data-game]').forEach(el=>{el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',el.querySelector('h3')?.textContent+' をプレイ');el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)};el.onkeydown=e=>{if(e.target===el&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openGame(el.dataset.game)}}});
  $$('[data-fav]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFavorite(b.dataset.fav);render()});updateStats();
 }
 function updateStats(){
- setText('#game-count',REG.length+'本');$('#played-count').textContent=Object.keys(db.played||{}).length;$('#favorite-count').textContent=db.favorites.length;$('#highscore-count').textContent=Object.keys(db.scores||{}).filter(k=>db.scores[k]>0).length;
+ setText('#game-count',REG.length+'本');setText('#played-count',Object.keys(db.played||{}).length);setText('#favorite-count',db.favorites.length);setText('#highscore-count',Object.keys(db.scores||{}).filter(k=>db.scores[k]>0).length);
 }
 function toggleFavorite(id){const i=db.favorites.indexOf(id);if(i>=0)db.favorites.splice(i,1);else db.favorites.push(id);save();if(currentMeta?.id===id)$('#favorite-game').textContent=db.favorites.includes(id)?'★':'☆'}
 function instantiate(g){
@@ -184,7 +184,7 @@ function boot(){
  setTheme(db.settings.theme||'dark');populateSettingsTargets();render();
 
  on('#search','input',()=>{page=1;render()});on('#genre-filter','change',()=>{page=1;render()});on('#era-filter','change',()=>{page=1;render()});on('#sort-filter','change',()=>{page=1;render()});
- on('#favorites-only','click',()=>{favOnly=!favOnly;page=1;$('#favorites-only')?.classList.toggle('active',favOnly);render()});on('#prev-page','click',()=>{if(page>1){page--;render();document.querySelector('main')?.scrollIntoView({block:'start'})}});on('#next-page','click',()=>{page++;render();document.querySelector('main')?.scrollIntoView({block:'start'})});
+ on('#favorites-only','click',()=>{favOnly=!favOnly;page=1;$('#favorites-only')?.classList.toggle('active',favOnly);render()});on('#prev-page','click',()=>{if(page>1){page--;render();document.getElementById('library-main')?.scrollIntoView({block:'start'})}});on('#next-page','click',()=>{page++;render();document.getElementById('library-main')?.scrollIntoView({block:'start'})});
  on('#theme-toggle','click',()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark'));
  on('#launcher-settings','click',openSettings);on('#settings-close','click',()=>$('#settings-dialog')?.close());on('#settings-target','change',loadSettingsForm);
  ['setting-skill','setting-humanize','setting-crt'].forEach(id=>on('#'+id,'input',updateSettingLabels));
