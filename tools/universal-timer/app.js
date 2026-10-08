@@ -118,3 +118,12 @@ document.addEventListener('visibilitychange',()=>{tick();if(keepAwakeWanted)sync
 window.addEventListener('pageshow',()=>tick());
 
 load();syncInputs();renderAll();setInterval(tick,100);tick();updateScreenAwakeButton();
+(function applyNextHandoff(){
+ const qs=new URLSearchParams(location.search),view=qs.get('view'),raw=qs.get('preset');
+ if(['timer','stopwatch','interval','pomodoro','alarm','multi'].includes(view))setView(view);
+ if(raw===null)return;
+ const sec=Number(raw);
+ if(!Number.isInteger(sec)||sec<1||sec>86400)return;
+ setView('timer');setCountdownDuration(sec*1000);
+ if(qs.get('start')==='1')startCountdown();
+})();
