@@ -301,8 +301,8 @@ async function exportOffline(){
  try{
   const [runtime,css,js,baseHTML]=await Promise.all([
     fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),
-    fetch('style.css?v=3').then(r=>r.text()),
-    fetch('app.js?v=3').then(r=>r.text()),
+    fetch('style.css?v=4').then(r=>r.text()),
+    fetch('app.js?v=4').then(r=>r.text()),
     fetch('index.html').then(r=>r.text())
   ]);
   const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script');
@@ -329,7 +329,7 @@ async function boot(){
  const qs=new URLSearchParams(location.search),cached=qs.get('cached'),project=qs.get('project');
  if(window.Scaffolding&&cached&&cached.length<=300){loadCached(cached).catch(fail)}
  else if(window.Scaffolding&&project&&/^\d{5,12}$/.test(project)){$('#url-input').value=project;fromURL().catch(fail)}
-  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=3').catch(()=>{});
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});
 }
 boot();
 })();
