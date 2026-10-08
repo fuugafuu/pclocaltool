@@ -1,0 +1,20 @@
+{
+  "name": "PC Local Tool NEXT",
+  "short_name": "PC Local NEXT",
+  "description": "7つのローカルツールを1つにまとめるコマンドセンター",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080d16",
+  "theme_color": "#0b1019",
+  "icons": [
+    {
+      "src": "pct-next-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
