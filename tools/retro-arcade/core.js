@@ -124,7 +124,7 @@ function render(){
  const q=(search?.value||'').trim().toLowerCase(),genre=genreEl?.value||'',era=eraEl?.value||'',sort=sortEl?.value||'year';
  let list=REG.filter(({meta:m})=>(!q||(`${m.title} ${m.description} ${m.genre} ${m.year} ${m.system||''}`.toLowerCase().includes(q)))&&(!genre||m.genre===genre)&&(!era||String(m.year).startsWith(era.slice(0,3)))&&(!favOnly||db.favorites.includes(m.id)));
  list=[...list].sort((a,b)=>sort==='title'?a.meta.title.localeCompare(b.meta.title,'ja'):sort==='recent'?(db.lastPlayed[b.meta.id]||0)-(db.lastPlayed[a.meta.id]||0)||a.meta.year-b.meta.year:sort==='played'?(db.played[b.meta.id]||0)-(db.played[a.meta.id]||0)||a.meta.year-b.meta.year:a.meta.year-b.meta.year||a.meta.title.localeCompare(b.meta.title,'ja'));
- const pages=Math.max(1,Math.ceil(list.length/pageSize));page=clamp(page,1,pages);const start=(page-1)*pageSize,shown=list.slice(start,start+pageSize);
+ const limit=pageSize===0?Math.max(1,list.length):pageSize,pages=Math.max(1,Math.ceil(list.length/limit));page=clamp(page,1,pages);const start=(page-1)*limit,shown=list.slice(start,start+limit);
  const grid=$('#game-grid');if(grid)grid.innerHTML=shown.length?shown.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
  setText('#result-count',list.length+' / '+REG.length+'本');setText('#page-label',list.length?(start+1)+'〜'+(start+shown.length)+' / '+list.length+'本（'+page+' / '+pages+'ページ）':'0 / 0本');const prev=$('#prev-page'),next=$('#next-page');if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
  $('[data-game]').forEach(el=>{el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',el.querySelector('h3')?.textContent+' をプレイ');el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)};el.onkeydown=e=>{if(e.target===el&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openGame(el.dataset.game)}}});
@@ -183,6 +183,7 @@ function boot(){
  if(genreEl){const genres=[...new Set(REG.map(x=>x.meta.genre))].sort();genreEl.innerHTML='<option value="">すべてのジャンル</option>'+genres.map(g=>`<option value="${g}">${jpGenre(g)}</option>`).join('')}
  setTheme(db.settings.theme||'dark');populateSettingsTargets();render();
 
+ on('#page-size','change',e=>{pageSize=e.target.value==='all'?0:Number(e.target.value)||48;page=1;render()});
  on('#search','input',()=>{page=1;render()});on('#genre-filter','change',()=>{page=1;render()});on('#era-filter','change',()=>{page=1;render()});on('#sort-filter','change',()=>{page=1;render()});
  on('#favorites-only','click',()=>{favOnly=!favOnly;page=1;$('#favorites-only')?.classList.toggle('active',favOnly);render()});on('#prev-page','click',()=>{if(page>1){page--;render();document.getElementById('library-main')?.scrollIntoView({block:'start'})}});on('#next-page','click',()=>{page++;render();document.getElementById('library-main')?.scrollIntoView({block:'start'})});
  on('#theme-toggle','click',()=>setTheme((db.settings.theme||'dark')==='dark'?'light':'dark'));
