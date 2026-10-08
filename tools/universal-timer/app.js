@@ -87,4 +87,34 @@ document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].include
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)document.body.classList.remove('focus-mode')});
 
 function tick(){const now=Date.now();$('#clockPill').textContent=new Date(now).toLocaleTimeString('ja-JP',{hour12:false});tickCountdown(now);renderSw(now);tickInterval(now);tickPomo(now);tickAlarms(now);tickMultis(now);}
-load();syncInputs();renderAll();setInterval(tick,100);tick();
+
+let keepAwakeWanted=false,wakeLockSentinel=null;
+async function releaseScreenAwake(){
+ if(wakeLockSentinel){const held=wakeLockSentinel;wakeLockSentinel=null;try{await held.release()}catch{}}
+ updateScreenAwakeButton();
+}
+function updateScreenAwakeButton(){
+ const b=document.getElementById('keepAwakeBtn');if(!b)return;
+ b.textContent=keepAwakeWanted?'🔆 スリープ防止中':'💡 スリープ防止';
+ b.setAttribute('aria-pressed',String(keepAwakeWanted));
+ b.title=keepAwakeWanted?'画面スリープ防止を解除':'対応ブラウザで画面をスリープさせない';
+}
+async function syncScreenAwake(){
+ if(!keepAwakeWanted||document.hidden){await releaseScreenAwake();return}
+ if(!navigator.wakeLock?.request){keepAwakeWanted=false;updateScreenAwakeButton();toast('このブラウザは画面スリープ防止に対応していません。');return}
+ if(wakeLockSentinel)return;
+ try{
+  const sentinel=await navigator.wakeLock.request('screen');wakeLockSentinel=sentinel;
+  sentinel.addEventListener('release',()=>{if(wakeLockSentinel===sentinel)wakeLockSentinel=null});
+ }catch(e){keepAwakeWanted=false;toast('スリープ防止を開始できませんでした。')}
+ updateScreenAwakeButton();
+}
+document.getElementById('keepAwakeBtn')?.addEventListener('click',async()=>{
+ keepAwakeWanted=!keepAwakeWanted;
+ if(!keepAwakeWanted)await releaseScreenAwake();else await syncScreenAwake();
+ updateScreenAwakeButton();
+});
+document.addEventListener('visibilitychange',()=>{tick();if(keepAwakeWanted)syncScreenAwake()});
+window.addEventListener('pageshow',()=>tick());
+
+load();syncInputs();renderAll();setInterval(tick,100);tick();updateScreenAwakeButton();
