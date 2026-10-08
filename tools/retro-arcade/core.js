@@ -10,8 +10,8 @@ const jpSystem=s=>({ARCADE:'アーケード','ARCADE / DREAMCAST':'アーケー�
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rand=(a,b)=>a+Math.random()*(b-a);
 const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
-function fresh(){return{version:1,favorites:[],scores:{},played:{},settings:{theme:'dark',global:{...DEFAULTS},perGame:{}},stats:{}}}
-function migrate(d){const x=d&&d.version===1?d:fresh();x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.scores=x.scores||{};x.played=x.played||{};x.stats=x.stats||{};x.settings=x.settings||{};x.settings.theme=x.settings.theme||'dark';x.settings.global={...DEFAULTS,...(x.settings.global||{})};x.settings.perGame=x.settings.perGame||{};return x}
+function fresh(){return{version:1,favorites:[],scores:{},played:{},lastPlayed:{},settings:{theme:'dark',global:{...DEFAULTS},perGame:{}},stats:{}}}
+function migrate(d){const x=d&&d.version===1?d:fresh();x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.scores=x.scores||{};x.played=x.played||{};x.lastPlayed=x.lastPlayed||{};x.stats=x.stats||{};x.settings=x.settings||{};x.settings.theme=x.settings.theme||'dark';x.settings.global={...DEFAULTS,...(x.settings.global||{})};x.settings.perGame=x.settings.perGame||{};return x}
 function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY)))}catch{return fresh()}}
 let db=load(), current=null, currentMeta=null, mode='classic', soundOn=true, favOnly=false, speed=1, autoEnabled=false, autoSkill=75, humanize=15, currentCfg={...DEFAULTS}, page=1, pageSize=48;
 function save(){localStorage.setItem(KEY,JSON.stringify(db))}
@@ -88,6 +88,7 @@ function createCanvasGame(api,spec){
  function frame(now){
    if(dead)return;
    const elapsed=Math.min(.08,(now-last)/1000||0);last=now;
+   if(document.hidden){requestAnimationFrame(frame);return}
    if(!paused){
      let remain=Math.min(.32,elapsed*speed),guard=0;
      while(remain>0.00001&&guard++<24){const dt=Math.min(1/60,remain);step(dt);remain-=dt}
@@ -122,7 +123,7 @@ function render(){
  const search=$('#search'),genreEl=$('#genre-filter'),eraEl=$('#era-filter'),sortEl=$('#sort-filter');
  const q=(search?.value||'').trim().toLowerCase(),genre=genreEl?.value||'',era=eraEl?.value||'',sort=sortEl?.value||'year';
  let list=REG.filter(({meta:m})=>(!q||(`${m.title} ${m.description} ${m.genre} ${m.year} ${m.system||''}`.toLowerCase().includes(q)))&&(!genre||m.genre===genre)&&(!era||String(m.year).startsWith(era.slice(0,3)))&&(!favOnly||db.favorites.includes(m.id)));
- list=[...list].sort((a,b)=>sort==='title'?a.meta.title.localeCompare(b.meta.title,'ja'):sort==='played'?(db.played[b.meta.id]||0)-(db.played[a.meta.id]||0)||a.meta.year-b.meta.year:a.meta.year-b.meta.year||a.meta.title.localeCompare(b.meta.title,'ja'));
+ list=[...list].sort((a,b)=>sort==='title'?a.meta.title.localeCompare(b.meta.title,'ja'):sort==='recent'?(db.lastPlayed[b.meta.id]||0)-(db.lastPlayed[a.meta.id]||0)||a.meta.year-b.meta.year:sort==='played'?(db.played[b.meta.id]||0)-(db.played[a.meta.id]||0)||a.meta.year-b.meta.year:a.meta.year-b.meta.year||a.meta.title.localeCompare(b.meta.title,'ja'));
  const pages=Math.max(1,Math.ceil(list.length/pageSize));page=clamp(page,1,pages);const start=(page-1)*pageSize,shown=list.slice(start,start+pageSize);
  const grid=$('#game-grid');if(grid)grid.innerHTML=shown.length?shown.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
  setText('#result-count',list.length+'本');setText('#page-label',page+' / '+pages);const prev=$('#prev-page'),next=$('#next-page');if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
@@ -147,7 +148,7 @@ function instantiate(g){
  }
 }
 function openGame(id){
- const g=REG.find(x=>x.meta.id===id);if(!g)return;closeGame();currentMeta=g.meta;applyRuntime(id);db.played[id]=(db.played[id]||0)+1;save();
+ const g=REG.find(x=>x.meta.id===id);if(!g)return;closeGame();currentMeta=g.meta;applyRuntime(id);db.played[id]=(db.played[id]||0)+1;db.lastPlayed[id]=Date.now();save();
  $('#overlay')?.classList.remove('hidden');setText('#game-title',g.meta.title);setText('#game-era',`${g.meta.year} · ${jpSystem(g.meta.system||'ARCADE')} · ${jpGenre(g.meta.genre)}`);setText('#game-subtitle',g.meta.description||'');
  setText('#classic-info',g.meta.classic);setText('#modern-info',g.meta.modern);setText('#control-info',g.meta.controls+' / オート: '+(g.meta.auto||'専用AI'));
  const fav=$('#favorite-game');if(fav)fav.textContent=db.favorites.includes(id)?'★':'☆';$$('[data-play-mode]').forEach(b=>b.classList.toggle('active',b.dataset.playMode===mode));instantiate(g);
@@ -195,7 +196,7 @@ function boot(){
  on('#auto-toggle','click',()=>{autoEnabled=!autoEnabled;syncRuntimeUI();current?.runtimeChanged?.()});
  on('#speed-toggle','click',cycleSpeed);on('#sound-toggle','click',()=>{soundOn=!soundOn;syncRuntimeUI()});
  $$('[data-play-mode]').forEach(b=>b.onclick=()=>{if(!currentMeta||mode===b.dataset.playMode)return;mode=b.dataset.playMode;$$('[data-play-mode]').forEach(x=>x.classList.toggle('active',x===b));restart()});
- document.addEventListener('keydown',e=>{if(!current)return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();current.keyDown?.(e.code,e)});
+ document.addEventListener('keydown',e=>{if(!current||e.target?.closest?.('input,textarea,select,[contenteditable="true"]')||e.ctrlKey||e.metaKey||document.getElementById('pct-hub-panel')?.hidden===false)return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();current.keyDown?.(e.code,e)});
  document.addEventListener('keyup',e=>current?.keyUp?.(e.code,e));
  $$('[data-key]').forEach(b=>{const code=b.dataset.key,down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
 }
