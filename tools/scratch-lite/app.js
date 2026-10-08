@@ -37,7 +37,7 @@ function openProjectDB(){
 }
 function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('保存が中断されました'))})}
 async function cacheList(){
- try{const db=await openProjectDB(),tx=db.transaction('recent','readonly'),items=await reqP(tx.objectStore('recent').getAll());return items.sort((a,b)=>b.lastUsed-a.lastUsed)}catch(e){console.warn('recent list unavailable',e);return[]}
+ try{const db=await openProjectDB(),tx=db.transaction('recent','readonly'),items=await reqP(tx.objectStore('recent').getAll());return items.sort((a,b)=>Number(!!b.pinned)-Number(!!a.pinned)||b.lastUsed-a.lastUsed)}catch(e){console.warn('recent list unavailable',e);return[]}
 }
 async function cacheFindBySourceKey(sourceKey){
  if(!sourceKey)return null;
@@ -51,6 +51,14 @@ async function cacheGet(id){
 async function cacheTouch(id){
  try{const db=await openProjectDB(),tx=db.transaction('recent','readwrite'),st=tx.objectStore('recent'),m=await reqP(st.get(id));if(m){m.lastUsed=Date.now();st.put(m)}await txDone(tx)}catch{}
 }
+async function cacheTogglePinned(id){
+ try{
+  const db=await openProjectDB(),tx=db.transaction('recent','readwrite'),st=tx.objectStore('recent'),m=await reqP(st.get(id));
+  if(m){m.pinned=!m.pinned;st.put(m)}
+  await txDone(tx);
+ }catch(e){console.warn('pin update failed',e)}
+ await renderRecents();
+}
 async function cacheDelete(id){
  try{const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');tx.objectStore('projects').delete(id);tx.objectStore('recent').delete(id);await txDone(tx)}catch(e){console.warn('cache delete failed',e)}
  await renderRecents();
@@ -60,16 +68,20 @@ async function cacheClear(){
  state.recents=[];renderRecents();
 }
 async function pruneCache(keepId){
- const items=await cacheList();let total=0,kept=0;
+ const items=await cacheList();let total=0,kept=0,remove=[];
  for(const item of items){
-  const shouldKeep=item.id===keepId||(kept<CACHE_MAX_ITEMS&&total+(item.size||0)<=CACHE_MAX_BYTES);
-  if(shouldKeep){kept++;total+=item.size||0}else await cacheDelete(item.id);
+  const shouldKeep=item.id===keepId||item.pinned||(kept<CACHE_MAX_ITEMS&&total+(item.size||0)<=CACHE_MAX_BYTES);
+  if(shouldKeep){kept++;total+=item.size||0}else remove.push(item.id);
  }
+ if(!remove.length)return;
+ const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');
+ for(const id of remove){tx.objectStore('projects').delete(id);tx.objectStore('recent').delete(id)}
+ await txDone(tx);
 }
 async function cacheProject(buffer,name,analysis,info={}){
  if(!buffer?.byteLength)return;
  const sourceKey=info.sourceKey||('memory:'+name+':'+buffer.byteLength),id=sourceKey;
- const now=Date.now(),meta={id,sourceKey,name:name||'Scratch Project',size:buffer.byteLength,lastUsed:now,sourceType:info.sourceType||'file',source:info.source||'',analysis};
+ const original=await cacheFindBySourceKey(sourceKey),now=Date.now(),meta={id,sourceKey,name:name||'Scratch Project',size:buffer.byteLength,lastUsed:now,pinned:!!original?.pinned,sourceType:info.sourceType||'file',source:info.source||'',analysis};
  try{
   const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');
   tx.objectStore('projects').put({id,buffer,analysis});
@@ -84,10 +96,11 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function recentSourceLabel(x){return x.sourceType==='scratch'?'Scratch':x.sourceType==='url'?'URL':'ファイル'}
 async function renderRecents(){
  const box=$('#recent-projects'),section=$('#recent-section');if(!box||!section)return;
- const list=state.recents=await cacheList();show('#recent-section',list.length>0);
+ const list=state.recents=await cacheList();show('#recent-section',list.length>0);setText('#recent-storage',list.length+'件 · 約'+formatBytes(list.reduce((n,x)=>n+(x.size||0),0))+'保存');
  if(!list.length){box.innerHTML='<div class="recent-empty">まだ保存されたプロジェクトはありません。</div>';return}
  box.innerHTML=list.map((x,i)=>'<article class="recent-card" data-recent="'+i+'" tabindex="0"><div class="recent-icon">S</div><div class="recent-copy"><b>'+esc(x.name)+'</b><span>'+recentSourceLabel(x)+' · '+formatBytes(x.size)+' · '+esc(x.analysis?.level||'解析済み')+'</span></div><span class="recent-open">すぐ開く →</span><button class="recent-remove" data-remove="'+i+'" title="履歴から削除">×</button></article>').join('');
- box.querySelectorAll('[data-recent]').forEach(el=>{const open=()=>loadCached(list[Number(el.dataset.recent)]?.id).catch(fail);el.onclick=e=>{if(!e.target.closest('[data-remove]'))open()};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('[data-remove]')){e.preventDefault();open()}}});
+ box.querySelectorAll('[data-recent]').forEach(el=>{const open=()=>loadCached(list[Number(el.dataset.recent)]?.id).catch(fail);el.onclick=e=>{if(!e.target.closest('[data-remove],[data-pin]'))open()};el.onkeydown=e=>{if((e.key==='Enter'||e.key===' ')&&!e.target.closest('[data-remove],[data-pin]')){e.preventDefault();open()}}});
+ box.querySelectorAll('[data-pin]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const item=list[Number(btn.dataset.pin)];if(item)cacheTogglePinned(item.id)});
  box.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const item=list[Number(btn.dataset.remove)];if(item)cacheDelete(item.id)});
 }
 async function loadCached(id){
