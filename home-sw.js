@@ -1,8 +1,8 @@
 'use strict';
-const CACHE='pct-next-offline-v1';
+const CACHE='pct-next-offline-v2';
 const ASSETS=[
- './','./index.html','./home-next.js?v=1','./home-next.css?v=1','./manifest.webmanifest','./pct-next-icon.svg',
- './tools/_shared/tool-hub.js?v=2','./tools/_shared/tool-hub.css?v=2',
+ './','./index.html','./home-next.js?v=2','./home-next.css?v=1','./manifest.webmanifest','./pct-next-icon.svg',
+ './tools/_shared/tool-hub.js?v=3','./tools/_shared/tool-hub.css?v=2',
  './tools/math-assist/index.html','./tools/math-assist/style.css','./tools/math-assist/final.css',
  './tools/math-assist/core.js','./tools/math-assist/exact.js','./tools/math-assist/smart.js?v=20261008-2',
  './tools/math-assist/smart-extended.js','./tools/math-assist/guided.js','./tools/math-assist/algebra.js','./tools/math-assist/geometry.js','./tools/math-assist/data.js','./tools/math-assist/advanced.js',
@@ -26,7 +26,7 @@ const ASSETS=[
 self.addEventListener('install',event=>{
  event.waitUntil((async()=>{
   const c=await caches.open(CACHE);
-  await c.addAll(['./','./index.html','./home-next.js?v=1','./home-next.css?v=1']);
+  await c.addAll(['./','./index.html','./home-next.js?v=2','./home-next.css?v=1']);
   let index=0;
   async function worker(){
    while(index<ASSETS.length){
