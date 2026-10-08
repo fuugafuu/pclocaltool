@@ -79,7 +79,7 @@ function recordRound(){
  match.rounds.push(round);db.history.push({matchId:match.id,mode:match.mode,ids:[...match.ids],selfId:match.selfId,round});
  for(const id of match.ids){
    const p=profile(id);p.events=p.events||[];const opponents=match.ids.filter(x=>x!==id),prevById={};for(const oid of opponents)if(previous?.moves?.[oid])prevById[oid]=previous.moves[oid];
-   p.events.push({time:now,move:moves[id],result:resolution.results[id],context:{source:'match',matchId:match.id,mode:match.mode,roundIndex:match.rounds.length,participants:match.ids.length,participantIds:[...match.ids],opponentIds:opponents,opponentMoves:Object.fromEntries(opponents.map(oid=>[oid,moves[oid]])),opponentPrevMoves:Object.values(prevById),opponentPrevById:prevById}});
+   p.events.push({time:now,move:moves[id],result:resolution.results[id],context:{source:'match',matchId:match.id,roundId:round.id,mode:match.mode,roundIndex:match.rounds.length,participants:match.ids.length,participantIds:[...match.ids],opponentIds:opponents,opponentMoves:Object.fromEntries(opponents.map(oid=>[oid,moves[oid]])),opponentPrevMoves:Object.values(prevById),opponentPrevById:prevById}});
  }
  persistActiveMatch();
  const label=outcomeLabel(resolution,match.selfId);$('#round-result').classList.remove('hidden');$('#round-result').innerHTML=`<b>${label}</b>　${match.ids.map(id=>`${esc(profile(id).name)} ${E.ICONS[moves[id]]}`).join('　')}`;
@@ -93,7 +93,7 @@ function renderSessionStats(){
  for(const r of rs){const x=r.resolution.results[match.selfId];if(x==='win')w++;else if(x==='draw')d++;else l++;for(const oid of match.opponentIds){const p=r.predictions?.[oid],actual=r.moves?.[oid];if(p&&actual){predN++;if(p.top===actual)predHit++;}}if(r.recommendation?.followed){followN++;if(x==='win')followW++;}}
  $('#session-rounds').textContent=rs.length;$('#session-wins').textContent=w;$('#session-draws').textContent=d;$('#session-losses').textContent=l;$('#session-ai-hit').textContent=predN?pct(predHit/predN):'—';$('#session-follow').textContent=followN?pct(followW/followN):'—';$('#undo-round').disabled=!rs.length;
 }
-$('#undo-round').onclick=()=>{if(!match?.rounds.length)return;const r=match.rounds.pop();db.history=db.history.filter(h=>h.round.id!==r.id);for(const id of match.ids){const p=profile(id);const idx=p.events.findLastIndex?.(e=>e.time===r.time&&e.move===r.moves[id])??-1;if(idx>=0)p.events.splice(idx,1)}persistActiveMatch();computeRecommendation();renderMatch();renderAll()};
+$('#undo-round').onclick=()=>{if(!match?.rounds.length)return;const r=match.rounds.pop();db.history=db.history.filter(h=>h.round.id!==r.id);for(const id of match.ids){const p=profile(id);const idx=p.events.findLastIndex?.(e=>e.context?.roundId===r.id||(e.context?.source==='match'&&!e.context?.roundId&&e.context?.matchId===match.id&&e.time===r.time&&e.move===r.moves[id]))??-1;if(idx>=0)p.events.splice(idx,1)}persistActiveMatch();computeRecommendation();renderMatch();renderAll()};
 
 function transitionDist(events,prev){const c={rock:.4,scissors:.4,paper:.4};let n=0;for(let i=1;i<events.length;i++)if(events[i-1]?.move===prev&&E.MOVES.includes(events[i]?.move)){c[events[i].move]++;n++;}return{n,dist:E.normalize(c)}}
 function renderAnalytics(){
@@ -133,5 +133,22 @@ function restoreActiveMatch(){
  $('#self-profile').value=m.selfId;$('#opponent-a').value=m.opponentIds?.[0]||'';if(m.opponentIds?.[1])$('#opponent-b').value=m.opponentIds[1];$('#ai-mode').value=m.aiMode||'adaptive';
  $('#setup-panel').classList.add('hidden');$('#match-area').classList.remove('hidden');computeRecommendation();renderMatch();
 }
+
+function exportSessionCSV(){
+ if(!match){alert('まず対戦を開始してください。');return}
+ const names=match.ids.map(id=>profile(id)?.name||'参加者');
+ const headers=['ラウンド','日時',...names,'自分の結果','AI推奨','推奨採用'];
+ const rows=match.rounds.map((r,i)=>[
+  i+1,new Date(r.time).toLocaleString('ja-JP'),
+  ...match.ids.map(id=>E.LABELS[r.moves?.[id]]||''),
+  outcomeLabel(r.resolution,match.selfId),
+  E.LABELS[r.recommendation?.move]||'',
+  r.recommendation?.followed?'はい':'いいえ'
+ ]);
+ const cell=v=>{let value=String(v??'');if(/^[=+\-@\t\r]/.test(value))value="'"+value;return '"'+value.replaceAll('"','""')+'"'};
+ const csv='\uFEFF'+[headers,...rows].map(row=>row.map(cell).join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='janken-session-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1200);
+}
+document.getElementById('export-session')?.addEventListener('click',exportSessionCSV);
 renderAll();restoreActiveMatch();
 })();
