@@ -7,7 +7,14 @@ function addHistory(type,input,result){
 }
 function renderHistory(){
   const box=$('#history'), h=getHistory(); box.innerHTML=h.length?'':'<div class="muted">まだありません。</div>';
-  h.forEach(item=>{const d=document.createElement('div');d.className='hist';d.innerHTML=`<strong>${esc(item.result)}</strong><br><small>${esc(item.type)}・${esc(item.input)}</small>`;d.title=item.time;box.appendChild(d);});
+  h.forEach(item=>{
+   const d=document.createElement('div');d.className='hist';
+   d.innerHTML=`<strong>${esc(item.result)}</strong><br><small>${esc(item.type)}・${esc(item.input)}</small><div class="actions"><button type="button" class="btn small ghost hist-reuse">再入力</button><button type="button" class="btn small ghost hist-copy">答えをコピー</button></div>`;
+   d.title=item.time;
+   d.querySelector('.hist-reuse').onclick=()=>{$('#smartInput').value=item.input;openTab('smart');$('#smartInput').focus()};
+   d.querySelector('.hist-copy').onclick=async()=>{try{await navigator.clipboard.writeText(item.result);d.querySelector('.hist-copy').textContent='コピー済み'}catch{window.prompt('答えをコピーしてください',item.result)}};
+   box.appendChild(d);
+  });
 }
 
 function openTab(id){ $$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===id)); $$('.section').forEach(s=>s.classList.toggle('active',s.id===id)); }
@@ -77,3 +84,9 @@ function smartAggregate(a,type){const sum=a.reduce((x,y)=>x+y,0),mean=sum/a.leng
 const UNIT_GROUPS={length:{mm:.001,cm:.01,m:1,km:1000},mass:{mg:.001,g:1,kg:1000},time:{'秒':1,'分':60,'時間':3600}};
 function smartConvert(v,from,to){let g=Object.values(UNIT_GROUPS).find(x=>from in x&&to in x);if(!g){setSmartResult('この単位どうしは直接換算できません。','error');return}const ans=v*g[from]/g[to];setSmartResult(`<div class="big-answer">${fmt(ans)}${esc(to)}</div><div class="steps">${fmt(v)}${esc(from)} = ${fmt(ans)}${esc(to)}</div>`,'success');addHistory('単位換算',`${v}${from}`,`${fmt(ans)}${to}`)}
 $('#smartAnalyze').addEventListener('click',smartAnalyze);$('#smartClear').addEventListener('click',()=>{$('#smartInput').value='';setSuggestions([]);setSmartResult('ここに結果が表示されます。','')});$$('[data-example]').forEach(b=>b.addEventListener('click',()=>{$('#smartInput').value=b.dataset.example;smartAnalyze()}));
+
+document.getElementById('exportHistory')?.addEventListener('click',()=>{
+ const rows=[['種別','入力','結果','日時'],...getHistory().map(x=>[x.type,x.input,x.result,x.time])];
+ const csv='\uFEFF'+rows.map(row=>row.map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='math-assist-history.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
