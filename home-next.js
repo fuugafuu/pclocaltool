@@ -43,7 +43,7 @@
     const scratchId=(s.match(/(?:scratch\.mit\.edu\/projects\/|turbowarp\.org\/)(\d+)/i)||[])[1]||(scratch?(s.match(/\b\d{5,12}\b/)||[])[0]:null);
     if(scratch)return {id:'scratch-lite',url:scratchId?quickParams(tool('scratch-lite').url,{project:scratchId}):tool('scratch-lite').url,title:scratchId?'Scratch #'+scratchId+' を開く':'Scratch Liteを開く',details:scratchId?'保存済みがあれば再取得せず開きます':'Scratchプロジェクトの再生専用ランチャー'};
     if(/ストップウォッチ|stopwatch/i.test(s))return {id:'universal-timer',url:quickParams(tool('universal-timer').url,{view:'stopwatch'}),title:'ストップウォッチを開く',details:'計測モードへ直接移動'};
-    const timer=/タイマー|timer|カウントダウン|ポモドーロ|分(だけ|間|タイマー|測|はか)|\d+\s*分\b/i.test(s);
+    const timer=/タイマー|timer|カウントダウン|ポモドーロ|分(だけ|間|タイマー|測|はか)/i.test(s)||/^\d+(?:\.\d+)?\s*(?:秒|分|時間)$/.test(s);
     if(timer){
       const secs=durationSeconds(s);
       if(/ポモドーロ/.test(s))return {id:'universal-timer',url:quickParams(tool('universal-timer').url,{view:'pomodoro'}),title:'ポモドーロを開く',details:'集中と休憩のタイマー'};
@@ -59,8 +59,8 @@
       const expr=s.replace(/^(計算|数学|数式|方程式|解いて|を解く|を計算|して)\s*[:：]?/,'').trim();
       return {id:'math-assist',url:quickParams(tool('math-assist').url,{quick:expr||s}),title:'Math Assistで解析する',details:'入力を引き継いで計算画面へ移動'};
     }
-    const match=APPS.map(a=>({app:a,score:0})).map(x=>{x.score=(x.app.label.toLowerCase().includes(low)?10:0)+([...''].length);return x}).sort((a,b)=>b.score-a.score)[0];
-    if(match?.score>0)return {id:match.app.id,url:match.app.url,title:match.app.label+' を開く',details:'候補ツールを開きます'};
+    const match=APPS.find(a=>a.label.toLowerCase().includes(low));
+    if(match)return {id:match.id,url:match.url,title:match.label+' を開く',details:'候補ツールを開きます'};
     return {id:'',url:'',title:'具体的な内容を入力してください',details:'例：5分タイマー / 2x+5=15 / Scratch 123456 / じゃんけん',unknown:true};
   }
   function showCommand(){
@@ -111,6 +111,7 @@
     pin.onclick=()=>{if(data.pinned.includes(a.url))data.pinned=data.pinned.filter(x=>x!==a.url);else data.pinned.push(a.url);save();renderTools()};
     card.querySelector('.tool-foot a').onclick=()=>record(a.url);
   });
+  $('#sidebar-favorites').addEventListener('click',e=>{const a=e.target.closest('a');if(a)record(a.getAttribute('href'))});
   $('#tool-search').oninput=e=>{query=e.target.value.trim();renderTools()};
   $$('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;renderTools()});
 
@@ -184,5 +185,5 @@
   addEventListener('online',status);addEventListener('offline',status);
   addEventListener('pageshow',()=>{renderTools();renderResume();status()});
   renderTools();renderResume();status();
-  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./home-sw.js?v=1').catch(()=>{});
+  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./home-sw.js?v=2').catch(()=>{});
 })();
