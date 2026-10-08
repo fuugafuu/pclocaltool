@@ -326,7 +326,10 @@ function bind(){
 async function boot(){
  state.settings=loadSettings();state.device=deviceProfile();syncSettingsUI();bind();setText('#device-state',state.device.tier+' '+state.device.cores+'C/'+state.device.mem+'GB');renderRecents();
  try{await loadRuntime()}catch(e){setText('#engine-state','ランタイム取得失敗');$('#engine-state')?.classList.add('error');console.error(e)}
- if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=3').catch(()=>{});
+ const qs=new URLSearchParams(location.search),cached=qs.get('cached'),project=qs.get('project');
+ if(window.Scaffolding&&cached&&cached.length<=300){loadCached(cached).catch(fail)}
+ else if(window.Scaffolding&&project&&/^\d{5,12}$/.test(project)){$('#url-input').value=project;fromURL().catch(fail)}
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=3').catch(()=>{});
 }
 boot();
 })();
