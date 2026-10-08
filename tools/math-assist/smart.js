@@ -90,3 +90,14 @@ document.getElementById('exportHistory')?.addEventListener('click',()=>{
  const csv='\uFEFF'+rows.map(row=>row.map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(',')).join('\r\n');
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='math-assist-history.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
+
+
+/* PC Local Tool NEXT: safe, local quick-command handoff */
+(() => {
+ const q=new URLSearchParams(location.search).get('quick');
+ if(!q||q.length>500)return;
+ const text=q.trim();if(!text)return;
+ const input=document.getElementById('smartInput');if(!input)return;
+ input.value=text;
+ try{openTab('smart');smartAnalyze();input.focus({preventScroll:true})}catch(e){console.warn('NEXT math handoff:',e)}
+})();
