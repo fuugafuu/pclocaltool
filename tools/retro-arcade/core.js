@@ -127,7 +127,7 @@ function render(){
  const limit=pageSize===0?Math.max(1,list.length):pageSize,pages=Math.max(1,Math.ceil(list.length/limit));page=clamp(page,1,pages);const start=(page-1)*limit,shown=list.slice(start,start+limit);
  const grid=$('#game-grid');if(grid)grid.innerHTML=shown.length?shown.map(card).join(''):'<div class="empty">該当するゲームがありません。</div>';
  setText('#result-count',list.length+' / '+REG.length+'本');setText('#page-label',list.length?(start+1)+'〜'+(start+shown.length)+' / '+list.length+'本（'+page+' / '+pages+'ページ）':'0 / 0本');const prev=$('#prev-page'),next=$('#next-page');if(prev)prev.disabled=page<=1;if(next)next.disabled=page>=pages;
- $('[data-game]').forEach(el=>{el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',el.querySelector('h3')?.textContent+' をプレイ');el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)};el.onkeydown=e=>{if(e.target===el&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openGame(el.dataset.game)}}});
+ Array.from(document.querySelectorAll('[data-game]')).forEach(el=>{el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',el.querySelector('h3')?.textContent+' をプレイ');el.onclick=e=>{if(e.target.closest('[data-fav]'))return;openGame(el.dataset.game)};el.onkeydown=e=>{if(e.target===el&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openGame(el.dataset.game)}}});
  $$('[data-fav]').forEach(b=>b.onclick=e=>{e.stopPropagation();toggleFavorite(b.dataset.fav);render()});updateStats();
 }
 function updateStats(){
@@ -199,7 +199,7 @@ function boot(){
  $$('[data-play-mode]').forEach(b=>b.onclick=()=>{if(!currentMeta||mode===b.dataset.playMode)return;mode=b.dataset.playMode;$$('[data-play-mode]').forEach(x=>x.classList.toggle('active',x===b));restart()});
  document.addEventListener('keydown',e=>{if(!current||e.target?.closest?.('input,textarea,select,[contenteditable="true"]')||e.ctrlKey||e.metaKey||document.getElementById('pct-hub-panel')?.hidden===false)return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();current.keyDown?.(e.code,e)});
  document.addEventListener('keyup',e=>current?.keyUp?.(e.code,e));
- $('[data-key]').forEach(b=>{const code=b.dataset.key,down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
+ Array.from(document.querySelectorAll('[data-key]')).forEach(b=>{const code=b.dataset.key,down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
  const nextGame=new URLSearchParams(location.search).get('play');if(nextGame&&REG.some(x=>x.meta.id===nextGame))openGame(nextGame);
 }
 window.RetroArcade={register,boot,loadPacks,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG},get settings(){return db.settings}};
