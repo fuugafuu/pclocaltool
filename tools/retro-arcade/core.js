@@ -198,7 +198,8 @@ function boot(){
  $$('[data-play-mode]').forEach(b=>b.onclick=()=>{if(!currentMeta||mode===b.dataset.playMode)return;mode=b.dataset.playMode;$$('[data-play-mode]').forEach(x=>x.classList.toggle('active',x===b));restart()});
  document.addEventListener('keydown',e=>{if(!current||e.target?.closest?.('input,textarea,select,[contenteditable="true"]')||e.ctrlKey||e.metaKey||document.getElementById('pct-hub-panel')?.hidden===false)return;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();current.keyDown?.(e.code,e)});
  document.addEventListener('keyup',e=>current?.keyUp?.(e.code,e));
- $$('[data-key]').forEach(b=>{const code=b.dataset.key,down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
+ $('[data-key]').forEach(b=>{const code=b.dataset.key,down=e=>{e.preventDefault();current?.keyDown?.(code,e)},up=e=>{e.preventDefault();current?.keyUp?.(code,e)};b.addEventListener('pointerdown',down);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',e=>{if(e.buttons)up(e)})});
+ const nextGame=new URLSearchParams(location.search).get('play');if(nextGame&&REG.some(x=>x.meta.id===nextGame))openGame(nextGame);
 }
 window.RetroArcade={register,boot,loadPacks,createCanvasGame,clamp,rand,hit,beep,get registry(){return REG},get settings(){return db.settings}};
 })();
