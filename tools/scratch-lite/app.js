@@ -301,8 +301,8 @@ async function exportOffline(){
  try{
   const [runtime,css,js,baseHTML]=await Promise.all([
     fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),
-    fetch('style.css?v=2').then(r=>r.text()),
-    fetch('app.js?v=2').then(r=>r.text()),
+    fetch('style.css?v=3').then(r=>r.text()),
+    fetch('app.js?v=3').then(r=>r.text()),
     fetch('index.html').then(r=>r.text())
   ]);
   const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script');
@@ -326,7 +326,7 @@ function bind(){
 async function boot(){
  state.settings=loadSettings();state.device=deviceProfile();syncSettingsUI();bind();setText('#device-state',state.device.tier+' '+state.device.cores+'C/'+state.device.mem+'GB');renderRecents();
  try{await loadRuntime()}catch(e){setText('#engine-state','ランタイム取得失敗');$('#engine-state')?.classList.add('error');console.error(e)}
- if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=1').catch(()=>{});
+ if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=3').catch(()=>{});
 }
 boot();
 })();
