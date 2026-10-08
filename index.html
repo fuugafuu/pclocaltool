@@ -2,70 +2,89 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PC Local Tool</title>
-<style>
-:root{--bg:#f4f7fb;--text:#172033;--muted:#62708a;--line:#dce4f0;--brand:#3567d6}
-*{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Yu Gothic UI",Meiryo,sans-serif;background:var(--bg);color:var(--text);margin:0}.wrap{max-width:980px;margin:auto;padding:32px 18px 50px}h1{margin-bottom:4px}.sub{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}.card{display:block;background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;text-decoration:none;color:inherit;box-shadow:0 12px 30px rgba(31,55,92,.08);transition:.15s transform,.15s box-shadow}.card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(31,55,92,.12)}.card h2{margin:8px 0 5px}.card p{margin:0;color:var(--muted)}.badge{display:inline-block;background:#e9f0ff;color:#2d56b2;border-radius:999px;padding:5px 9px;font-size:.8rem;font-weight:700}.badge.green{background:#e8f6f2;color:#27735f}.badge.purple{background:#eee9ff;color:#694cb2}.badge.orange{background:#fff0dc;color:#9a5b12}.badge.pink{background:#ffe9ef;color:#a13c5c}.badge.cyan{background:#e5fbf6;color:#16735f}@media(max-width:650px){.grid{grid-template-columns:1fr}}
-.tool-toolbar{margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.tool-toolbar input{flex:1;min-width:195px;min-height:42px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:9px 12px;font:inherit;color:var(--text)}.tool-toolbar button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:12px;min-height:41px;padding:8px 12px;font:inherit;color:var(--text)}.tool-toolbar button.active{background:#e5edff;color:#204fa8;border-color:#91afe4}.grid .tool-card-wrap{position:relative;min-width:0}.grid .tool-card-wrap .card{height:100%;min-height:145px;padding-right:48px}.tool-pin{position:absolute;z-index:2;right:14px;top:14px;border:0;background:transparent;color:#8b9ab1;font-size:21px;cursor:pointer}.tool-pin.on{color:#c98517}.tool-empty{margin-top:22px;padding:24px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);text-align:center}.tool-meta{font-size:.8rem;color:var(--muted);margin-top:9px}[hidden]{display:none!important}
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1019">
+<meta name="description" content="PC Local Tool NEXT - 7つのローカルツールを1つにまとめたブラウザ作業環境">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="home-next.css?v=1">
+<title>PC Local Tool NEXT | Command Center</title>
 </head>
 <body>
-<main class="wrap">
-<h1>PC Local Tool</h1>
-<p class="sub">インストール不要。ブラウザで使えるローカルツール集。各ツール内からもメニューで移動できます。</p>
-<div class="tool-toolbar" role="search">
- <input id="tool-search" type="search" placeholder="名前や機能を検索" aria-label="ツールを検索">
- <button id="tool-all" class="active" type="button">すべて</button>
- <button id="tool-pinned" type="button">★ お気に入り</button>
- <button id="tool-recent" type="button">最近使用</button>
-</div>
-<div id="tool-meta" class="tool-meta" aria-live="polite">7ツール</div>
-<div class="grid" id="tool-grid">
-<a class="card" href="tools/math-assist/index.html"><span class="badge">計算</span><h2>🧮 Math Assist</h2><p>数式・文章・方程式・図形・統計・グラフを、入力または選択で計算。</p></a>
-<a class="card" href="tools/universal-timer/index.html"><span class="badge green">時間</span><h2>⏱ Universal Timer</h2><p>タイマー、ストップウォッチ、インターバル、ポモドーロ、アラーム、複数タイマー。</p></a>
-<a class="card" href="tools/dev-os/index.html"><span class="badge purple">シミュレーター</span><h2>💻 Dev OS Lab</h2><p>BIOS/UEFI、セキュリティ、タスク管理、イベントログ、BSOD、回復環境までつながる仮想OS。</p></a>
-<a class="card" href="tools/agent-bridge/index.html"><span class="badge orange">Agent</span><h2>🤖 Agent Bridge</h2><p>AIのJSON指示を作業フォルダ内だけで実行。227ツール、柔軟JSON受付、構造化編集、診断、カスタムtoolに対応。</p></a>
-<a class="card" href="tools/janken-ai/index.html"><span class="badge pink">ゲームAI</span><h2>✊ Janken AI Lab</h2><p>プロフィールごとのじゃんけん癖を学習。1対1・1対1対1、あいこ判定、次手予測、推奨手、分析に対応。</p></a>
-<a class="card" href="tools/retro-arcade/index.html"><span class="badge cyan">ゲーム</span><h2>🎮 レトロアーケードラボ</h2><p>昔の見た目とゲーム性を再構成。Classic/Modern、オートAI、倍速、200本収録の拡張ゲーム基盤。</p></a>
-<a class="card" href="tools/scratch-lite/index.html"><span class="badge green">Scratch</span><h2>⚡ Scratch Lite Launcher</h2><p>ファイル/URLから高速再生。TurboWarp系コンパイラ、AUTO最適化、画質調整、完全ローカルHTMLに対応。</p></a>
-</div>
-<p id="tool-empty" class="tool-empty" hidden>一致するツールがありません。</p>
+<div class="app-shell">
+<aside class="sidebar" aria-label="メインナビゲーション">
+ <a href="./index.html" class="sidebar-logo"><span class="logo-mark">P</span><span>PC Local <b>Tool</b><small>NEXT WORKSPACE</small></span></a>
+ <div class="sidebar-label">WORKSPACE</div>
+ <a class="side-link selected" href="#home"><span>◈</span> コマンドセンター</a>
+ <a class="side-link" href="#resume"><span>↺</span> 最近の作業</a>
+ <a class="side-link" href="#tools"><span>▦</span> ツール一覧 <small>07</small></a>
+ <div class="sidebar-label">QUICK ACCESS</div>
+ <div id="sidebar-favorites"></div>
+ <div class="sidebar-bottom"><span id="network-indicator" class="status-dot"></span><span id="network-label">端末の接続を確認中</span></div>
+</aside>
+
+<main class="main">
+ <header class="topbar">
+  <div class="breadcrumb">WORKSPACE <span>/</span> COMMAND CENTER</div>
+  <div class="top-actions">
+   <span id="local-status"><i class="green-dot"></i> ローカル優先</span>
+   <button id="help-shortcuts" type="button" title="ショートカット">⌨ <span>ショートカット</span></button>
+  </div>
+ </header>
+
+ <section class="hero" id="home">
+  <div class="hero-content">
+   <div class="hero-eyebrow"><span class="pulse"></span> PC LOCAL TOOL NEXT <span class="hero-version">V3.0</span></div>
+   <h1>やりたいことから、<br><span>すぐ実行。</span></h1>
+   <p>7つのツールを横断する新しい司令塔。何をしたいか入力するだけで、適切なツールへ直接つなぎます。AIへの送信は不要です。</p>
+   <form id="command-form" autocomplete="off">
+    <span class="command-icon">⌘</span>
+    <input id="command-input" type="text" aria-label="やりたいことを入力" placeholder="例：5分タイマー / 2x+5=15 / Scratch 123456" maxlength="500">
+    <kbd>↵</kbd><button type="submit" id="command-launch">実行する <span>↗</span></button>
+   </form>
+   <div id="command-preview" class="command-preview" role="status" aria-live="polite"><span class="preview-icon">✦</span><div><b>クイックコマンド</b><small>入力内容に合わせて行き先を自動提案します</small></div></div>
+   <div class="suggestions"><span>TRY</span><button type="button" data-suggest="5分タイマー">5分タイマー</button><button type="button" data-suggest="2x+5=15">方程式を解く</button><button type="button" data-suggest="前に遊んだゲーム">ゲームを再開</button><button type="button" data-suggest="Scratchを開く">Scratchを開く</button></div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+   <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+   <div class="orb-center">P<span>↗</span></div>
+   <div class="float-tile t1">Σ</div><div class="float-tile t2">◴</div><div class="float-tile t3">✊</div><div class="float-tile t4">S</div>
+   <div class="orbit-caption">ONE WORKSPACE<br>SEVEN ENGINES</div>
+  </div>
+ </section>
+
+ <section id="resume" class="resume-section">
+  <div class="section-head"><div><span class="eyebrow">PICK UP WHERE YOU LEFT OFF</span><h2>続きから再開 <span>↗</span></h2></div><span class="soft-pill">自動で履歴を確認</span></div>
+  <div class="resume-grid" id="resume-grid"><div class="resume-skeleton">作業履歴を読み込んでいます…</div></div>
+ </section>
+
+ <section class="tools-section" id="tools">
+  <div class="section-head"><div><span class="eyebrow">THE TOOLBOX</span><h2>すべてのツール <span>07</span></h2></div><span class="soft-pill" id="tool-meta">7 / 7</span></div>
+  <div class="filter-row"><div class="search"><span>⌕</span><input id="tool-search" type="search" placeholder="ツールを検索" aria-label="ツールを検索"></div><div class="filter-buttons"><button type="button" class="active" data-filter="all">すべて</button><button type="button" data-filter="favorites">★ お気に入り</button><button type="button" data-filter="recent">最近使用</button></div></div>
+  <div id="tool-grid" class="tools-grid">
+   <article class="tool-card" data-id="math-assist" data-search="math 計算 方程式 図形 数学 グラフ"><div class="tool-head"><span class="tool-icon indigo">∑</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Math Assist</h3><p>数式・文章・方程式・図形・統計・グラフを賢く計算。</p><div class="tool-foot"><span>CALCULATION</span><a href="tools/math-assist/index.html">開く ↗</a></div></article>
+   <article class="tool-card" data-id="universal-timer" data-search="timer 時間 タイマー ストップウォッチ アラーム ポモドーロ"><div class="tool-head"><span class="tool-icon teal">◴</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Universal Timer</h3><p>複数タイマー、ストップウォッチ、インターバル、アラーム。</p><div class="tool-foot"><span>TIME</span><a href="tools/universal-timer/index.html">開く ↗</a></div></article>
+   <article class="tool-card" data-id="dev-os" data-search="os 仮想os pc bios デスクトップ シミュレーター"><div class="tool-head"><span class="tool-icon violet">▣</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Dev OS Lab</h3><p>BIOS・仮想デスクトップ・セキュリティを備えたOS実験室。</p><div class="tool-foot"><span>SIMULATION</span><a href="tools/dev-os/index.html">開く ↗</a></div></article>
+   <article class="tool-card" data-id="agent-bridge" data-search="agent ai json ファイル 編集 検査 コマンド コード"><div class="tool-head"><span class="tool-icon orange">⌘</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Agent Bridge</h3><p>AIからのJSON指示でローカルのファイルを安全に操作。</p><div class="tool-foot"><span>227 TOOLS</span><a href="tools/agent-bridge/index.html">開く ↗</a></div></article>
+   <article class="tool-card" data-id="janken-ai" data-search="ai じゃんけん 学習 予測 分析 対戦"><div class="tool-head"><span class="tool-icon pink">✊</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Janken AI Lab</h3><p>人ごとの手の傾向を学習して、次の手を予測する。</p><div class="tool-foot"><span>PREDICTION</span><a href="tools/janken-ai/index.html">開く ↗</a></div></article>
+   <article class="tool-card" data-id="retro-arcade" data-search="game ゲーム レトロ オート 200 アーケード"><div class="tool-head"><span class="tool-icon sky">◈</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Retro Arcade Lab</h3><p>クラシック/現代モード、AUTO、倍速付き200本のゲーム。</p><div class="tool-foot"><span>200 GAMES</span><a href="tools/retro-arcade/index.html">開く ↗</a></div></article>
+   <article class="tool-card" data-id="scratch-lite" data-search="scratch ターボワープ turbowarp sb3 プロジェクト ランチャー"><div class="tool-head"><span class="tool-icon green">S</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Scratch Lite Launcher</h3><p>ファイル/URL読込、AUTO軽量化、保存した作品をすぐ再開。</p><div class="tool-foot"><span>FAST PLAYER</span><a href="tools/scratch-lite/index.html">開く ↗</a></div></article>
+  </div>
+  <p id="no-tools" hidden class="empty">当てはまるツールがありません。</p>
+ </section>
+
+ <section class="insights">
+  <div class="section-head"><div><span class="eyebrow">LOCAL ENVIRONMENT</span><h2>現在の作業環境</h2></div><button type="button" id="refresh-insights">↻ 更新</button></div>
+  <div class="insight-grid">
+   <div class="insight-card"><span>論理CPU</span><b id="insight-cpu">—</b><small>navigator.hardwareConcurrency</small></div>
+   <div class="insight-card"><span>メモリ目安</span><b id="insight-memory">—</b><small>取得できる端末のみ</small></div>
+   <div class="insight-card"><span>保存容量</span><b id="insight-storage">—</b><small>このサイトの保存領域</small></div>
+   <div class="insight-card"><span>ツールの使用</span><b id="insight-used">0 / 7</b><small>このブラウザの履歴</small></div>
+  </div>
+ </section>
+ <footer class="footer"><span>◈ PC LOCAL TOOL NEXT <span class="muted">© LOCAL FIRST</span></span><span>ブラウザ内で処理・ツール横断ランチャー</span></footer>
 </main>
-<script>
-(() => {
- const KEY='pclocaltool_launcher_v2',cards=[...document.querySelectorAll('#tool-grid>a.card')];
- let data={pinned:[],recent:[]};
- try{const raw=JSON.parse(localStorage.getItem(KEY)||'null');if(raw&&typeof raw==='object'){data.pinned=Array.isArray(raw.pinned)?raw.pinned:[];data.recent=Array.isArray(raw.recent)?raw.recent:[]}}catch{}
- let view='all',query='';
- const persist=()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch{}};
- cards.forEach(card=>{
-  const id=card.getAttribute('href');
-  card.dataset.id=id;
-  const pin=document.createElement('button');pin.className='tool-pin';pin.type='button';pin.setAttribute('aria-label','お気に入りに追加');pin.textContent='☆';
-  const wrap=document.createElement('div');wrap.className='tool-card-wrap';card.parentNode.insertBefore(wrap,card);wrap.append(card,pin);
-  pin.onclick=e=>{e.preventDefault();e.stopPropagation();if(data.pinned.includes(id))data.pinned=data.pinned.filter(x=>x!==id);else data.pinned.push(id);persist();draw()};
-  card.addEventListener('click',e=>{if(e.target.closest('.tool-pin'))return;data.recent=[id,...data.recent.filter(x=>x!==id)].slice(0,20);persist()});
- });
- function draw(){
-  let visible=0;
-  cards.forEach(card=>{
-   const id=card.dataset.id,has=data.pinned.includes(id),pin=card.querySelector('.tool-pin');
-   pin.textContent=has?'★':'☆';pin.classList.toggle('on',has);pin.setAttribute('aria-label',has?'お気に入りを解除':'お気に入りに追加');
-   const searchMatch=card.textContent.toLocaleLowerCase('ja').includes(query.toLocaleLowerCase('ja'));
-   const viewMatch=view==='all'||(view==='pinned'?has:data.recent.includes(id));
-   card.parentNode.hidden=!(searchMatch&&viewMatch);
-   if(!card.parentNode.hidden)visible++;
-  });
-  if(view==='recent'){cards.sort((a,b)=>(data.recent.indexOf(a.dataset.id)<0?999:data.recent.indexOf(a.dataset.id))-(data.recent.indexOf(b.dataset.id)<0?999:data.recent.indexOf(b.dataset.id))).forEach(c=>document.getElementById('tool-grid').appendChild(c.parentNode))}
-  document.getElementById('tool-empty').hidden=visible>0;
-  document.getElementById('tool-meta').textContent=visible+' / '+cards.length+'ツール';
-  for(const type of ['all','pinned','recent'])document.getElementById('tool-'+type).classList.toggle('active',view===type);
- }
- document.getElementById('tool-search').oninput=e=>{query=e.target.value.trim();draw()};
- for(const type of ['all','pinned','recent'])document.getElementById('tool-'+type).onclick=()=>{view=type;draw()};
- draw();
-})();
-</script>
+</div>
+<dialog id="shortcut-dialog"><div class="dialog-head"><h2>キーボード操作</h2><button type="button" id="close-shortcuts">×</button></div><p><kbd>/</kbd> クイックコマンドへ移動</p><p><kbd>Ctrl</kbd> + <kbd>K</kbd> クイックコマンドへ移動</p><p><kbd>Enter</kbd> 入力したコマンドを実行</p><p><kbd>Esc</kbd> 入力欄からフォーカスを外す</p></dialog>
+<script src="home-next.js?v=1"></script>
 </body>
 </html>
