@@ -18,7 +18,8 @@
   <aside class="sidebar">
     <section class="side-card">
       <div class="side-title"><span>👤 プロフィール</span><button id="new-profile" class="small-btn">＋</button></div>
-      <div id="profile-list" class="profile-list"></div>\n      <button id="quick-train" class="wide secondary" style="margin-top:10px">⚡ 過去の手でクイック学習</button>
+      <div id="profile-list" class="profile-list"></div>
+      <button id="quick-train" class="wide secondary" style="margin-top:10px">⚡ 過去の手でクイック学習</button>
     </section>
     <section class="side-card">
       <div class="side-title">📊 セッション</div>
@@ -26,9 +27,11 @@
         <div><b id="session-rounds">0</b><span>ラウンド</span></div>
         <div><b id="session-wins">0</b><span>勝ち</span></div>
         <div><b id="session-draws">0</b><span>あいこ</span></div>
-        <div><b id="session-losses">0</b><span>負け</span></div>\n        <div><b id="session-ai-hit">—</b><span>AI命中</span></div>\n        <div><b id="session-follow">—</b><span>推奨採用時</span></div>
+        <div><b id="session-losses">0</b><span>負け</span></div>
+        <div><b id="session-ai-hit">—</b><span>AI命中</span></div>
+        <div><b id="session-follow">—</b><span>推奨採用時</span></div>
       </div>
-      <button id="undo-round" class="wide secondary" disabled>↶ 直前のラウンドを取り消す</button>
+      <button id="undo-round" class="wide secondary" disabled>↶ 直前のラウンドを取り消す</button><button id="export-session" class="wide secondary" type="button">📄 この対戦をCSV保存</button>
     </section>
     <section class="side-card">
       <div class="side-title">💾 データ</div>
@@ -106,7 +109,9 @@
 <form method="dialog" id="train-form">
   <div class="dialog-head"><h3>⚡ クイック学習</h3><button type="button" class="icon-btn train-cancel">✕</button></div>
   <label><span>学習させるプロフィール</span><select id="train-profile"></select></label>
-  <label><span>過去に出した手を順番に入力</span><textarea id="train-sequence" placeholder="例: グー チョキ パー グー\nまたは: ✊ ✌️ 🖐️ ✊\nR S P R でもOK"></textarea></label>
+  <label><span>過去に出した手を順番に入力</span><textarea id="train-sequence" placeholder="例: グー チョキ パー グー
+または: ✊ ✌️ 🖐️ ✊
+R S P R でもOK"></textarea></label>
   <div class="small muted">勝敗情報がないため「出し手パターン」の学習に使います。既存データへ追加されます。</div>
   <div id="train-preview" class="info-box">0手</div>
   <div class="dialog-actions"><button type="button" class="secondary train-cancel">キャンセル</button><button id="train-save" value="default" class="primary">学習データを追加</button></div>
