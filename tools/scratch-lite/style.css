@@ -17,3 +17,8 @@
 .recent-remove:hover{color:#ff8e99;background:#2a171a}
 .recent-note{margin:8px 0 0;color:var(--muted);font-size:.64rem;line-height:1.5}
 .recent-empty{grid-column:1/-1;padding:16px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:.72rem;text-align:center}
+
+.recent-card{padding-right:58px}
+.recent-open{display:none}
+.recent-pin{position:absolute;right:29px;top:5px;width:26px;height:26px;min-height:26px;padding:0;border:0;background:transparent;color:#f5ca70;font-size:1.2rem}
+.recent-pin:hover{background:#273449}
