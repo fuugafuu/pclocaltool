@@ -17,6 +17,9 @@ test('commands normalize full width and preserve compound durations',()=>{
   assert.match(result.title,/1時間30分15秒/);
   assert.equal(interpret('cos(60)').id,'math-assist');
   assert.equal(interpret('OS').id,'dev-os');
+  assert.equal(interpret('テトリス').id,'game');
+  assert.equal(interpret('game').id,'game');
+  assert.equal(interpret('レトロゲーム').id,'retro-arcade');
   assert.equal(interpret('stopwatch').id,'universal-timer');
   assert.equal(interpret('Scratch 123456').id,'scratch-lite');
 });

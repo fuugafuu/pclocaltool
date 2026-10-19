@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1019">
-<meta name="description" content="PC Local Tool NEXT - 7つのローカルツールを1つにまとめたブラウザ作業環境">
+<meta name="description" content="PC Local Tool NEXT - 8つのローカルツールを1つにまとめたブラウザ作業環境">
 <link rel="icon" href="pct-next-icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="home-next.css?v=2">
@@ -17,7 +17,7 @@
  <div class="sidebar-label">WORKSPACE</div>
  <a class="side-link selected" href="#home"><span>◈</span> コマンドセンター</a>
  <a class="side-link" href="#resume"><span>↺</span> 最近の作業</a>
- <a class="side-link" href="#tools"><span>▦</span> ツール一覧 <small>07</small></a>
+ <a class="side-link" href="#tools"><span>▦</span> ツール一覧 <small>08</small></a>
  <div class="sidebar-label">QUICK ACCESS</div>
  <div id="sidebar-favorites"></div>
  <div class="sidebar-bottom"><span id="network-indicator" class="status-dot"></span><span id="network-label">端末の接続を確認中</span></div>
@@ -36,7 +36,7 @@
   <div class="hero-content">
    <div class="hero-eyebrow"><span class="pulse"></span> PC LOCAL TOOL NEXT <span class="hero-version">V3.0</span></div>
    <h1>やりたいことから、<br><span>すぐ実行。</span></h1>
-   <p>7つのツールを横断する新しい司令塔。何をしたいか入力するだけで、適切なツールへ直接つなぎます。AIへの送信は不要です。</p>
+   <p>8つのツールを横断する新しい司令塔。何をしたいか入力するだけで、適切なツールへ直接つなぎます。AIへの送信は不要です。</p>
    <form id="command-form" autocomplete="off">
     <span class="command-icon">⌘</span>
     <input id="command-input" type="text" aria-label="やりたいことを入力" placeholder="例：5分タイマー / 2x+5=15 / Scratch 123456" maxlength="500">
@@ -49,7 +49,7 @@
    <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
    <div class="orb-center">P<span>↗</span></div>
    <div class="float-tile t1">Σ</div><div class="float-tile t2">◴</div><div class="float-tile t3">✊</div><div class="float-tile t4">S</div>
-   <div class="orbit-caption">ONE WORKSPACE<br>SEVEN ENGINES</div>
+   <div class="orbit-caption">ONE WORKSPACE<br>EIGHT ENGINES</div>
   </div>
  </section>
 
@@ -59,9 +59,11 @@
  </section>
 
  <section class="tools-section" id="tools">
-  <div class="section-head"><div><span class="eyebrow">THE TOOLBOX</span><h2>すべてのツール <span>07</span></h2></div><span class="soft-pill" id="tool-meta">7 / 7</span></div>
+  <div class="section-head"><div><span class="eyebrow">THE TOOLBOX</span><h2>すべてのツール <span>08</span></h2></div><span class="soft-pill" id="tool-meta">8 / 8</span></div>
   <div class="filter-row"><div class="search"><span>⌕</span><input id="tool-search" type="search" placeholder="ツールを検索" aria-label="ツールを検索"></div><div class="filter-buttons"><button type="button" class="active" data-filter="all">すべて</button><button type="button" data-filter="favorites">★ お気に入り</button><button type="button" data-filter="recent">最近使用</button></div></div>
   <div id="tool-grid" class="tools-grid">
+   <article class="tool-card" data-id="game" data-search="game ゲーム テトリス tetris stack arena ai 対戦 観戦"><div class="tool-head"><span class="tool-icon green">▥</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Game / Stack Arena</h3><p>演出豊かなテトリス。ソロ・人間vsAI・AIvsAI、5段階の本格AI。</p><div class="tool-foot"><span>NEW · BATTLE ARENA</span><a href="tools/game/index.html">開く ↗</a></div></article>
+
    <article class="tool-card" data-id="math-assist" data-search="math 計算 方程式 図形 数学 グラフ"><div class="tool-head"><span class="tool-icon indigo">∑</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Math Assist</h3><p>数式・文章・方程式・図形・統計・グラフを賢く計算。</p><div class="tool-foot"><span>CALCULATION</span><a href="tools/math-assist/index.html">開く ↗</a></div></article>
    <article class="tool-card" data-id="universal-timer" data-search="timer 時間 タイマー ストップウォッチ アラーム ポモドーロ"><div class="tool-head"><span class="tool-icon teal">◴</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Universal Timer</h3><p>複数タイマー、ストップウォッチ、インターバル、アラーム。</p><div class="tool-foot"><span>TIME</span><a href="tools/universal-timer/index.html">開く ↗</a></div></article>
    <article class="tool-card" data-id="dev-os" data-search="os 仮想os pc bios デスクトップ シミュレーター"><div class="tool-head"><span class="tool-icon violet">▣</span><button type="button" class="favorite" aria-label="お気に入りに追加">☆</button></div><h3>Dev OS Lab</h3><p>BIOS・仮想デスクトップ・セキュリティを備えたOS実験室。</p><div class="tool-foot"><span>SIMULATION</span><a href="tools/dev-os/index.html">開く ↗</a></div></article>
@@ -79,13 +81,13 @@
    <div class="insight-card"><span>論理CPU</span><b id="insight-cpu">—</b><small>navigator.hardwareConcurrency</small></div>
    <div class="insight-card"><span>メモリ目安</span><b id="insight-memory">—</b><small>取得できる端末のみ</small></div>
    <div class="insight-card"><span>保存容量</span><b id="insight-storage">—</b><small>このサイトの保存領域</small></div>
-   <div class="insight-card"><span>ツールの使用</span><b id="insight-used">0 / 7</b><small>このブラウザの履歴</small></div>
+   <div class="insight-card"><span>ツールの使用</span><b id="insight-used">0 / 8</b><small>このブラウザの履歴</small></div>
   </div>
  </section>
  <footer class="footer"><span>◈ PC LOCAL TOOL NEXT <span class="muted">© LOCAL FIRST</span></span><span>ブラウザ内で処理・ツール横断ランチャー</span></footer>
 </main>
 </div>
 <dialog id="shortcut-dialog"><div class="dialog-head"><h2>キーボード操作</h2><button type="button" id="close-shortcuts">×</button></div><p><kbd>/</kbd> クイックコマンドへ移動</p><p><kbd>Ctrl</kbd> + <kbd>K</kbd> クイックコマンドへ移動</p><p><kbd>Enter</kbd> 入力したコマンドを実行</p><p><kbd>Esc</kbd> 入力欄からフォーカスを外す</p></dialog>
-<script src="home-next.js?v=4"></script>
+<script src="home-next.js?v=5"></script>
 </body>
 </html>

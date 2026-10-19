@@ -2,6 +2,7 @@
 (() => {
  if(window.PCToolHub) return;
  const APPS=[
+  {id:'game',title:'Game / Stack Arena',label:'▥ テトリス対戦'},
   {id:'math-assist',title:'Math Assist',label:'🧮 計算・グラフ'},
   {id:'universal-timer',title:'Universal Timer',label:'⏱ タイマー'},
   {id:'dev-os',title:'Dev OS Lab',label:'💻 仮想OS'},

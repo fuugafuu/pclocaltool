@@ -1,6 +1,6 @@
 'use strict';
 importScripts('./offline-assets.js');
-const CACHE = 'pct-next-offline-v4';
+const CACHE = 'pct-next-offline-v5';
 const scope = new URL(self.registration.scope);
 // Normalize version and navigation parameters: every local asset has one cache entry.
 function cacheKey(url) { return new Request(url.origin + url.pathname); }

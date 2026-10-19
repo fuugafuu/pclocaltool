@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build:offline": "node scripts/build-offline.cjs",
-    "test": "node scripts/build-offline.cjs --check && node --test tests/*.test.cjs"
+    "test": "node scripts/build-offline.cjs --check && node --test tests/*.test.cjs",
+    "test:browser": "node scripts/verify-game.cjs"
   }
 }

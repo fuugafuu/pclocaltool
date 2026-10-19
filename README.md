@@ -1,10 +1,11 @@
 # PC Local Tool NEXT
 
-ブラウザで使える7種類のツールをまとめたローカル優先の作業環境です。
+ブラウザで使える8種類のツールをまとめたローカル優先の作業環境です。
 `index.html` を開くと、検索・お気に入り・最近の作業から各ツールへ移動できます。
 
 | ツール | 用途 |
 | --- | --- |
+| Game / Stack Arena | テトリス：ソロ・人間vsAI・AIvsAI、5段階AI |
 | Math Assist | 数式・方程式・図形・統計・グラフ（三角関数は度数法） |
 | Universal Timer | タイマー・ストップウォッチ・アラーム・ポモドーロ |
 | Dev OS Lab | 仮想デスクトップ・OS実験 |
@@ -46,3 +47,5 @@ HTML・JS・CSSなどを追加・削除した場合は `npm run build:offline` �
 `offline-assets.js` を再生成してください。リリース時には `home-sw.js` の
 キャッシュ名も更新します。保存対象の欠落はCIで検出します。
 全アセットの保存に成功するまでは新しいWorkerは有効にならず、以前のキャッシュを維持します。
+
+Gameのルールと操作方法は [専用README](tools/game/README.md) を参照してください。
