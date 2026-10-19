@@ -27,3 +27,12 @@ Follow-up completed: user requested trainable AI, Reversi, richer effects, and g
 - Fixed intrinsic canvas resize/flex feedback and shared hub paths for nested games.
 - Passed 20 Node tests; passed full browser matches, nonzero learned weights, persistence/OFF/reset, both fullscreens and nested offline Worker. Inspected screenshots and reran the skill client for both games.
 - Final steps: final checks, push and CI verification; only then perform the authorized PC shutdown.
+
+
+2026-10-20 follow-up: 本気でRetro ArcadeとAgent Bridgeを強化。
+- Retro: fixed-step lifecycle, finish/pause overlays, input release, gamepads, fullscreen, reflected paddle AUTO, modern score particles, recent/random/search persistence and session stats.
+- Fixed Mario Bros. uninitialized enemy collection discovered by 400 game/mode smoke cases.
+- Agent: staged virtual workspace, diff/file browser, conflict preflight, partial failure retention, batch validation, missing reference errors, cancellation, tab-local history and change-set export.
+- Fixed diagnostics bundle syntax error; all 227 catalog tools now register.
+- Tests cover memory and real FileSystemHandle editing, external conflicts, markers, 400 arcade boots with AUTO and browser input/fullscreen controls. No required TODOs after final checks.
+- Previous shutdown request was fulfilled on 2026-10-19; no new shutdown was requested for this follow-up.

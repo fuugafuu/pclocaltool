@@ -277,6 +277,7 @@ E.marioBros=function(p,api){
  function spawnWave(){en=Array.from({length:4+Math.min(4,wave)},(_,i)=>({x:90+(i*93)%470,y:plats[1+i%(plats.length-1)].y-17,dir:i%2?1:-1,stun:0}))}
  function floorY(x,y){let best=420;for(const q of plats)if(x>=q.x&&x<=q.x+q.w&&q.y>=y-4)best=Math.min(best,q.y);return best}
  function bump(){for(const q of en){const above=q.y<pl.y&&pl.y-q.y<82&&Math.abs(q.x-pl.x)<35;if(above){q.stun=2.3;api.addScore(60);api.beep(330,.03)}}}
+ reset();
  return api.canvas({
   reset,
   auto(e,dt,cfg){const target=[...en].sort((a,b)=>Math.abs(a.x-pl.x)+Math.abs(a.y-pl.y)-Math.abs(b.x-pl.x)-Math.abs(b.y-pl.y))[0];if(!target)return;if(Math.abs(target.x-pl.x)>10)press(e,target.x>pl.x?'ArrowRight':'ArrowLeft');if(target.y<pl.y-20)e.autoTap?.('ArrowUp',.18);if(target.stun>0&&Math.abs(target.x-pl.x)<38)press(e,'Space',.12)},

@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Agent Bridge | PC Local Tool</title>
-<link rel="stylesheet" href="style.css?v=20261008-1">
+<link rel="stylesheet" href="style.css?v=20261020-1">
 </head>
 <body>
 <div class="app-shell">
@@ -70,7 +70,7 @@
           <div class="panel-head"><div><h2>📁 作業フォルダ</h2><div class="subhead">最初にAIが操作してよい場所を選択</div></div></div>
           <div class="actions">
             <button id="pick-folder" class="primary">作業フォルダを選ぶ</button>
-            <label class="button secondary">読み込み専用で選ぶ<input id="folder-input" type="file" webkitdirectory multiple hidden></label>
+            <label class="button secondary">フォルダを読み込む<input id="folder-input" type="file" webkitdirectory multiple hidden></label>
           </div>
           <div id="workspace-info" class="info-box" style="margin-top:12px">まだフォルダが選択されていません。</div>
           <div class="small muted" style="margin-top:8px">直接編集が許可されない環境では、変更内容をダウンロードできます。</div>
@@ -87,6 +87,7 @@
         </article>
       </section>
 
+      <section class="panel workbench-panel"><div class="panel-head"><div><h2>ワークベンチ</h2><div class="subhead">ファイルを読む → 編集プレビュー → 確認して反映</div></div><label class="check"><input type="checkbox" id="stage-edits" checked>変更をプレビューに保持</label></div><div class="workbench-grid"><div><input id="file-filter" placeholder="ファイル名で絞り込み" aria-label="ファイル名検索"><button id="refresh-files" class="secondary">一覧更新</button><div id="file-tree" class="file-tree">フォルダを選択してください。</div></div><div><div class="actions"><b id="preview-path">ファイルプレビュー</b><button id="apply-staged" class="primary">変更を反映</button><button id="discard-staged" class="secondary">破棄</button><button id="export-bundle" class="secondary">変更セットを書き出す</button></div><p id="stage-status" role="status">変更はありません。</p><pre id="file-preview" tabindex="0">一覧のファイルを選択すると内容を表示します。</pre></div></div></section>
       <section class="panel editor-panel">
         <div class="editor-toolbar">
           <div>
@@ -108,13 +109,13 @@
           </div>
           <div class="run-right">
             <span class="small muted">コードブロック・JSON Lines・末尾カンマも可能な範囲で補正</span>
-            <button id="preview-json" class="secondary big" type="button">🔎 実行前確認</button><button id="run" class="primary big">▶ 実行</button>
+            <button id="preview-json" class="secondary big" type="button">🔎 実行前確認</button><button id="cancel-run" title="実行中の1アクションが完了してから停止します" class="secondary big" disabled>中断</button><button id="run" class="primary big">▶ 実行</button>
           </div>
         </div>
         <div id="run-status" class="run-status">待機中</div><div id="command-preview" class="command-preview" hidden></div>
       </section>
 
-      <section>
+      <section class="panel"><div class="panel-head"><h2>実行履歴</h2><span class="muted small">このタブ内で直近10回・再実行は入力のみ復元</span></div><div id="run-history"></div></section><section>
         <div class="tab-bar">
           <button class="tab-btn active" data-main-tab="result">実行結果</button>
           <button class="tab-btn" data-main-tab="changes">変更ファイル</button>
@@ -158,7 +159,8 @@
 <script src="tool/catalog.js"></script>
 <script src="tool/catalog-diagnostics.js"></script>
 <script src="tool/catalog-agent.js"></script>
-<script src="app.js?v=20261008-1"></script>
+<script src="workspace-session.js"></script>
+<script src="app.js?v=20261020-1"></script>
 <script src="tool/runtime-file.js"></script>
 <script src="tool/runtime-text.js"></script>
 <script src="tool/runtime-data.js"></script>
@@ -166,6 +168,6 @@
 <script src="tool/runtime-diagnostics.js"></script>
 <script src="tool/runtime-agent.js"></script>
 <script src="input-normalizer.js"></script>
-<script src="ui-enhance.js"></script>
+<script src="ui-enhance.js"></script><script src="workbench.js"></script>
 </body>
 </html>
