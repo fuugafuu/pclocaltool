@@ -4,7 +4,7 @@
   const $$=s=>[...document.querySelectorAll(s)];
   const KEY='pclocaltool_launcher_v2';
   const APPS=[
-    {id:'game',url:'tools/game/index.html',label:'Game / Stack Arena',icon:'▥'},
+    {id:'game',url:'tools/game/index.html',label:'Game / Arenas',icon:'▥'},
     {id:'math-assist',url:'tools/math-assist/index.html',label:'Math Assist',icon:'∑'},
     {id:'universal-timer',url:'tools/universal-timer/index.html',label:'Universal Timer',icon:'◴'},
     {id:'dev-os',url:'tools/dev-os/index.html',label:'Dev OS Lab',icon:'▣'},
@@ -52,6 +52,7 @@
       return {id:'universal-timer',url:secs?quickParams(tool('universal-timer').url,{preset:String(secs),start:'1'}):tool('universal-timer').url,title:secs?secs>=3600?Math.floor(secs/3600)+'時間'+(secs%3600?Math.floor(secs%3600/60)+'分'+(secs%60?secs%60+'秒':''):'')+'のタイマーを開始':secs>=60?Math.floor(secs/60)+'分'+(secs%60?secs%60+'秒':'')+'タイマーを開始':secs+'秒タイマーを開始':'タイマーツールを開く',details:secs?'時間を引き継ぎ、そのままカウントダウン開始':'タイマー・アラーム・ストップウォッチ'};
     }
     if(/前に遊んだ|続きのゲーム|ゲーム再開|最近のゲーム/.test(s)&&lastRetroId)return {id:'retro-arcade',url:quickParams(tool('retro-arcade').url,{play:lastRetroId}),title:'前回のゲームを再開',details:lastRetroId};
+    if(/リバーシ|オセロ|reversi|othello|flip arena/i.test(s))return {id:'game',url:'tools/game/reversi/index.html',title:'Game / Flip Arenaを開く',details:'学習型AIと対局できるリバーシ'};
     if(/テトリス|tetris|stack|arena|^game$|^ゲーム$/i.test(s))return {id:'game',url:tool('game').url,title:'Game / Stack Arenaを開く',details:'ソロ・人間対AI・AI対AIのテトリスアリーナ'};
     if(/ゲーム|アーケード|レトロ|マリオ|パックマン/i.test(s))return {id:'retro-arcade',url:tool('retro-arcade').url,title:'レトロゲームを開く',details:'Classic/Modern・オート・倍速'};
     if(/じゃんけん|ジャンケン|janken|グー|チョキ|パー/i.test(s))return {id:'janken-ai',url:tool('janken-ai').url,title:'じゃんけんAIを開く',details:'相手別の傾向学習・予測'};
@@ -190,5 +191,5 @@
   addEventListener('online',status);addEventListener('offline',status);
   addEventListener('pageshow',()=>{renderTools();renderResume();status()});
   renderTools();renderResume();status();
-  if('serviceWorker' in navigator&&['https:','http:'].includes(location.protocol))navigator.serviceWorker.register('./home-sw.js?v=5').catch(()=>{});
+  if('serviceWorker' in navigator&&['https:','http:'].includes(location.protocol))navigator.serviceWorker.register('./home-sw.js?v=6').catch(()=>{});
 })();

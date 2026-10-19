@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10151c"><meta name="description" content="GAME / FLIP ARENA — アニメーションと学習型AIを備えたリバーシ">
+<title>GAME / Flip Arena — リバーシ</title>
+<link rel="icon" href="../../../pct-next-icon.svg" type="image/svg+xml"><link rel="stylesheet" href="../style.css"><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+<header class="topbar"><a href="../../../index.html" class="brand"><span class="brand-mark">G<span>↗</span></span> GAME <span class="brand-divider">/</span> <small>PC LOCAL TOOL</small></a><div class="header-right"><span class="local-dot"></span><span>LOCAL PLAY</span><button id="rules-btn" class="icon-button" aria-label="ルールと操作方法">?</button><button id="sound-btn" class="icon-button" aria-label="サウンドを有効にする" aria-pressed="false">音 OFF</button></div></header>
+<div class="heading"><div><div class="eyebrow">02 — STRATEGIC DISC BATTLE</div><h1>FLIP<span>ARENA</span><span class="title-dot">02</span></h1><p>一手で変わる。盤面も、その未来も。</p></div><div class="edition"><span>TACTICAL PUZZLE</span><b>あなた vs. 次の一手。</b><small>8 × 8 / STRATEGY / LEARNING</small></div></div>
+<nav class="game-tabs" aria-label="ゲーム選択"><a href="../index.html">01 <b>STACK ARENA</b> テトリス</a><a class="active" href="./index.html">02 <b>FLIP ARENA</b> リバーシ</a></nav>
+<main class="workspace">
+<aside class="setup" aria-label="対戦設定">
+<div class="panel-title"><span>PLAY CONFIG</span><span class="index">01 / 03</span></div>
+<fieldset class="mode-select"><legend>プレイモード</legend><label><input type="radio" name="mode" value="versus" checked><span><b>人間 <i>vs</i> AI</b><small>自分の限界に、挑もう。</small></span><em>↗</em></label><label><input type="radio" name="mode" value="solo"><span><b>盤面練習</b><small>両色を操作する盤面練習。</small></span><em>↗</em></label><label><input type="radio" name="mode" value="watch"><span><b>AI <i>vs</i> AI</b><small>思考がぶつかる観戦席。</small></span><em>↗</em></label></fieldset>
+<div id="left-ai-setting" hidden><label class="field-label" for="left-level">BLACK AI</label><select id="left-level"><option value="1">Lv.1 — Rookie</option><option value="2">Lv.2 — Pilot</option><option value="3" selected>Lv.3 — Expert</option><option value="4">Lv.4 — Master</option><option value="5">Lv.5 — Apex</option></select></div>
+<div id="right-ai-setting"><label class="field-label" for="right-level">WHITE AI</label><select id="right-level"><option value="1">Lv.1 — Rookie</option><option value="2">Lv.2 — Pilot</option><option value="3" selected>Lv.3 — Expert</option><option value="4">Lv.4 — Master</option><option value="5">Lv.5 — Apex</option></select><p class="field-note">角・可動性・終盤まで読む探索AI</p></div>
+<div id="color-setting"><label class="field-label" for="human-color">YOUR SIDE</label><select id="human-color"><option value="1">BLACK — 先手</option><option value="-1">WHITE — 後手</option></select></div>
+<button id="start-btn" class="primary">アリーナに入る <span>↗</span></button><div class="small-actions"><button id="pause-btn" disabled>Ⅱ 一時停止</button><button id="restart-btn" disabled>↻ リスタート</button></div>
+<div class="prefs"><label><input type="checkbox" id="effects" checked>エフェクト</label><label><input type="checkbox" id="hints" checked>合法手表示</label></div>
+<div class="learning-card"><label><input type="checkbox" id="learning" checked> 学習型AI <span>LOCAL</span></label><p>基礎探索＋対戦経験で判断を補正</p><div><b id="learning-count">0手を学習</b><button id="reset-learning" type="button">学習を初期化</button></div></div>
+<div class="personal-best"><span>YOUR MATCH RECORD</span><b id="record">0 W / 0 L</b><small>人間対AIの戦績をこのブラウザに保存</small></div>
+</aside>
+<section class="arena-panel" aria-label="ゲームアリーナ">
+<div class="arena-toolbar"><div><span class="live-dot" id="live-dot"></span><b id="match-status" role="status" aria-live="polite">READY TO PLAY</b><span id="round-label">TURN 01</span></div><span class="arena-clock" id="clock">00:00</span></div>
+<div class="canvas-wrap"><canvas id="arena" width="1000" height="820" tabindex="0" aria-label="リバーシ盤面。クリックまたは矢印とEnterで着手"></canvas><div class="overlay" id="overlay"><span class="overlay-kicker" id="overlay-kicker">THE NEXT MOVE IS YOURS</span><h2 id="overlay-title">次の一手で、裏返せ。</h2><p id="overlay-description">モードとAIレベルを選んで、アリーナへ。</p><button id="overlay-action">プレイ開始 <span>↗</span></button></div></div>
+<div class="arena-footer"><span><i class="mint-square"></i> <b id="footer-mode">HUMAN vs AI</b></span><span id="engine-status">反転の先まで読む · 対戦経験をローカル学習</span><button id="fullscreen-btn" title="全画面 (F)">⛶</button></div>
+</section>
+</main>
+<section class="bottom-strip"><div class="key-guide"><span class="eyebrow">TAKE CONTROL</span><span><kbd>CLICK</kbd> 石を置く</span><span><kbd>↑↓←→</kbd> マスを選択</span><span><kbd>ENTER</kbd> 着手</span><span><kbd>P</kbd> ポーズ</span><span><kbd>F</kbd> 盤面を全画面</span></div><span class="build-label">EVERY MOVE CHANGES EVERYTHING.</span></section>
+<footer class="page-footer"><span>GAME / 02 <i>FLIP ARENA</i></span><span>ローカル対戦 · 学習型AI · 8×8 STRATEGY</span></footer>
+</div>
+<dialog id="rules-dialog"><div class="dialog-header"><span class="eyebrow">HOW TO PLAY</span><button id="close-rules" aria-label="閉じる">×</button></div><h2>一手の先に、勝ち筋を。</h2><p>相手の石を自分の石で縦・横・斜めに挟むと裏返ります。必ず1枚以上裏返せるマスに着手します。黒が先手。合法手がなければ自動パスし、両者が置けなくなったら石の多い側の勝利です。</p><h3>AIと学習</h3><p>5段階の反復深化・αβ探索。角、危険な角の隣、可動性、辺、終盤の石数を評価します。最上位は最大8手と、残り10マス以下で時間内の完全読みを試みます。学習ONでは対局中の局面と勝敗から評価補正を更新し、経験をこのブラウザに保存します。OFFで基礎探索のみ。学習の初期化も可能です。</p><p>人間vsAI、両色を操作する盤面練習、AIvsAIに対応。クリック・タップで着手。矢印でカーソル、EnterまたはSpaceで着手。Pで一時停止、Fで盤面のみ全画面。タブを隠すと自動停止します。</p></dialog>
+<script src="../learning.js"></script><script src="engine.js"></script><script src="ai.js"></script><script src="app.js"></script><script src="../../_shared/tool-hub.js?v=6"></script>
+</body></html>

@@ -10,6 +10,7 @@
 <div class="shell">
 <header class="topbar"><a href="../../index.html" class="brand"><span class="brand-mark">G<span>↗</span></span> GAME <span class="brand-divider">/</span> <small>PC LOCAL TOOL</small></a><div class="header-right"><span class="local-dot"></span><span>LOCAL PLAY</span><button id="rules-btn" class="icon-button" aria-label="ルールと操作方法">?</button><button id="sound-btn" class="icon-button" aria-label="サウンドを有効にする" aria-pressed="false">音 OFF</button></div></header>
 <div class="heading"><div><div class="eyebrow">01 — FALLING BLOCK BATTLE</div><h1>STACK<span>ARENA</span><span class="title-dot">01</span></h1><p>積み上げろ。読み切れ。最後まで残れ。</p></div><div class="edition"><span>TACTICAL PUZZLE</span><b>あなた vs. 次の一手。</b><small>7-BAG / SRS / BATTLE</small></div></div>
+<nav class="game-tabs" aria-label="ゲーム選択"><a class="active" href="./index.html">01 <b>STACK ARENA</b> テトリス</a><a href="reversi/index.html">02 <b>FLIP ARENA</b> リバーシ <span>NEW ↗</span></a></nav>
 <main class="workspace">
 <aside class="setup" aria-label="対戦設定">
 <div class="panel-title"><span>PLAY CONFIG</span><span class="index">01 / 03</span></div>
@@ -20,6 +21,7 @@
 <div id="solo-setting" hidden><label class="field-label" for="gravity">START LEVEL</label><select id="gravity"><option value="1">01 — Relax</option><option value="5">05 — Focus</option><option value="10">10 — Challenge</option></select></div>
 <button id="start-btn" class="primary">アリーナに入る <span>↗</span></button><div class="small-actions"><button id="pause-btn" disabled>Ⅱ 一時停止</button><button id="restart-btn" disabled>↻ リスタート</button></div>
 <div class="prefs"><label><input type="checkbox" id="effects" checked>エフェクト</label><label><input type="checkbox" id="ghost" checked>ゴースト</label></div>
+<div class="learning-card"><label><input type="checkbox" id="learning" checked> 学習型AI <span>LOCAL</span></label><p>基礎探索＋対戦経験で判断を補正</p><div><b id="learning-count">0手を学習</b><button id="reset-learning" type="button">学習を初期化</button></div></div>
 <div class="personal-best"><span>YOUR PERSONAL BEST</span><b id="best-score">000,000</b><small>SOLO HIGH SCORE · このブラウザに保存</small></div>
 </aside>
 <section class="arena-panel" aria-label="ゲームアリーナ">
@@ -33,5 +35,5 @@
 <footer class="page-footer"><span>GAME / 01 <i>STACK ARENA</i></span><span>ローカル対戦 · 外部API不要 · 1対1アレンジルール</span></footer>
 </div>
 <dialog id="rules-dialog"><div class="dialog-header"><span class="eyebrow">HOW TO PLAY</span><button id="close-rules" aria-label="閉じる">×</button></div><h2>積み方が、武器になる。</h2><p>10列×20段。横一列を埋めて消去。上まで積み上がると敗北です。7種が一巡する7-BAG、SRS回転、ホールドとNEXT 6個に対応。</p><h3>テトリス99式の攻撃を1対1へ</h3><p>通常：1列=0、2列=1、3列=2、4列=4。Tスピン：1列=2、2列=4、3列=6。ミニ：1列=0、2列=1。B2B +1、全消し +4、連続消しは最大 +5。バッジ倍率後に切り捨て、1攻撃最大20段。</p><p>攻撃は自分への予告おじゃまから先に相殺。受信上限12段、3秒後に赤くなり、ラインを消さずに固定したとき先頭の塊が上がります。ラインを消し続ける間は上昇を回避できます。</p><p>複数ラウンドではKOで1片＋相手のバッジ片を獲得。2 / 6 / 14 / 30片で攻撃+25 / 50 / 75 / 100%。1対1のため攻撃先は常に相手。99人のターゲット選択・複数被ターゲット補正はありません。ラウンド間の片の継続はこのアリーナ独自仕様です。</p><h3>5段階のAI</h3><p>Rookie / Pilotは1手、Expertは2手、Master / Apexは3手先まで探索。Apexは探索幅と速度も最大。合法な移動経路・ホールドを探索し、穴、積み上がり、凹凸、連鎖と火力を評価します。対戦AIと観戦AIは同じ実装です。</p><p>移動は←→、回転は↑/X・Z、ホールドC/Shift、落下Space、ポーズP/Esc、全画面F。設定の変更は次の試合に適用。タブを隠すと自動停止します。</p><a href="https://tetris.wiki/Tetris_99" target="_blank" rel="noreferrer">攻撃表の参考：TetrisWiki ↗</a></dialog>
-<script src="engine.js"></script><script src="ai.js"></script><script src="app.js"></script><script src="../_shared/tool-hub.js?v=4"></script>
+<script src="learning.js"></script><script src="engine.js"></script><script src="ai.js"></script><script src="app.js"></script><script src="../_shared/tool-hub.js?v=4"></script>
 </body></html>

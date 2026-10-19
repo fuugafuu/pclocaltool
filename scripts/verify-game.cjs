@@ -22,7 +22,7 @@ fs.mkdirSync('output/game',{recursive:true});
  for(let i=0;i<100;i++){await step(250,85);if((await state()).phase!=='playing')break;}
  s=await state();assert.ok(s.players[0].pieces>=20,JSON.stringify(s));assert.ok(s.players[1].pieces>=20);assert.ok(s.players.some(p=>p.lines>0));await page.screenshot({path:'output/game/watch.png',fullPage:true});fs.writeFileSync('output/game/watch-state.json',JSON.stringify(s,null,2));
  // Solo start-level selection, touch buttons and small screen layout.
- await page.check('input[value=solo]');await page.selectOption('#gravity','5');await page.click('#start-btn');await step(2200);assert.equal((await state()).mode,'solo');await page.setViewportSize({width:390,height:844});await page.locator('[data-action=left]').click();await page.locator('[data-action=drop]').click();assert.ok((await state()).players[0].pieces>=1);await page.screenshot({path:'output/game/mobile.png',fullPage:true});
+ await page.check('input[value=solo]');await page.selectOption('#gravity','5');await page.click('#start-btn');await step(2200);assert.equal((await state()).mode,'solo');await page.setViewportSize({width:390,height:844});await page.locator('[data-action=left]:visible').click();await page.locator('[data-action=drop]:visible').click();assert.ok((await state()).players[0].pieces>=1);await page.screenshot({path:'output/game/mobile.png',fullPage:true});
  // Keyboard controls still work after restart.
  await page.click('#restart-btn');await step(2200);await page.keyboard.press('Space');assert.equal((await state()).players[0].pieces,1);
  // Audio and visual preferences persist; the real game can finish a marathon.

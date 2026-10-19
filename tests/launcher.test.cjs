@@ -19,6 +19,7 @@ test('commands normalize full width and preserve compound durations',()=>{
   assert.equal(interpret('OS').id,'dev-os');
   assert.equal(interpret('テトリス').id,'game');
   assert.equal(interpret('game').id,'game');
+  assert.equal(interpret('リバーシ').url,'tools/game/reversi/index.html');
   assert.equal(interpret('レトロゲーム').id,'retro-arcade');
   assert.equal(interpret('stopwatch').id,'universal-timer');
   assert.equal(interpret('Scratch 123456').id,'scratch-lite');

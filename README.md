@@ -5,7 +5,7 @@
 
 | ツール | 用途 |
 | --- | --- |
-| Game / Stack Arena | テトリス：ソロ・人間vsAI・AIvsAI、5段階AI |
+| Game / Arenas | テトリス・リバーシ、5段階の学習型AI、盤面全画面 |
 | Math Assist | 数式・方程式・図形・統計・グラフ（三角関数は度数法） |
 | Universal Timer | タイマー・ストップウォッチ・アラーム・ポモドーロ |
 | Dev OS Lab | 仮想デスクトップ・OS実験 |

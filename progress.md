@@ -18,3 +18,12 @@ Completed:
 - Tuned aggressive AI with a safe-stack well bias, future attack rewards and incoming cancellation priority; tested normal play and battle.
 
 No required TODOs. Optional future work: additional games and a separate multi-opponent lobby. This version intentionally implements a 1v1 adaptation, documented in rules and README.
+
+Follow-up completed: user requested trainable AI, Reversi, richer effects, and game-only fullscreen. User also requested PC shutdown after completion.
+- Added bounded TD(0) residual learning with independent per-game persistent models, enable/disable and reset.
+- Added Reversi engine, iterative-deepening alpha-beta worker, pass/endgame, five levels, human side/practice/spectating.
+- Added flip cascades, drop bounce, rings, sparks, score interpolation, corner bursts, end-game confetti and audio.
+- Added Tetris impact rings and clear sweeps; fullscreen now targets arena panel with in-panel touch controls.
+- Fixed intrinsic canvas resize/flex feedback and shared hub paths for nested games.
+- Passed 20 Node tests; passed full browser matches, nonzero learned weights, persistence/OFF/reset, both fullscreens and nested offline Worker. Inspected screenshots and reran the skill client for both games.
+- Final steps: final checks, push and CI verification; only then perform the authorized PC shutdown.

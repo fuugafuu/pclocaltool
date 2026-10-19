@@ -1,0 +1,3 @@
+.canvas-wrap,canvas{min-height:600px}.arena-panel{min-height:700px}.arena-panel canvas{touch-action:manipulation}.arena-panel:fullscreen .canvas-wrap,.arena-panel:fullscreen canvas{min-height:0!important}#arena{outline-offset:-2px}#arena:focus-visible{outline:1px solid #bafa6a55}.heading h1>span:first-child{color:#bafa6a}.canvas-wrap{background:#152b2d}@media(max-width:760px){.arena-panel{min-height:570px}.canvas-wrap,canvas{min-height:470px}.personal-best{display:none}.arena-footer #engine-status{max-width:180px}.game-tabs{margin-top:0}.learning-card{margin-top:0}}
+
+.canvas-wrap>canvas{min-height:0}

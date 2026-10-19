@@ -31,7 +31,7 @@
       // A line clear defers incoming garbage; no-clear locks raise the ready packet.
       if(!result.lines&&this.pending.length&&this.pending[0].readyAt<=now){const packet=this.pending.shift();raised=packet.lines;for(let i=0;i<raised;i++){if(this.board.shift().some(Boolean))this.dead=true;this.board.push(Array.from({length:10},(_,x)=>x===packet.hole?'':'G'));}}
       if(!result.lines&&cells(p).every(([,y])=>y<HIDDEN))this.dead=true;
-      this.last={...result,outgoing,produced,cancelled,raised,combo:this.combo,b2b:chained,type:p.type};if(!this.dead)this.spawn();return this.last;
+      this.last={...result,locked:{...p},outgoing,produced,cancelled,raised,combo:this.combo,b2b:chained,type:p.type};if(!this.dead)this.spawn();return this.last;
     }
   }
   // Reachability search produces an executable route, including SRS tucks/spins.

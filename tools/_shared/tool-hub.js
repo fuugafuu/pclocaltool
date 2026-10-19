@@ -1,8 +1,9 @@
 'use strict';
 (() => {
  if(window.PCToolHub) return;
+ const toolsBase=new URL('../',document.currentScript.src);
  const APPS=[
-  {id:'game',title:'Game / Stack Arena',label:'▥ テトリス対戦'},
+  {id:'game',title:'Game / Arenas',label:'▥ テトリス・リバーシ'},
   {id:'math-assist',title:'Math Assist',label:'🧮 計算・グラフ'},
   {id:'universal-timer',title:'Universal Timer',label:'⏱ タイマー'},
   {id:'dev-os',title:'Dev OS Lab',label:'💻 仮想OS'},
@@ -88,7 +89,7 @@
  }
  function init(){
   if(!document.body)return;
-  const style=document.createElement('link');style.rel='stylesheet';style.href='../_shared/tool-hub.css?v=2';document.head.appendChild(style);
+  const style=document.createElement('link');style.rel='stylesheet';style.href=new URL('_shared/tool-hub.css?v=2',toolsBase).href;document.head.appendChild(style);
   const outer=document.createElement('div');outer.id='pct-tool-hub';
   outer.innerHTML='<button id="pct-hub-trigger" type="button" aria-label="PC Local Tool メニュー" aria-controls="pct-hub-panel" aria-expanded="false">☷ <span>ツール</span></button>'+
   '<section id="pct-hub-panel" hidden aria-label="ツールの切り替えとバックアップ" role="dialog">'+
@@ -98,11 +99,11 @@
   '<div class="pct-hub-section"><b>🔐 データのバックアップ</b><p>計算履歴・タイマー設定・ゲームの記録など、ブラウザの保存データを出力します。Scratch作品本体や作業ファイルは含みません。</p>'+
   '<div class="pct-hub-buttons"><button id="pct-hub-backup" type="button">JSON保存</button><button id="pct-hub-restore" type="button">JSONから復元</button><input type="file" id="pct-hub-file" accept=".json,application/json" hidden></div></div>'+
   '<details class="pct-hub-section"><summary>🔎 この画面のエラー情報 <span id="pct-hub-errors"></span></summary><div id="pct-hub-error-list"></div><button id="pct-hub-copy-errors" type="button">診断結果をコピー</button></details>'+
-  '<p id="pct-hub-status" role="status" aria-live="polite"></p><a class="pct-hub-home" href="../../index.html">← 全ツールのトップへ</a></section>';
+  '<p id="pct-hub-status" role="status" aria-live="polite"></p><a class="pct-hub-home" href="'+new URL('../index.html',toolsBase).href+'">← 全ツールのトップへ</a></section>';
   document.body.appendChild(outer);drawer=document.getElementById('pct-hub-panel');
   const links=document.getElementById('pct-hub-links');
   const draw=q=>{links.innerHTML=APPS.filter(x=>(x.title+x.label).toLowerCase().includes(q.toLowerCase())).map(a=>
-   '<a href="../'+a.id+'/index.html"'+(a.id===current?' aria-current="page"':'')+'>'+esc(a.label)+(a.id===current?'<span>表示中</span>':'')+'</a>').join('')||'<p class="pct-hub-muted">該当するツールがありません。</p>'};
+   '<a href="'+new URL(a.id+'/index.html',toolsBase).href+'"'+(a.id===current?' aria-current="page"':'')+'>'+esc(a.label)+(a.id===current?'<span>表示中</span>':'')+'</a>').join('')||'<p class="pct-hub-muted">該当するツールがありません。</p>'};
   draw('');
   document.getElementById('pct-hub-trigger').onclick=()=>setOpen(!open);
   document.getElementById('pct-hub-close').onclick=()=>setOpen(false);
