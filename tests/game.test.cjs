@@ -3,6 +3,19 @@ const assert=require('node:assert/strict');
 const E=require('../tools/game/engine.js'),A=require('../tools/game/ai.js');
 function tetrisWell(){const b=E.empty();for(let y=18;y<22;y++)b[y]=Array.from({length:10},(_,x)=>x===5?'':'G');return b;}
 test('deterministic 7-bag and independent garbage randomness',()=>{const a=new E.Player(42),b=new E.Player(42);assert.deepEqual(a.queue,b.queue);const bag=[a.active.type,...a.queue.slice(0,6)];assert.equal(new Set(bag).size,7);a.receive(4,0);for(let i=0;i<30;i++){a.spawn();b.spawn();assert.equal(a.active.type,b.active.type);}});
+test('duel players get separate 7-bags and different opening pieces',()=>{
+  for(let seed=1;seed<=1000;seed++){
+    const [left,right]=E.createDuelPlayers(seed);
+    const initial=p=>[p.active.type,...p.queue.slice(0,6)];
+    assert.notEqual(left.active.type,right.active.type,'seed '+seed);
+    assert.equal(new Set(initial(left)).size,7,'left 7-bag '+seed);
+    assert.equal(new Set(initial(right)).size,7,'right 7-bag '+seed);
+    assert.notDeepEqual(initial(left),initial(right),'sequence differs '+seed);
+    const [leftAgain,rightAgain]=E.createDuelPlayers(seed);
+    assert.deepEqual(initial(left),initial(leftAgain),'left deterministic '+seed);
+    assert.deepEqual(initial(right),initial(rightAgain),'right deterministic '+seed);
+  }
+});
 test('hold is once per lock and swaps in a fresh orientation',()=>{const p=new E.Player(5),first=p.active.type;assert.ok(p.swap());assert.equal(p.hold,first);assert.equal(p.swap(),false);p.active=E.ghost(p.board,p.active);p.lock();assert.ok(p.swap());assert.equal(p.active.r,0);assert.equal(p.active.type,first);});
 test('SRS rotation succeeds beside a wall without clipping',()=>{const board=E.empty(),p={type:'T',x:-1,y:10,r:1,lastRotate:false,kick:0};assert.ok(E.fits(board,p));const q=E.rotate(board,p,-1);assert.ok(q);assert.ok(E.fits(board,q));assert.equal(q.r,0);assert.equal(q.x,0);});
 test('99 attack table, combos, B2B, perfect clear and badges',()=>{assert.equal(E.attack(1,'',0,false,false),0);assert.equal(E.attack(2,'',0,false,false),1);assert.equal(E.attack(3,'',0,false,false),2);assert.equal(E.attack(4,'',0,false,false),4);assert.equal(E.attack(2,'full',0,false,false),4);assert.equal(E.attack(3,'full',0,false,false),6);assert.equal(E.attack(1,'mini',0,false,false),0);assert.equal(E.attack(4,'',1,true,true),10);assert.equal(E.attack(4,'',1,true,true,2),12);assert.equal(E.attack(3,'full',10,true,true,30),20);});
