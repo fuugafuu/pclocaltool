@@ -191,5 +191,5 @@
   addEventListener('online',status);addEventListener('offline',status);
   addEventListener('pageshow',()=>{renderTools();renderResume();status()});
   renderTools();renderResume();status();
-  if('serviceWorker' in navigator&&['https:','http:'].includes(location.protocol))navigator.serviceWorker.register('./home-sw.js?v=7').catch(()=>{});
+  if('serviceWorker' in navigator&&['https:','http:'].includes(location.protocol))navigator.serviceWorker.register('./home-sw.js?v=8').catch(()=>{});
 })();
