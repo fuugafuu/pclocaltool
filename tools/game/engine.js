@@ -34,6 +34,21 @@
       this.last={...result,locked:{...p},outgoing,produced,cancelled,raised,combo:this.combo,b2b:chained,type:p.type};if(!this.dead)this.spawn();return this.last;
     }
   }
+  // Each competitor gets an independent 7-BAG stream. Preserve reproducible seeds
+  // while preventing a visually identical opening piece in a new match.
+  function createDuelPlayers(seed=1){
+    const first=new Player(seed>>>0||1);
+    const secondSeed=((seed>>>0)^0x9e3779b9)>>>0;
+    const second=new Player(secondSeed);
+    if(first.active.type===second.active.type){
+      // Swap within the *first* bag: still exactly one of each tetromino.
+      const idx=second.queue.slice(0,6).findIndex(type=>type!==first.active.type);
+      const next=second.queue[idx];
+      second.queue[idx]=second.active.type;
+      second.active=spawn(next);
+    }
+    return [first,second];
+  }
   // Reachability search produces an executable route, including SRS tucks/spins.
   function placements(board,active,maxNodes=6500){
     const todo=[],seen=new Set(),out=[],landings=new Set();
@@ -46,5 +61,5 @@
     }
     return out;
   }
-  return {COLS,ROWS,HIDDEN,TYPES,SHAPES,Player,rng,cells,empty,fits,spawn,move,rotate,ghost,spin,place,attack,badgeLevel,placements};
+  return {COLS,ROWS,HIDDEN,TYPES,SHAPES,Player,createDuelPlayers,rng,cells,empty,fits,spawn,move,rotate,ghost,spin,place,attack,badgeLevel,placements};
 });
