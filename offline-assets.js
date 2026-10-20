@@ -8,6 +8,7 @@ self.PCT_OFFLINE_ASSETS = [
   "./tools/_shared/tool-hub.css",
   "./tools/_shared/tool-hub.js",
   "./tools/agent-bridge/app.js",
+  "./tools/agent-bridge/editor.js",
   "./tools/agent-bridge/index.html",
   "./tools/agent-bridge/input-normalizer.js",
   "./tools/agent-bridge/style.css",

@@ -70,5 +70,5 @@
  window.render_game_to_text=()=>JSON.stringify({coordinateSystem:'8x8; row-major index=y*8+x; origin top-left; x right, y down; 1 black, -1 white',phase,mode,turn,human,board,legalMoves:E.moves(board,turn),counts:E.count(board),moveNumber,lastMove,passed,animating:animTime>0,thinking:pending,search:lastSearch,learning:{enabled:saved.learning,samples:learned.samples,games:learned.games,weights:learned.weights},elapsedMs:Math.round(elapsed)});
  window.advanceTime=ms=>{manual=true;for(let t=0;t<ms;t+=1000/60)update(Math.min(1000/60,ms-t));draw();};
  function frame(now){const dt=Math.min(60,now-lastFrame);lastFrame=now;if(!manual)update(dt);draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
- if('serviceWorker' in navigator&&['http:','https:'].includes(location.protocol))navigator.serviceWorker.register('../../../home-sw.js?v=7').catch(()=>{});
+ if('serviceWorker' in navigator&&['http:','https:'].includes(location.protocol))navigator.serviceWorker.register('../../../home-sw.js?v=8').catch(()=>{});
 })();

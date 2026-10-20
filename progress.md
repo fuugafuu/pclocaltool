@@ -36,3 +36,6 @@ Follow-up completed: user requested trainable AI, Reversi, richer effects, and g
 - Fixed diagnostics bundle syntax error; all 227 catalog tools now register.
 - Tests cover memory and real FileSystemHandle editing, external conflicts, markers, 400 arcade boots with AUTO and browser input/fullscreen controls. No required TODOs after final checks.
 - Previous shutdown request was fulfilled on 2026-10-19; no new shutdown was requested for this follow-up.
+
+
+2026-10-21: Imported five upstream Stack Arena queue fixes. Added Agent Bridge file editor (open/create/stage/keyboard save, stale content guard, workspace switch protection), portable v2 change sets with original baselines and atomic validation/import, pending deletion visibility. Added Node conflict/roundtrip validation tests and Playwright editor workflow coverage. Cache release bumped to v8. Existing 400 retro mode boots and Agent regression suite pass.

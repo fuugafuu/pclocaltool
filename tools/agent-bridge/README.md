@@ -254,3 +254,14 @@ project/
 既存の診断スクリプトの構文エラーも修正し、227種類の登録をブラウザで確認しています。
 ルートで `npm test`、Playwrightを用意した開発環境では `npm run test:retro-agent` で検証できます。
 フォルダ削除のプレビュー取得は500項目・本文換算10MBまでです。
+
+
+## File editor and portable changes (2026-10-21)
+
+The workbench now includes a text editor. Select a file or enter a relative path and open it; use New for a path that does not exist. Ctrl/Cmd+S holds the edit in the preview. Apply in the workbench commits it to the selected workspace. The editor always stages writes, including when immediate tools were enabled. Tab inserts two spaces. Text is edited as plain text, without language-specific formatting.
+
+The editor checks that the current content matches the version it opened before holding a write. If another action changed it, copy your draft and reopen the file. Workspace changes clear the editor and ask before discarding an unheld draft. This is a text editor: binary files should be handled outside it.
+
+Exported change sets now use version 2, containing operations and original baselines. Import restores the entire staged set only when every baseline matches the selected workspace. Invalid operations, conflicts, path escapes and oversized input are rejected without adding partial edits. Import never writes to the workspace; review and Apply remain separate steps. An existing staged set must first be applied or discarded. Legacy v1 exports have no baseline and cannot be imported. A set is limited to 500 operations and 12 MB. Exports include the original and edited text, so keep them with your project data.
+
+Pending changes remain in this tab's memory. Download the change set before closing the tab to resume later. There is no automatic upload or persistent draft storage. Use `npm run test:editor` with Playwright available for the browser regression checks.

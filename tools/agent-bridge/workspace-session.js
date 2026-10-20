@@ -11,6 +11,18 @@
   async walk(path='',depth=99){path=norm(path);const entries=new Map((await this.backend.walk('',99)).map(f=>[f.path,{...f}]));for(const op of this.operations){if(op.type==='delete'){for(const key of entries.keys())if(under(key,op.path))entries.delete(key);}else{const parts=op.path.split('/');for(let i=1;i<parts.length;i++){const p=parts.slice(0,i).join('/');if(!entries.has(p))entries.set(p,{path:p,type:'dir'});}entries.set(op.path,{path:op.path,type:op.type==='mkdir'?'dir':'file',size:op.text===undefined?undefined:new TextEncoder().encode(op.text).length});}}
    return [...entries.values()].filter(f=>(!path||under(f.path,path))&&f.path!==path&&f.path.slice(path?path.length+1:0).split('/').length<=depth+1).sort((a,b)=>a.path.localeCompare(b.path));}
   discard(){if(this.busy)throw Error('反映処理中です');this.operations=[];this.baselines.clear();}
+  bundle(workspace=''){return {format:'agentbridge-changes',version:2,workspace,createdAt:new Date().toISOString(),operations:structuredClone(this.operations),baselines:structuredClone([...this.baselines])};}
+  async importBundle(bundle){
+   if(this.busy||this.operations.length)throw Error('保持中の変更を反映または破棄してから読み込んでください');
+   if(!bundle||bundle.format!=='agentbridge-changes'||bundle.version!==2||!Array.isArray(bundle.operations)||!bundle.operations.length||bundle.operations.length>500||!Array.isArray(bundle.baselines))throw Error('対応する変更セット v2 を指定してください');
+   if(JSON.stringify(bundle).length>12*1024*1024)throw Error('変更セットは12 MBまでです');
+   this.busy=true;try{const candidate=new Session(this.backend),baselines=new Map();
+   for(const entry of bundle.baselines){if(!Array.isArray(entry)||entry.length!==2||typeof entry[0]!=='string'||norm(entry[0])!==entry[0]||!entry[0]||baselines.has(entry[0]))throw Error('不正な基準データです');baselines.set(entry[0],entry[1]);}
+   for(const op of bundle.operations){if(!op||!['write','delete','mkdir'].includes(op.type)||typeof op.path!=='string'||norm(op.path)!==op.path||!baselines.has(op.path)||op.type==='write'&&typeof op.text!=='string')throw Error('不正な変更操作です');await candidate.stage(op.type,op.path,op.text);}
+   if(baselines.size!==candidate.baselines.size)throw Error('基準データと操作が一致しません');
+   for(const [path,before] of baselines)if(JSON.stringify(before)!==JSON.stringify(candidate.baselines.get(path)))throw Error('外部変更を検出しました: '+path+'。読み込みを中止しました。');
+   this.operations=candidate.operations;this.baselines=candidate.baselines;return {imported:this.operations.length};}finally{this.busy=false;}
+  }
   async apply(){if(this.busy)throw Error('反映処理中です');this.busy=true;let applied=0;try{for(const [path,before] of this.baselines){const after=await this.snapshot(path);if(JSON.stringify(before)!==JSON.stringify(after))throw Error('外部変更を検出しました: '+path+'。反映せずに停止しました。');}while(this.operations.length){const op=this.operations[0];if(op.type==='write')await this.backend.writeText(op.path,op.text);else if(op.type==='delete')await this.backend.deletePath(op.path);else await this.backend.makeDir(op.path);this.operations.shift();applied++;}this.baselines.clear();return {applied};}catch(error){if(applied){this.baselines.clear();for(const op of this.operations)if(!this.baselines.has(op.path))this.baselines.set(op.path,await this.snapshot(op.path));}error.applied=applied;throw error;}finally{this.busy=false;}}
   summary(){const latest=new Map();for(const op of this.operations)latest.set(op.path,{path:op.path,type:op.type,bytes:op.text===undefined?0:new TextEncoder().encode(op.text).length});return [...latest.values()];}
  }

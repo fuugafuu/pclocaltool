@@ -105,6 +105,6 @@
   players=[new E.Player(192),new E.Player(192)];controllers=[{ai:false},{ai:true,level:3}];
   window.render_game_to_text=()=>JSON.stringify({coordinateSystem:'10 columns; x right, y down; rows 0-1 hidden, visible rows 2-21',phase,mode,learning:{enabled:saved.learning,samples:learned.samples,games:learned.games,weights:learned.weights},round,scores,badges:bits,elapsedMs:Math.round(elapsed),players:players.slice(0,mode==='solo'?1:2).map((p,i)=>({controller:controllers[i]?.ai?'AI Lv.'+controllers[i].level:'human',active:p.active,ghost:E.ghost(p.board,p.active),hold:p.hold,next:p.queue.slice(0,6),board:p.board.map(r=>r.map(v=>v||'.').join('')),score:p.score,lines:p.lines,pieces:p.pieces,sent:p.sent,cancelled:p.cancelled,combo:p.combo,b2b:p.b2b,pending:p.pending,dead:p.dead,searches:controllers[i]?.computeCount||0}))});
   window.advanceTime=ms=>{manual=true;for(let t=0;t<ms;t+=1000/60)update(Math.min(1000/60,ms-t));draw();};
-  if('serviceWorker' in navigator&&['http:','https:'].includes(location.protocol))navigator.serviceWorker.register('../../home-sw.js?v=7').catch(()=>{});
+  if('serviceWorker' in navigator&&['http:','https:'].includes(location.protocol))navigator.serviceWorker.register('../../home-sw.js?v=8').catch(()=>{});
   function frame(now){const delta=Math.min(100,now-lastFrame);lastFrame=now;if(!manual){accumulator+=delta;while(accumulator>=1000/60){update(1000/60);accumulator-=1000/60;}}draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
 })();
