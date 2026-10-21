@@ -58,6 +58,7 @@ self.PCT_OFFLINE_ASSETS = [
   "./tools/game/engine.js",
   "./tools/game/index.html",
   "./tools/game/learning.js",
+  "./tools/game/render-cache.js",
   "./tools/game/reversi/ai.js",
   "./tools/game/reversi/app.js",
   "./tools/game/reversi/engine.js",

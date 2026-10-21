@@ -30,7 +30,7 @@ fs.mkdirSync('output/game',{recursive:true});
  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('pclocaltool_game_v1')).sound),true);
  await page.locator('#arena').focus();
  await page.evaluate(()=>{const original=StackEngine.Player.prototype.lock;StackEngine.Player.prototype.lock=function(now){StackEngine.Player.prototype.lock=original;this.lines=149;this.board=StackEngine.empty();this.board[21]=Array.from({length:10},(_,x)=>x===5?'':'G');this.active={type:'I',r:1,x:3,y:18,lastRotate:false,kick:0};return original.call(this,now);};});
- await page.keyboard.press('Space');assert.equal((await state()).phase,'finished');assert.equal((await state()).players[0].lines,150);
+ await page.keyboard.press('Space');assert.equal((await state()).phase,'finished');assert.equal((await state()).players[0].lines,150);assert.equal((await state()).rendering.effects,0);assert.equal((await state()).rendering.trails,0);
  const best=await page.locator('#best-score').innerText();assert.notEqual(best,'0000000');
  await page.reload();assert.equal(await page.locator('#best-score').innerText(),best);assert.equal(await page.locator('#effects').isChecked(),false);assert.equal(await page.locator('#ghost').isChecked(),false);
  await page.check('input[value=versus]');await page.selectOption('#rounds','1');await page.click('#start-btn');await step(2200,100);

@@ -7,6 +7,8 @@
     "test:browser": "node scripts/verify-game.cjs",
     "test:arenas": "node scripts/verify-arenas.cjs",
     "test:retro-agent": "node scripts/verify-retro-agent.cjs",
-    "test:editor": "node scripts/verify-editor.cjs"
+    "test:editor": "node scripts/verify-editor.cjs",
+    "test:hub": "node scripts/verify-hub.cjs",
+    "measure:arena": "node scripts/measure-arena.cjs"
   }
 }

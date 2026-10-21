@@ -33,5 +33,5 @@
 <footer class="page-footer"><span>GAME / 02 <i>FLIP ARENA</i></span><span>ローカル対戦 · 学習型AI · 8×8 STRATEGY</span></footer>
 </div>
 <dialog id="rules-dialog"><div class="dialog-header"><span class="eyebrow">HOW TO PLAY</span><button id="close-rules" aria-label="閉じる">×</button></div><h2>一手の先に、勝ち筋を。</h2><p>相手の石を自分の石で縦・横・斜めに挟むと裏返ります。必ず1枚以上裏返せるマスに着手します。黒が先手。合法手がなければ自動パスし、両者が置けなくなったら石の多い側の勝利です。</p><h3>AIと学習</h3><p>5段階の反復深化・αβ探索。角、危険な角の隣、可動性、辺、終盤の石数を評価します。最上位は最大8手と、残り10マス以下で時間内の完全読みを試みます。学習ONでは対局中の局面と勝敗から評価補正を更新し、経験をこのブラウザに保存します。OFFで基礎探索のみ。学習の初期化も可能です。</p><p>人間vsAI、両色を操作する盤面練習、AIvsAIに対応。クリック・タップで着手。矢印でカーソル、EnterまたはSpaceで着手。Pで一時停止、Fで盤面のみ全画面。タブを隠すと自動停止します。</p></dialog>
-<script src="../learning.js"></script><script src="engine.js"></script><script src="ai.js"></script><script src="app.js"></script><script src="../../_shared/tool-hub.js?v=6"></script>
+<script src="../render-cache.js"></script><script src="../learning.js"></script><script src="engine.js"></script><script src="ai.js"></script><script src="app.js"></script><script src="../../_shared/tool-hub.js?v=9"></script>
 </body></html>

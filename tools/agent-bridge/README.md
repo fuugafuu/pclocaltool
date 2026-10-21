@@ -265,3 +265,8 @@ The editor checks that the current content matches the version it opened before 
 Exported change sets now use version 2, containing operations and original baselines. Import restores the entire staged set only when every baseline matches the selected workspace. Invalid operations, conflicts, path escapes and oversized input are rejected without adding partial edits. Import never writes to the workspace; review and Apply remain separate steps. An existing staged set must first be applied or discarded. Legacy v1 exports have no baseline and cannot be imported. A set is limited to 500 operations and 12 MB. Exports include the original and edited text, so keep them with your project data.
 
 Pending changes remain in this tab's memory. Download the change set before closing the tab to resume later. There is no automatic upload or persistent draft storage. Use `npm run test:editor` with Playwright available for the browser regression checks.
+
+
+## Save behavior (2026-10-21 follow-up)
+
+Ctrl/Cmd+S and the Save this file button now apply only the current file's staged operations. Other pending files remain buffered. Parent/child operation dependencies are rejected for a single-file apply; use the workbench to apply the full set. Direct-folder mode writes the file to disk. Imported-folder mode changes browser memory; Download file exports the current editor text. Preview hold is still available as a separate button. The editor includes literal find/replace, cursor position, character count and reload. Existing-content conflict checks remain enabled.
