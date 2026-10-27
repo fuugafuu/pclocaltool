@@ -82,7 +82,7 @@
 <section class="analysis-section" id="analysis">
  <div class="section-title"><div><span class="kicker">02 / PERFORMANCE INTELLIGENCE</span><h2>パフォーマンス分析 <span>↗</span></h2></div><div class="analysis-actions"><button type="button" id="export">↓ 成績エクスポート</button><button type="button" id="reset-model">学習履歴を初期化</button></div></div>
  <div class="analysis-grid">
-  <article class="analysis-card"><div class="card-title"><b>AIコーチからのフィードバック</b><span class="tiny-pill">LOCAL AI</span></div><div class="coach-message"><div class="coach-icon">✦</div><div><strong id="coach-headline">はじめての練習を始めよう</strong><p id="coach-advice">正確率・速度・キー別の傾向から、次に集中すべき練習を提案するよ。</p></div></div><div class="weak-tags" id="weak-tags"><span>まだ学習データはありません</span></div></article>
+  <article class="analysis-card"><div class="card-title"><b>AIコーチからのフィードバック</b><span class="tiny-pill">LOCAL AI</span></div><div class="coach-message"><div class="coach-icon">✦</div><div><strong id="coach-headline">はじめての練習を始めよう</strong><p id="coach-advice">正確率・速度・キー別の傾向から、次に集中すべき練習を提案するよ。</p></div></div><div class="weak-tags" id="weak-tags"><span>まだ学習データはありません</span></div><div class="pair-analysis"><span>苦手な連続キー</span><div id="weak-pairs" class="weak-tags"><span>記録を集めています</span></div></div></article>
   <article class="analysis-card"><div class="card-title"><b>直近の練習成績</b><span>CPM / ACCURACY</span></div><div class="chart" id="history-chart"><div class="empty-chart">練習結果がここに表示されます</div></div><div class="chart-legend"><i></i> 速度（CPM） <span>直近12回</span></div></article>
  </div>
  <article class="analysis-card key-analysis"><div class="card-title"><b>打鍵ヒートマップ</b><span>ミス率と打鍵速度をもとに表示</span></div><div id="heatmap" class="heatmap"></div><p class="fine-print">各キーは正解打鍵とミスの回数から評価。ミス数が少ない段階では不確実性も考慮します。苦手キーはAI出題に反映されます。</p></article>
@@ -94,6 +94,6 @@
 
 <dialog id="results-dialog"><div class="results-wrap"><div class="result-eyebrow">SESSION COMPLETE / TYPING ARENA</div><div class="result-top"><div><p>おつかれさま！</p><h2>RESULT <span>REPORT</span></h2></div><b id="result-grade" class="grade">A</b></div><div class="result-metrics"><div><span>速度</span><b id="result-cpm">0</b><small>CPM</small></div><div><span>正確率</span><b id="result-accuracy">0</b><small>%</small></div><div><span>ミス</span><b id="result-misses">0</b><small>回</small></div><div><span>完了問題</span><b id="result-questions">0</b><small>問</small></div></div><div class="result-message" id="result-message"></div><div class="result-buttons"><button id="result-close" type="button">結果を閉じる</button><button id="result-again" type="button" class="primary">もう一度挑戦 ↗</button></div></div></dialog>
 <dialog id="help-dialog"><div class="help-wrap"><div class="help-head"><h2>操作方法</h2><button type="button" id="help-close">×</button></div><p>開始後、キーボードの英数キーで入力してください。日本語はローマ字入力です。<b>shi/si・chi/ti・tsu/tu</b> など複数の綴りに対応します。</p><p>正しいキーだけが進み、ミスは記録されます。<b>Backspace</b>で直前の入力を戻せます。<b>Esc</b>で一時停止・再開できます。</p><p>AIコーチは大規模言語モデルではなく、打鍵記録から弱点を推定する軽量なローカル適応アルゴリズムです。出題文は語彙と文章構造の組み合わせで生成します。</p><button type="button" id="help-ok">閉じる</button></div></dialog>
-<script src="engine.js?v=2"></script><script src="app.js?v=2"></script><script src="../_shared/tool-hub.js?v=10"></script>
+<script src="engine.js?v=2"></script><script src="app.js?v=3"></script><script src="../_shared/tool-hub.js?v=10"></script>
 </body>
 </html>
