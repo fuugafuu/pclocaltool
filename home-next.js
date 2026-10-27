@@ -5,6 +5,7 @@
   const KEY='pclocaltool_launcher_v2';
   const APPS=[
     {id:'game',url:'tools/game/index.html',label:'Game / Arenas',icon:'▥'},
+    {id:'typing-arena',url:'tools/typing-arena/index.html',label:'Typing Arena',icon:'⌨'},
     {id:'math-assist',url:'tools/math-assist/index.html',label:'Math Assist',icon:'∑'},
     {id:'universal-timer',url:'tools/universal-timer/index.html',label:'Universal Timer',icon:'◴'},
     {id:'dev-os',url:'tools/dev-os/index.html',label:'Dev OS Lab',icon:'▣'},
@@ -52,6 +53,7 @@
       return {id:'universal-timer',url:secs?quickParams(tool('universal-timer').url,{preset:String(secs),start:'1'}):tool('universal-timer').url,title:secs?secs>=3600?Math.floor(secs/3600)+'時間'+(secs%3600?Math.floor(secs%3600/60)+'分'+(secs%60?secs%60+'秒':''):'')+'のタイマーを開始':secs>=60?Math.floor(secs/60)+'分'+(secs%60?secs%60+'秒':'')+'タイマーを開始':secs+'秒タイマーを開始':'タイマーツールを開く',details:secs?'時間を引き継ぎ、そのままカウントダウン開始':'タイマー・アラーム・ストップウォッチ'};
     }
     if(/前に遊んだ|続きのゲーム|ゲーム再開|最近のゲーム/.test(s)&&lastRetroId)return {id:'retro-arcade',url:quickParams(tool('retro-arcade').url,{play:lastRetroId}),title:'前回のゲームを再開',details:lastRetroId};
+    if(/タイピング|typing|打鍵|ローマ字練習|キーボード練習/i.test(s))return {id:'typing-arena',url:quickParams(tool('typing-arena').url,{mode:/ai|ＡＩ|人工知能/i.test(s)?'ai':'normal'}),title:'Typing Arenaを開く',details:'AI適応練習・タイピング速度と正確率の分析'};
     if(/リバーシ|オセロ|reversi|othello|flip arena/i.test(s))return {id:'game',url:'tools/game/reversi/index.html',title:'Game / Flip Arenaを開く',details:'学習型AIと対局できるリバーシ'};
     if(/テトリス|tetris|stack|arena|^game$|^ゲーム$/i.test(s))return {id:'game',url:tool('game').url,title:'Game / Stack Arenaを開く',details:'ソロ・人間対AI・AI対AIのテトリスアリーナ'};
     if(/ゲーム|アーケード|レトロ|マリオ|パックマン/i.test(s))return {id:'retro-arcade',url:tool('retro-arcade').url,title:'レトロゲームを開く',details:'Classic/Modern・オート・倍速'};
@@ -142,7 +144,9 @@
     });
   }
   async function renderResume(){
-    const items=[],j=stored('pclocaltool_janken_ai_v1'),retro=stored('pclocaltool_retro_arcade_v1'),math=stored('pclocaltool_math_history_v1'),timer=stored('pclocaltool_universal_timer_v1'),os=stored('pclocaltool_dev_os_v1');
+    const items=[],typing=stored('pclocaltool_typing_arena_v1'),j=stored('pclocaltool_janken_ai_v1'),retro=stored('pclocaltool_retro_arcade_v1'),math=stored('pclocaltool_math_history_v1'),timer=stored('pclocaltool_universal_timer_v1'),os=stored('pclocaltool_dev_os_v1');
+    const typingLast=typing?.sessions?.[typing.sessions.length-1];
+    if(typingLast)addResume(items,'⌨ TYPING ARENA','タイピング練習を続ける',typingLast.cpm+' CPM · 正確率 '+typingLast.accuracy+'% · AIコーチで再開',quickParams(tool('typing-arena').url,{language:typingLast.language||'ja',mode:'ai',level:String(typingLast.level||3)}));
     if(Array.isArray(math)&&math.length){
       const x=math[0]||{};
       addResume(items,'∑ MATH ASSIST','前の計算: '+(x.input||'数式'),(x.result||'答え')+' · 最近の計算から再開',quickParams(tool('math-assist').url,{quick:x.input||''}));
