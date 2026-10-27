@@ -56,6 +56,12 @@ function historyUpdated(){
  const tags=$('#weak-tags');tags.replaceChildren();
  if(r.weak.length){r.weak.slice(0,6).forEach(x=>{const chip=document.createElement('span');chip.textContent=x.key.toUpperCase()+' · '+x.accuracy+'%';tags.appendChild(chip)})}
  else{const b=document.createElement('span');b.textContent=counts?'目立った苦手キーはまだありません':'まだ学習データはありません';tags.appendChild(b)}
+ const pairs=Object.entries(model.pairs).filter(([,x])=>(x.hits||0)+(x.errors||0)>=3)
+  .map(([key,x])=>({key,accuracy:Math.round(100*(x.hits||0)/((x.hits||0)+(x.errors||0))),ms:Math.round(x.ms||0),score:((x.errors||0)+1)/((x.hits||0)+(x.errors||0)+6)*2+Math.max(0,Math.min(.7,((x.ms||170)-170)/450))}))
+  .sort((a,b)=>b.score-a.score).slice(0,4);
+ const pairBox=$('#weak-pairs');pairBox.replaceChildren();
+ if(pairs.length){for(const pair of pairs){const item=document.createElement('span');item.textContent=pair.key.toUpperCase()+' · '+pair.accuracy+'%';item.title=pair.ms?'平均 '+pair.ms+'ms':'計測値不足';pairBox.appendChild(item)}}
+ else{const item=document.createElement('span');item.textContent='入力が増えると分析できます';pairBox.appendChild(item)}
  const chart=$('#history-chart');chart.replaceChildren();
  if(!sessions.length){const box=document.createElement('div');box.className='empty-chart';box.textContent='練習結果がここに表示されます';chart.appendChild(box)}
  else{
