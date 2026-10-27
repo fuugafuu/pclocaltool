@@ -72,7 +72,7 @@
    <div><span>入力数</span><b id="live-chars">0</b></div>
    <div><span>ミス</span><b id="live-misses">0</b></div>
   </div>
-  <div class="keyboard" id="keyboard" aria-hidden="true"></div>
+  <div class="keyboard" id="keyboard" aria-label="タップ操作用キーボード"></div>
  </div>
  <div id="arena-overlay" class="arena-overlay"><span class="overlay-eyebrow">YOUR NEXT LEVEL STARTS HERE</span><div class="overlay-symbol">⌨</div><h2>指先から、進化しよう。</h2><p>好きな難易度を選んでスタート。<br>打鍵ごとにAIがあなたのクセを学びます。</p><button type="button" id="overlay-start">START TRAINING ↗</button></div>
  <div class="arena-foot"><span>NO NETWORK REQUIRED</span><span id="fps-note">CSSアニメーション / 軽量なローカル計算</span></div>
@@ -94,6 +94,6 @@
 
 <dialog id="results-dialog"><div class="results-wrap"><div class="result-eyebrow">SESSION COMPLETE / TYPING ARENA</div><div class="result-top"><div><p>おつかれさま！</p><h2>RESULT <span>REPORT</span></h2></div><b id="result-grade" class="grade">A</b></div><div class="result-metrics"><div><span>速度</span><b id="result-cpm">0</b><small>CPM</small></div><div><span>正確率</span><b id="result-accuracy">0</b><small>%</small></div><div><span>ミス</span><b id="result-misses">0</b><small>回</small></div><div><span>完了問題</span><b id="result-questions">0</b><small>問</small></div></div><div class="result-message" id="result-message"></div><div class="result-buttons"><button id="result-close" type="button">結果を閉じる</button><button id="result-again" type="button" class="primary">もう一度挑戦 ↗</button></div></div></dialog>
 <dialog id="help-dialog"><div class="help-wrap"><div class="help-head"><h2>操作方法</h2><button type="button" id="help-close">×</button></div><p>開始後、キーボードの英数キーで入力してください。日本語はローマ字入力です。<b>shi/si・chi/ti・tsu/tu</b> など複数の綴りに対応します。</p><p>正しいキーだけが進み、ミスは記録されます。<b>Backspace</b>で直前の入力を戻せます。<b>Esc</b>で一時停止・再開できます。</p><p>AIコーチは大規模言語モデルではなく、打鍵記録から弱点を推定する軽量なローカル適応アルゴリズムです。出題文は語彙と文章構造の組み合わせで生成します。</p><button type="button" id="help-ok">閉じる</button></div></dialog>
-<script src="engine.js?v=1"></script><script src="app.js?v=1"></script><script src="../_shared/tool-hub.js?v=10"></script>
+<script src="engine.js?v=2"></script><script src="app.js?v=2"></script><script src="../_shared/tool-hub.js?v=10"></script>
 </body>
 </html>
