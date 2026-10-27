@@ -89,9 +89,9 @@ function makePrompt({language='ja',category='mixed',level=2,rand=Math.random}={}
   const bank=cats[cat],chosen=pick(bank,rand),starter=pick(JP_START,rand),tail=pick(JP_END,rand);
   let display=chosen[0],reading=chosen[1];
   if(level>=2&&rand()<.55){display=starter[0]+' '+display;reading=starter[1]+' '+reading}
-  if(level>=3){const two=pick(bank,rand);display+=' '+two[0];reading+=' '+two[1]}
+  if(level>=3){const choices=bank.filter(x=>x[1]!==chosen[1]);const two=pick(choices.length?choices:bank,rand);display+=' '+two[0];reading+=' '+two[1]}
   if(level>=4){display+=' '+tail[0];reading+=' '+tail[1]}
-  if(level===5){const three=pick(bank,rand);display+=' '+three[0];reading+=' '+three[1]}
+  if(level===5){const choices=bank.filter(x=>!display.includes(x[0]));const three=pick(choices.length?choices:bank,rand);display+=' '+three[0];reading+=' '+three[1]}
   return {display,reading,language,level,category:cat,kind:'generated'};
  }
  const words=cats[cat],phrase=pick(EN_SENTENCES,rand).join(' ');
