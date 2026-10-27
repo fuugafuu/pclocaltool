@@ -37,7 +37,7 @@
   document.getElementById('pct-hub-reload').onclick=()=>location.reload();
   if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
    navigator.serviceWorker.addEventListener('controllerchange',()=>{updateReady=true;document.getElementById('pct-hub-reload').hidden=false;document.getElementById('pct-hub-update').textContent='新しい版を準備しました';systemStatus();});
-   navigator.serviceWorker.register(new URL('../home-sw.js?v=10',toolsBase),{updateViaCache:'none'}).then(r=>{registration=r;systemStatus();}).catch(()=>{});
+   navigator.serviceWorker.register(new URL('../home-sw.js?v=11',toolsBase),{updateViaCache:'none'}).then(r=>{registration=r;systemStatus();}).catch(()=>{});
   }
   addEventListener('online',systemStatus);addEventListener('offline',systemStatus);
   paintErrorCount();systemStatus();
@@ -93,7 +93,7 @@
   const el=document.getElementById('pct-hub-system');if(!el)return;let bytes=0;for(const [k,v] of Object.entries(readAll()))bytes+=new Blob([k,v]).size;
   el.textContent=(navigator.onLine?'オンライン':'オフライン')+' · 設定 '+(bytes/1024).toFixed(1)+' KB · '+(registration?.active?'オフライン用データあり':'オフライン用データを準備中');
  }
- async function checkUpdate(){try{if(!('serviceWorker' in navigator))throw Error('このブラウザーでは更新確認を利用できません');registration=await navigator.serviceWorker.register(new URL('../home-sw.js?v=10',toolsBase),{updateViaCache:'none'});await registration.update();status(updateReady?'新しい版を読み込めます。作業を保存してから「最新版を表示」を押してください。':'更新を確認しました。ダウンロード中の場合は完了後に通知します。');systemStatus();}catch(e){status('更新を確認できません: '+e.message,true);}}
+ async function checkUpdate(){try{if(!('serviceWorker' in navigator))throw Error('このブラウザーでは更新確認を利用できません');registration=await navigator.serviceWorker.register(new URL('../home-sw.js?v=11',toolsBase),{updateViaCache:'none'});await registration.update();status(updateReady?'新しい版を読み込めます。作業を保存してから「最新版を表示」を押してください。':'更新を確認しました。ダウンロード中の場合は完了後に通知します。');systemStatus();}catch(e){status('更新を確認できません: '+e.message,true);}}
  function status(msg,bad=false){
   const el=document.getElementById('pct-hub-status');if(!el)return;el.textContent=msg;el.dataset.bad=bad?'1':'0';
  }
@@ -144,7 +144,7 @@
   document.getElementById('pct-hub-reload').onclick=()=>location.reload();
   if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
    navigator.serviceWorker.addEventListener('controllerchange',()=>{updateReady=true;document.getElementById('pct-hub-reload').hidden=false;document.getElementById('pct-hub-update').textContent='新しい版を準備しました';systemStatus();});
-   navigator.serviceWorker.register(new URL('../home-sw.js?v=10',toolsBase),{updateViaCache:'none'}).then(r=>{registration=r;systemStatus();}).catch(()=>{});
+   navigator.serviceWorker.register(new URL('../home-sw.js?v=11',toolsBase),{updateViaCache:'none'}).then(r=>{registration=r;systemStatus();}).catch(()=>{});
   }
   addEventListener('online',systemStatus);addEventListener('offline',systemStatus);
   paintErrorCount();systemStatus();
