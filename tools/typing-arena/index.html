@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#09141e">
+<meta name="description" content="Typing Arena - 軽量AIによるタイピング分析、無限に近い組合せ出題、詳細評価">
+<link rel="icon" href="../../pct-next-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=1">
+<title>Typing Arena | PC Local Tool</title>
+</head>
+<body>
+<div class="shell">
+<header class="topbar">
+ <a class="brand" href="../../index.html"><span class="brand-logo">T<span>↗</span></span><span><b>TYPING <em>ARENA</em></b><small>PC LOCAL TOOL / INTELLIGENT TYPING</small></span></a>
+ <div class="top-right"><span class="offline-dot"></span><span>ON-DEVICE AI</span><button id="sound-toggle" type="button" aria-pressed="false" title="効果音を切り替え">♪ OFF</button><button id="help-toggle" type="button" aria-label="操作方法">?</button></div>
+</header>
+
+<main>
+<section class="intro">
+ <div><div class="kicker"><span class="spark"></span> NEXT GENERATION PRACTICE <span class="mini-pill">V1.0</span></div>
+ <h1>速さだけじゃない。<br><span>上達を、見える化。</span></h1>
+ <p>打鍵のクセまで学ぶ、完全ローカルのタイピングトレーナー。分析から次の問題まで、あなたに合わせて進化。</p></div>
+ <div class="intro-mark" aria-hidden="true"><div class="mark-ring"></div><span>⌘</span><small>ADAPT · TYPE · EVOLVE</small></div>
+</section>
+
+<section class="overview" aria-label="過去の成績">
+ <div class="metric-tile"><span>BEST SPEED</span><b id="best-cpm">—<small>CPM</small></b><div>自己ベスト</div></div>
+ <div class="metric-tile"><span>BEST ACCURACY</span><b id="best-accuracy">—<small>%</small></b><div>正確率</div></div>
+ <div class="metric-tile"><span>TRAINING SESSIONS</span><b id="total-runs">0</b><div>累計セッション</div></div>
+ <div class="metric-tile"><span>AI COACH STATUS</span><b class="metric-small" id="coach-level">未学習</b><div id="coach-samples">まずは打ち始めよう</div></div>
+</section>
+
+<div class="workspace">
+<aside class="sidebar">
+ <div class="panel-head"><span>01 / PLAY CONFIG</span><b>トレーニング設定</b></div>
+ <div class="field"><div class="label">出題エンジン</div><div class="mode-switch" role="group" aria-label="出題モード">
+  <button class="active" type="button" data-mode="ai" aria-pressed="true"><span>✦</span> AIコーチ</button>
+  <button type="button" data-mode="normal" aria-pressed="false">◈ 通常</button>
+ </div><p class="hint" id="mode-detail">入力履歴から苦手キーを推定し、次の問題を最適化します。</p></div>
+ <label class="field"><span class="label">文字の種類</span><select id="language"><option value="ja">日本語・ローマ字</option><option value="en">英語・アルファベット</option></select></label>
+ <label class="field"><span class="label">ジャンル</span><select id="category"><option value="mixed">すべてのジャンル</option><option value="daily">日常</option><option value="tech">技術・プログラミング</option><option value="creative">物語・冒険</option><option value="science">科学・宇宙</option></select></label>
+ <div class="field"><div class="label-row"><span class="label">基本難易度</span><b id="level-label">Lv.3 / NORMAL</b></div>
+  <input id="level" type="range" min="1" max="5" step="1" value="3" aria-label="基本難易度"><div class="level-range"><span>BEGINNER</span><span>MASTER</span></div>
+ </div>
+ <div class="field"><div class="label-row"><span class="label">AIの適応度</span><span id="adapt-label">バランス</span></div>
+  <select id="adapt"><option value="gentle">やさしく補助</option><option value="balanced" selected>バランス</option><option value="intensive">苦手を重点練習</option></select>
+  <p class="hint">AIコーチ時に、苦手文字を出題へ反映する強さ。</p>
+ </div>
+ <label class="field"><span class="label">トレーニング時間</span><select id="duration"><option value="30">30秒スプリント</option><option value="60" selected>60秒スタンダード</option><option value="120">120秒ロング</option><option value="0">時間無制限</option></select></label>
+ <button id="start" class="primary" type="button">トレーニング開始 <span>↗</span></button>
+ <div class="secondary-actions"><button id="pause" type="button" disabled>Ⅱ 一時停止</button><button id="restart" type="button" disabled>↻ やり直す</button></div>
+ <div class="side-note"><span class="dot"></span> ローカル学習AI<br><small>データは端末内のみ保存・外部API不使用</small></div>
+</aside>
+
+<section class="game-panel">
+ <div class="arena-top"><div><span id="live-indicator" class="live-dot"></span><b id="status">READY TO TYPE</b></div><div class="arena-time"><span>TIME</span><b id="time">01:00</b></div></div>
+ <div class="game-inner">
+  <div class="arena-topline"><span class="chapter" id="question-number">QUESTION 01</span><span id="prompt-category">ADAPTIVE PRACTICE</span><span id="current-level">LEVEL 3</span></div>
+  <div class="question-box" id="typing-surface" tabindex="0" role="textbox" aria-label="ここを選択してローマ字を入力" aria-readonly="true" aria-multiline="false">
+   <div class="question-label">TYPE THE FOLLOWING</div>
+   <div class="prompt-display" id="prompt-display">READY TO BEGIN</div>
+   <div class="reading" id="reading">開始ボタンを押してください</div>
+   <div class="roman-line" id="roman-line">Press START to practice</div>
+   <div class="type-caret" id="type-caret"></div>
+  </div>
+  <div class="progress-track" aria-label="問題の進捗"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="key-line"><span id="input-hint">キー入力でスタート。日本語は英数キー入力のローマ字。</span><span id="key-combo">COMBO 0</span></div>
+  <div class="live-stats">
+   <div><span>速度</span><b id="live-cpm">0 <small>CPM</small></b></div>
+   <div><span>正確率</span><b id="live-accuracy">100<small>%</small></b></div>
+   <div><span>入力数</span><b id="live-chars">0</b></div>
+   <div><span>ミス</span><b id="live-misses">0</b></div>
+  </div>
+  <div class="keyboard" id="keyboard" aria-hidden="true"></div>
+ </div>
+ <div id="arena-overlay" class="arena-overlay"><span class="overlay-eyebrow">YOUR NEXT LEVEL STARTS HERE</span><div class="overlay-symbol">⌨</div><h2>指先から、進化しよう。</h2><p>好きな難易度を選んでスタート。<br>打鍵ごとにAIがあなたのクセを学びます。</p><button type="button" id="overlay-start">START TRAINING ↗</button></div>
+ <div class="arena-foot"><span>NO NETWORK REQUIRED</span><span id="fps-note">CSSアニメーション / 軽量なローカル計算</span></div>
+</section>
+</div>
+
+<section class="analysis-section" id="analysis">
+ <div class="section-title"><div><span class="kicker">02 / PERFORMANCE INTELLIGENCE</span><h2>パフォーマンス分析 <span>↗</span></h2></div><div class="analysis-actions"><button type="button" id="export">↓ 成績エクスポート</button><button type="button" id="reset-model">学習履歴を初期化</button></div></div>
+ <div class="analysis-grid">
+  <article class="analysis-card"><div class="card-title"><b>AIコーチからのフィードバック</b><span class="tiny-pill">LOCAL AI</span></div><div class="coach-message"><div class="coach-icon">✦</div><div><strong id="coach-headline">はじめての練習を始めよう</strong><p id="coach-advice">正確率・速度・キー別の傾向から、次に集中すべき練習を提案するよ。</p></div></div><div class="weak-tags" id="weak-tags"><span>まだ学習データはありません</span></div></article>
+  <article class="analysis-card"><div class="card-title"><b>直近の練習成績</b><span>CPM / ACCURACY</span></div><div class="chart" id="history-chart"><div class="empty-chart">練習結果がここに表示されます</div></div><div class="chart-legend"><i></i> 速度（CPM） <span>直近12回</span></div></article>
+ </div>
+ <article class="analysis-card key-analysis"><div class="card-title"><b>打鍵ヒートマップ</b><span>ミス率と打鍵速度をもとに表示</span></div><div id="heatmap" class="heatmap"></div><p class="fine-print">各キーは正解打鍵とミスの回数から評価。ミス数が少ない段階では不確実性も考慮します。苦手キーはAI出題に反映されます。</p></article>
+</section>
+
+<footer class="footer"><span>TYPING ARENA <i>— LEARN WITH EVERY KEYSTROKE.</i></span><span>ローカルAI・外部サーバー不要・学習データはこのブラウザ内</span></footer>
+</main>
+</div>
+
+<dialog id="results-dialog"><div class="results-wrap"><div class="result-eyebrow">SESSION COMPLETE / TYPING ARENA</div><div class="result-top"><div><p>おつかれさま！</p><h2>RESULT <span>REPORT</span></h2></div><b id="result-grade" class="grade">A</b></div><div class="result-metrics"><div><span>速度</span><b id="result-cpm">0</b><small>CPM</small></div><div><span>正確率</span><b id="result-accuracy">0</b><small>%</small></div><div><span>ミス</span><b id="result-misses">0</b><small>回</small></div><div><span>完了問題</span><b id="result-questions">0</b><small>問</small></div></div><div class="result-message" id="result-message"></div><div class="result-buttons"><button id="result-close" type="button">結果を閉じる</button><button id="result-again" type="button" class="primary">もう一度挑戦 ↗</button></div></div></dialog>
+<dialog id="help-dialog"><div class="help-wrap"><div class="help-head"><h2>操作方法</h2><button type="button" id="help-close">×</button></div><p>開始後、キーボードの英数キーで入力してください。日本語はローマ字入力です。<b>shi/si・chi/ti・tsu/tu</b> など複数の綴りに対応します。</p><p>正しいキーだけが進み、ミスは記録されます。<b>Backspace</b>で直前の入力を戻せます。<b>Esc</b>で一時停止・再開できます。</p><p>AIコーチは大規模言語モデルではなく、打鍵記録から弱点を推定する軽量なローカル適応アルゴリズムです。出題文は語彙と文章構造の組み合わせで生成します。</p><button type="button" id="help-ok">閉じる</button></div></dialog>
+<script src="engine.js?v=1"></script><script src="app.js?v=1"></script><script src="../_shared/tool-hub.js?v=10"></script>
+</body>
+</html>
