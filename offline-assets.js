@@ -105,6 +105,10 @@ self.PCT_OFFLINE_ASSETS = [
   "./tools/scratch-lite/manifest.webmanifest",
   "./tools/scratch-lite/style.css",
   "./tools/scratch-lite/sw.js",
+  "./tools/typing-arena/app.js",
+  "./tools/typing-arena/engine.js",
+  "./tools/typing-arena/index.html",
+  "./tools/typing-arena/style.css",
   "./tools/universal-timer/app.js",
   "./tools/universal-timer/index.html",
   "./tools/universal-timer/style.css"
