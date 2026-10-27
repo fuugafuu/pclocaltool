@@ -39,7 +39,7 @@ function rank(){const x=E.rankSummary(model),weak=x.filter(a=>a.weakness>.28),se
 }
 function historyUpdated(){
  const r=rank(),sessions=r.sessions;
- setText('#best-cpm',r.bestCpm?r.bestCpm.toLocaleString():'—');
+ setText('#best-cpm',r.bestCpm?r.bestCpm.toLocaleString():'—');const unit=document.createElement('small');unit.textContent='CPM';$('#best-cpm').append(unit);
  setText('#best-accuracy',r.bestAccuracy||'—');
  setText('#total-runs',model.runs);
  const counts=Object.values(model.keys).reduce((n,x)=>n+(x.hits||0)+(x.errors||0),0);
@@ -79,8 +79,18 @@ function drawKeyboard(){
  const kb=$('#keyboard');kb.replaceChildren();
  for(const chars of KEY_ROWS){
   const row=document.createElement('div');row.className='key-row';
-  for(const c of chars){const key=document.createElement('span');key.className='keycap';key.dataset.key=c;key.textContent=c.toUpperCase();row.appendChild(key)}
+  for(const c of chars){const key=document.createElement('button');key.type='button';key.className='keycap';key.dataset.key=c;key.textContent=c.toUpperCase();key.setAttribute('aria-label',c+' を入力');key.onclick=()=>virtualKey(c);row.appendChild(key)}
   kb.appendChild(row);
+ }
+ const row=document.createElement('div');row.className='key-row key-extras';
+ for(const [label,value] of [['ー','-'],['スペース',' '],['⌫','Backspace']]){
+  const b=document.createElement('button');b.type='button';b.className='keycap key-wide';b.textContent=label;b.setAttribute('aria-label',label);b.onclick=()=>virtualKey(value);row.appendChild(b)
+ }
+ kb.appendChild(row);
+}
+function virtualKey(key){
+ if(['waiting','running'].includes(phase)&&!document.querySelector('dialog[open]')){
+  keyboard({key,target:$('#typing-surface'),preventDefault(){},repeat:false,isComposing:false,ctrlKey:false,metaKey:false,altKey:false});
  }
 }
 function flashKey(key,bad=false){
@@ -164,6 +174,7 @@ function completedPrompt(){
  nextQuestion();
 }
 function keyboard(e){
+ if(document.querySelector('dialog[open]'))return;
  if(['input','select','textarea'].includes(e.target?.tagName?.toLowerCase())||e.target?.isContentEditable)return;
  if(e.ctrlKey||e.metaKey||e.altKey||e.isComposing)return;
  if(e.key==='Escape'){if(phase==='running'||phase==='waiting'||phase==='paused'){e.preventDefault();pause()}return}
@@ -205,7 +216,7 @@ function pause(){
   $('#overlay-start').textContent='▶ 再開する';
   $('#pause').textContent='▶ 再開';
  }else if(phase==='paused'){
-  pauseTotal+=now()-pauseSince;pauseSince=0;phase=startedAt?'running':'waiting';$('#arena-overlay').hidden=true;
+  if(startedAt)pauseTotal+=now()-pauseSince;pauseSince=0;phase=startedAt?'running':'waiting';$('#arena-overlay').hidden=true;
   $('#pause').textContent='Ⅱ 一時停止';setText('#status',startedAt?'LIVE · TRAINING':'READY · TYPE TO BEGIN');
   $('#typing-surface').focus({preventScroll:true});
  }
