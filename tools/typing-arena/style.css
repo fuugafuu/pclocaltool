@@ -19,3 +19,7 @@ dialog{background:#0e1c29;color:var(--text);border:1px solid #427064;border-radi
 .keycap:hover{background:#234b53;border-color:#5d918d;color:#d2ffeb}
 .key-extras{margin-top:4px}.keycap.key-wide{width:clamp(70px,12vw,125px);font-size:10px}
 @media(max-width:570px){.keycap.key-wide{width:clamp(61px,22vw,100px)}}
+
+.pair-analysis{border-top:1px solid #2d4a56;margin-top:17px;padding-top:13px}
+.pair-analysis>span{color:#86a5af;font-size:10px;font-weight:700;letter-spacing:.6px}
+.pair-analysis .weak-tags{margin-top:10px}
