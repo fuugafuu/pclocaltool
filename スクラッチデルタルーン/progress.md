@@ -232,3 +232,11 @@ review-pass-runtime：9検証すべてexit0（会話顔/開幕帰還、装備能
 本編へreview-pass-candidateを反映、47,461,643bytes/SHA b5cd4e68b7163801e08c430917cb58ce36aeffefd2215f7a13e4bb85b923c6d0、488targets/79,568blocks、構造errors0/未定義procedure0。元の192kbps音声は再圧縮せず保持。直前本編verification/main-before-camera-review.sb3。同期後全敵エンジン14,354,087bytes、制作用10,244,732bytes/code4,912,701bytes。25MBは23,696,899bytes/長音声48kbps、短SEと画像/コード保持。全敵の追加は未達。原作24typeを敵の実装状況.md/verification/enemy-port-review.jsonへ整理し、同名Lancer12/18やRound21を既存初戦で実装済み扱いにしない。未実装typeをRudinnの挙動で接続していない。
 
 プレビュー実ロード時にGL shader compile nullが再発したため、全画像のGPU一括確保を避ける既存bitmap cacheを検証。元の画素・原点・サイズを保った遅延GPU uploadで標準クライアントの最新本編起動画像正常、pageerrorなし。公開本編に対し看板上下のlayer切替、画面外hide、複数対象K/R明るさ0・非対象Susie=-50がpass。GPUキャッシュの退避時にCPU silhouetteを1pxへ消していた処理は撤去し、非表示の判定マスクと境界を保持。preview defaultを遅延cacheへ、従来一括方式は?native-gpuのみ。HTML/loader/cacheの更新をversion監視対象に含める。
+
+
+11/4 ユーザー依頼のシーム店（日本語版名ヌイ）を実装。新マップの続きを再開せず、room340の原作入口260,160から専用モーダルへ。原作obj_shop1/scr_shopmenu/scr_darkbox/scr_texttype6、元の背景/表情/枠/フォント/音声を使用。4商品40/70/100/200 D$、個別12枠、消耗品/武器/防具を別に扱い、装備中の品を売却しない。原作評価額の半分切上げ（キャンディ13）、評価額1以下を拒否。購入/売却はwarp手続きで検査と反映を一括実行し、取消/不足/満杯で金額と品物を変えない。商品説明の上下スライド、人物の横移動、装備差分、所持金/空き数、原作メニュー音/購入音、shop1 BGM pitch0.95を実装。既存本編の110音声はbyte一致で保持。
+会話は原作ページ/表情/文字色/早送り、選択位置保持、囚人/ジェビル進行分岐を接続。新しい囚人段階/カギ取得フラグを3保存枠へ追加。未接続の囚人イベント区間まで完成したとは扱わない。入退店は原作の0.08/tick暗転と退店40tick、フィールドの座標/音楽/入力を復帰。店内中は従来のキー処理を遮断。短いZをpollで取りこぼす問題をkeyhatへ、1押しのモード連鎖を入力モードsnapshotへ修正。文字生成のsprite跨ぎblock参照を除去し、親writerのwarp生成へ。返答の改行Xを各欄の原点へ修正。
+候補517targets/83,754blocks/42rooms/170spawns/65doors、構造errors0。前候補の実VMは入店、購入、取消、金不足、満杯、装備購入、売却、12枠スクロール、売却不可、空欄、武器100/防具50、会話、退店、実セーブUI→復元までpass。最終改行修正候補の同試験もpass、pageerror0。verify_seam_shop.cjs、seam-shop-source/runtime.json、商品/会話画像に記録。refine_seam_shop.pyを本ビルダーにも接続。
+最終候補50,109,703bytes/SHA50e67790dd80bace0829da6b845b1b49569a4e7c4694008655157466028609a0。25MB候補24,880,360bytes、長音声48kbps、画像と短SE/コード保持。同期エンジン14,362,970bytes、制作版10,246,573bytes/code4,934,278bytes、両構造errors0。全敵追加/ルールノー店/花屋は今回の完成範囲外。
+
+最終版の標準ゲーム検証クライアントで公開preview.htmlから最新版を実ロード→緑旗→40frames。店の新変数を含むstateとChapter選択の画像を確認し、console/pageerror記録なし。デスクトップの本編/エンジン/制作版/25MBは各検証成果物とのSHA一致。直前本編はverification/main-before-seam-shop.sb3。ユーザー指示により保存とGitHub更新完了後にシャットダウンする。
