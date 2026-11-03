@@ -188,3 +188,27 @@ room342の入口・ランサー/スージィ会話、原作grab/laugh/fine素材
 10/31 最終物理時計版を本編へ反映。単体版も最新抽出版でモンディ設定/弾/ソウル/回復アイテム消費/実攻撃勝利がpass、ランサー戦_単独.sb3を8753100 bytes版へ更新。単体の直前バックアップはverification/lancer-before-scarelancer-20261031.sb3。最新25MB出力は24371021 bytes、source SHA256 7cdd713fd23e1fbd016150bd44f5a41f0b5001370df015eccd784de91e28b7b1。前記24370084 bytes版は未採用の中間出力。GitHub更新対象は本編25MB、単体SB3、progress.md、README.md、chapter1_coverage.md。
 10/31 GitHub mainへ533762531773e55dde57e643cd8956356fb3afdcをpush。公開フォルダの本編25MB・単体SB3・progress.md・README.md・chapter1_coverage.mdの5件をGitHub APIのblob SHAとローカルcommitのblobで一致確認。checkout clean、origin/mainとHEAD一致。
 10/31 当たり判定監査の補足: ビルダー初期のside7/foot10矩形は後段で置換され、実際の地形判定はrefine_continuation.pyのMaxFilter(13)による上下左右6px対称拡張（313のみ左右9px・下1..13px特例）と2px間隔の壁グリッド。現行画像判定を原作の足元基準へ変換した監査スクリプトtools/audit_native_collision.pyとverification/native_collision_audit.jsonを追加。原作348オブジェクトの親階層も取得し、interactablesolidと恒久地形を分けて確認。41部屋の既存166スポーンで10件に要照合フラグ（313の1件はマスク端の丸め/壁沿い補正の確認が必要、322/323/338/339は旧座標・feet変換の比較が必要）。監査マスクはverification/native_collision_audit/内のみで本編の物理は変更していない。原作maincharaには壁への1px刻み減速と上/左方向の壁沿い補正、暗い世界base4・明るい世界base3と走行加速があり、現行移動との差分を確認した。次の候補では固定の小さい対称マスクをそのまま拡大せず、スポーン/ドア/動的NPCの状態と一緒に検証する。
+10/31 room343作業中。tools/refine_field_boxpuzzle.pyを追加しビルダー42部屋へ拡張。本編公開は前回41部屋版のまま。
+
+原作の導入、仲間の走行・会話、箱の5フレーム×8px押し、2床・3フレーム保持、箱1個／戻す／箱1個と主人公で2床の会話、退出制止、解決後の仲間の北上、強制上枠会話を候補に実装。flag212=2のtakeoverはsetter未発見・別途比較。北の344は未接続。
+
+boxpuzzle-candidateは465 targets/74512 blocks/42 rooms/170 spawns/65 doors/errors0、文字欠落0。通しテストは導入、箱同士の阻止、全10押し、2箱解決・上枠まで到達したが、待ち入りwarp移動が遅く終演70秒制限で失敗。ラルセイ北上30フレーム中8で停止した時点のタイムアウトで、フリーズの証拠ではない。
+
+移動と押しを非warp・ループ1回1フレームへ修正したboxpuzzle-refined-candidateは465 targets/74731 blocks/42 rooms。仲間のBBoxによる壁と箱の阻止、向き別調査矩形、BGM範囲343も追加。この候補をverify_boxpuzzle.cjsで検証中。本編へはまだ反映しない。
+
+次の確認: NPC・看板の重なる調査を1操作1対象にするラッチと固体NPC優先、全サブ会話、退出制止、保存・再訪。原作Ralseiと看板の調査領域が重なるので、看板→NPCの連続発火を防ぐ必要がある。動的NPC階層はverification/source/ch1_object_hierarchy.json。
+
+
+11/2 ユーザー指示で続編マップ制作を停止。room344のrefine_field_four.pyは未接続草稿のまま保管。戦闘開始/終了・会話顔・メニュー直後入力・グレイズ・preview最新版反映を優先。原作facechoice/dialoguer/face Drawから(37*f,20*f)/(37*f,175*f)、各顔固有offset、Toriel胴体(-7,+29)を読み取り固定原点へ変更。旧210% Toriel拡大と中心揃えを撤去。入力keyhat冒頭でメニュー動作中を遮断。接触introのSusie足跡を専用列へ修正（早期宣言IDは既存puzzle2と統一）。背景はbattleback .1/tickフェードとintro/grid位相一致、帰還Ralseiの素材名/feet変換/Susie戻り先を候補へ。previewはcache:no-store/固有query、HEAD revision監視・緑旗/続きからの最新版再読込を追加。まだ候補未検証で本編は変更なし。初回buildは専用足跡の早期未定義KeyErrorで失敗、修正後再build中。
+
+11/3 戦闘/UI優先。主本編を一旦presentation-main-192kbpsへ反映、468targets/42rooms/76380blocks、原作343以前のマップは維持。main-before-presentation-20261103.sb3が直前本編。新本編46826829bytes、長音声192kbps MP3、短SE保持、画像byte一致・code不変。候補presentation-visibility-candidateの構造errors0、native face Toriel胴体/固定origin、開閉アニメworker化、C/X連打後移動復帰（Light286/Dark332）、装備能力値230/説明top、caption[0,1,3,4]、dummy150tick＋通常戦への練習弾非漏洩＋Ralsei攻撃2人queue、画面外看板cull、足元depth、複数targets1/3明るさ0・非target2=-50の実VM検証pass。2ブラウザ同時でshader compile error1件後、単独再試行pass。旧初候補NoCostume skinId errorは時計へtransparentcostume追加で修正。新preview HEAD/cache bust/revision監視＋緑旗時ensureLatest実装、テストinterceptHEADはbodyなしmetadataへ修正（全zipを毎回送りNode OOMしたため）。
+続くpresentation-follow-candidate、presentation-final-candidateはビルド済、未昇格。13要素history=12frame遅延/第2仲間24frame、方向history、native walkbuffer/timer、submenu時headerraised、native2Rudinn座標97.5/30、数字nativeanchor(centerY-15 stage/rightalign22.5)・個別stack、battleface(26,380)移植。followテストはfixture初期化とnonwarp13回appendが並行してSusiehistory22へ増加したためfail。有限warpの履歴初期化procと方向初期化procへ変更したソースはまだ次build要。本編は先の検証済みMP3版。
+最新ユーザー追加: 画面外Lancer/看板/objectsの残り、敵2体配置/数値、追従完全native、開始途中fieldsprite非表示、選択submenu中header維持。本編もMP3最適化。さらにJevil完成/原作疲労催眠見逃し結末を実操作まで確認し、ランサー単体版を全実装済敵＋Jevilの戦闘エンジンへ拡張、武器防具個別と通常/最強setを設定可能に。旧単体互換入口/preview選択も維持、GitHubとMD更新が必要。マップ続編制作は明確に停止中。
+
+11/3 timing/outro candidate: 最新依頼のスージィ加入表示を原作obj_getsusieevent/scr_texttype_ch1 case51/52と照合。日本語14/6 frames、340/320frames自動終了、skippable0、fanfare95%を維持。旧pitch1200換算をScratch120へ訂正(-8.88007)、専用文字送りを実時間30Hzへ変更。実VMで平均483.5ms/226ms（14/6frames指定、ブラウザtick丸め）、通常送り復帰とpitch設定pass。初検証の2ページ目停止は前ページの文字番号を新hat開始前に読んだ検証側のrace、100ms開始待ちで修正。
+パズル敵3体の威嚇後戦闘は原作obj_scarelancerevent con37とobj_encounterbasicより10+15=25frames。接触戦専用20framesの余分な待ちを除き20..45の25framesへ変更、timer基準。実ストーリーstage1..8→3敵commandまでpass、導入観測1233ms（setup/描画と状態観測を含む）。原作nativeの厳密833ms全体一致を断言しない。
+原作obj_hathyfightevent con15..36のLancer再登場をrefine_lancer_battle_outros.pyへ。無傷/通常勝利の会話を戦闘帰還より前へ移し、元のフィールド重複会話を撤去、左右移動/正しいRalsei B/A等表情。無傷分岐の実VM進行→会話→field帰還pass。通常見逃し分岐は再確認中。candidate presentation-outro-candidate.sb3は470targets/77454blocks/42rooms/170spawns/65doors/errors0。高品質192kbps版46848098bytes、画像byte一致・code不変。現時点ではこの候補の本編昇格は未実施。
+
+11/3 反映: presentation-modal-finalは470targets/77566blocks/42rooms、構造errors0。メニューforeground一斉broadcastはScratchがload時layerOrderでtarget順を再構成するため内部の帯が文字・HPを覆うことを画像確認で検出。配列の逆順だけでは修正されず、UIごとに異なるbroadcastを背景→アイコン→顔→文字の順で発行する方式へ変更。実VMでfield看板を強制frontにした後、全可視メニューが看板より上、tabsが上帯より上、HPが下帯より上をassertし、画像でも表示正常を確認。ハーティ3体戦は無傷早期終了/実ACTと3体見逃しの双方でLancer結末→field復帰pass。パズル敵戦stage1..8→command、スージィ14/6送りと95%pitchもpass。本編とmain-story-candidateを高品質192kbps 46853439bytes版へ反映、SHA256 4c267f41cefa4e626b95a2782d2ba11313f4e7ade30956129e5f72a8122e4078。直前本編verification/main-before-timing-outro-20261103.sb3。元候補SHA12516f4dbdff45fa9842071b272e7a83790cf216ecc81488d01c23f12acecfe7。MP3最適化は画像byte同一、コード不変、短SE維持。25MB出力再生成中。
+原作全体の完全一致・Jevil全細部・新戦闘エンジン切出しは今回完成としない。マップ続編停止指示は継続。新outroのLancerネイティブ座標/全フレーム音タイミングの細部比較は継続対象。候補構造を直接差替えしたmodal修正の対応ソースはtools/refine_modal_layers.py。
+25MB版をデスクトップへ24541406bytes/長音声56kbpsで更新。短SE・画像・コードは保持。
