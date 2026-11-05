@@ -1,6 +1,8 @@
 'use strict';
 (() => {
-const VERSION='1.1.0';
+const VERSION='2.0.0';
+const PIPELINE_URL=new URL('project-archive.js',document.currentScript.src||location.href).href;
+let runtimePromise=null,activeAssets=null,progressFrame=0,progressUpdate=null,lastPercent=0;
 const RUNTIME_VERSION='0.4.0';
 const RUNTIME_URL='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@'+RUNTIME_VERSION+'/dist/scaffolding-min.js';
 const OFFLINE_RUNTIME_URL='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@'+RUNTIME_VERSION+'/dist/scaffolding-with-music.js';
@@ -8,7 +10,7 @@ const $=s=>document.querySelector(s);
 const state={runner:null,projectBuffer:null,projectName:'',analysis:null,device:null,profile:null,settings:null,loading:false,autoMonitor:null,rafStats:[],slowWindows:0,fastWindows:0,lastAdjust:0,recents:[],currentCacheId:null};
 
 const DEFAULTS={mode:'auto',quality:'auto',fps:'auto',interpolation:'auto',hqPen:'auto',turbo:'off',warp:'auto',clones:'auto',fencing:'auto',misc:'auto',autostart:true};
-const loadSettings=()=>({...DEFAULTS,...JSON.parse(localStorage.getItem('scratchLiteSettings')||'{}')});
+const loadSettings=()=>{try{return {...DEFAULTS,...JSON.parse(localStorage.getItem('scratchLiteSettings')||'{}')}}catch{return {...DEFAULTS}}};
 const saveSettings=()=>localStorage.setItem('scratchLiteSettings',JSON.stringify(state.settings));
 const setText=(id,v)=>{const e=$(id);if(e)e.textContent=v};
 const show=(id,on=true)=>$(id)?.classList.toggle('hidden',!on);
@@ -46,7 +48,7 @@ async function cacheFindBySourceKey(sourceKey){
 async function cacheGet(id){
  const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readonly');
  const [project,meta]=await Promise.all([reqP(tx.objectStore('projects').get(id)),reqP(tx.objectStore('recent').get(id))]);
- return project&&meta?{...project,meta}:null;
+ return project&&meta?{...project,buffer:project.blob||project.buffer,meta}:null;
 }
 async function cacheTouch(id){
  try{const db=await openProjectDB(),tx=db.transaction('recent','readwrite'),st=tx.objectStore('recent'),m=await reqP(st.get(id));if(m){m.lastUsed=Date.now();st.put(m)}await txDone(tx)}catch{}
@@ -79,12 +81,12 @@ async function pruneCache(keepId){
  await txDone(tx);
 }
 async function cacheProject(buffer,name,analysis,info={}){
- if(!buffer?.byteLength)return;
- const sourceKey=info.sourceKey||('memory:'+name+':'+buffer.byteLength),id=sourceKey;
- const original=await cacheFindBySourceKey(sourceKey),now=Date.now(),meta={id,sourceKey,name:name||'Scratch Project',size:buffer.byteLength,lastUsed:now,pinned:!!original?.pinned,sourceType:info.sourceType||'file',source:info.source||'',analysis};
+ const size=buffer instanceof Blob?buffer.size:buffer?.byteLength;if(!size)return;
+ const sourceKey=info.sourceKey||('memory:'+name+':'+sourceSize(buffer)),id=sourceKey;
+ const original=await cacheFindBySourceKey(sourceKey),now=Date.now(),meta={id,sourceKey,name:name||'Scratch Project',size:sourceSize(buffer),lastUsed:now,pinned:!!original?.pinned,sourceType:info.sourceType||'file',source:info.source||'',analysis};
  try{
   const db=await openProjectDB(),tx=db.transaction(['projects','recent'],'readwrite');
-  tx.objectStore('projects').put({id,buffer,analysis});
+  tx.objectStore('projects').put({id,blob:buffer instanceof Blob?buffer:new Blob([buffer]),analysis});
   tx.objectStore('recent').put(meta);
   await txDone(tx);
   state.currentCacheId=id;
@@ -103,10 +105,10 @@ async function renderRecents(){
  box.querySelectorAll('[data-pin]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const item=list[Number(btn.dataset.pin)];if(item)cacheTogglePinned(item.id)});
  box.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const item=list[Number(btn.dataset.remove)];if(item)cacheDelete(item.id)});
 }
-async function loadCached(id){
+async function loadCachedInternal(id){
  const cached=await cacheGet(id);if(!cached)throw new Error('保存済みプロジェクトが見つかりません');
  await cacheTouch(id);await renderRecents();
- setProgress('保存済みデータから開いています',35,'再取得なし');
+ setProgress('保存済みデータから開いています',25,'再取得なし');
  await loadBuffer(cached.buffer,cached.meta.name,{analysis:cached.analysis||cached.meta.analysis,skipCache:true,cacheId:id});
 }
 function sourceKeyForInput(input){
@@ -123,35 +125,33 @@ function deviceProfile(){
 function formatBytes(n){if(!Number.isFinite(n))return '不明';const u=['B','KB','MB','GB'];let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return (i? n.toFixed(n>=100?0:n>=10?1:2):Math.round(n))+' '+u[i]}
 
 async function loadRuntime(){
- if(window.Scaffolding)return;
- setText('#engine-state','ランタイム読込中');
- let code=null;
- if(location.protocol!=='file:'){
-   try{const r=await fetch('./vendor/scaffolding-min.js',{cache:'force-cache'});if(r.ok)code=await r.text()}catch{}
-   if(!code&&'caches' in window){try{const hit=await caches.match(RUNTIME_URL);if(hit)code=await hit.text()}catch{}}
- }
- if(!code){
-   const r=await fetch(RUNTIME_URL,{cache:'force-cache'});if(!r.ok)throw new Error('TurboWarpランタイムを取得できません');
-   const clone=r.clone();code=await r.text();
-   if('caches' in window&&location.protocol!=='file:'){try{const c=await caches.open('scratch-lite-runtime-v1');await c.put(RUNTIME_URL,clone)}catch{}}
- }
- await new Promise((resolve,reject)=>{const blob=new Blob([code],{type:'text/javascript'}),url=URL.createObjectURL(blob),s=document.createElement('script');s.src=url;s.onload=()=>{URL.revokeObjectURL(url);resolve()};s.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('ランタイム実行に失敗'))};document.head.appendChild(s)});
- if(!window.Scaffolding)throw new Error('Scaffoldingが初期化されませんでした');
- $('#engine-state')?.classList.add('ready');setText('#engine-state','TurboWarp準備完了');
+ const ready=()=>{$('#engine-state')?.classList.remove('error');$('#engine-state')?.classList.add('ready');setText('#engine-state','TurboWarp準備完了');};
+ if(window.Scaffolding){ready();return;}setText('#engine-state','ランタイム読込中');
+ const script=url=>new Promise((resolve,reject)=>{const element=document.createElement('script');element.src=url;element.async=true;element.onload=()=>{if(window.Scaffolding)resolve();else reject(Error('ランタイムを初期化できません'));};element.onerror=()=>{element.remove();reject(Error('ランタイムを取得できません'));};document.head.append(element);});
+ try{await script(new URL('vendor/scaffolding-min.js',location.href).href);}catch{await script(RUNTIME_URL);}
+ ready();
 }
 
 function createRunner(){
- if(state.runner){try{state.runner.vm?.stopAll?.()}catch{};try{state.runner.root?.remove?.()}catch{}}
- const r=new Scaffolding.Scaffolding();
- r.width=480;r.height=360;r.resizeMode='preserve-ratio';r.editableLists=false;r.shouldConnectPeripherals=true;r.usePackagedRuntime=false;r.setup();
- const st=r.storage;
- try{st.addWebStore([st.AssetType.ImageVector,st.AssetType.ImageBitmap,st.AssetType.Sound],asset=>'https://assets.scratch.mit.edu/internalapi/asset/'+asset.assetId+'.'+asset.dataFormat+'/get/')}catch{}
+ if(state.runner){stopProject();return state.runner;}
+ const r=new Scaffolding.Scaffolding();r.width=480;r.height=360;r.resizeMode='preserve-ratio';r.editableLists=false;r.shouldConnectPeripherals=true;r.usePackagedRuntime=false;r.setup();
+ const st=r.storage;st.addWebStore([st.AssetType.ImageVector,st.AssetType.ImageBitmap,st.AssetType.Sound],asset=>'https://assets.scratch.mit.edu/internalapi/asset/'+asset.assetId+'.'+asset.dataFormat+'/get/');
+ st.addHelper({load(type,id,format){const session=activeAssets;if(!session?.packed)return null;return session.client.asset(id+'.'+format).then(bytes=>bytes?st.createAsset(type,format,bytes,id,false):null);}},200);
+ const load=st.load.bind(st);st.load=(type,id,format)=>{const session=activeAssets;if(!session||!['ImageVector','ImageBitmap','Sound','Font'].includes(type.name))return load(type,id,format);
+  const name=id+'.'+(format||type.runtimeFormat);if(session.promises.has(name))return session.promises.get(name);
+  const promise=session.queue.run(async()=>{try{const asset=await load(type,id,format);if(!asset)throw Error('素材が見つかりません: '+name);return asset;}catch(e){session.errors.push(name);throw e;}finally{session.finished++;const total=Math.max(session.total,session.promises.size,1);if(activeAssets===session&&!session.runtimeProgress)setProgress('画像・音声の素材を読み込み中',40+Math.min(1,session.finished/total)*52,session.finished+' / '+total+' 素材 · 並列 '+session.queue.limit);}});session.promises.set(name,promise);return promise;};
  r.appendTo($('#project-mount'));state.runner=r;return r;
 }
+function sourceSize(value){return value instanceof Blob?value.size:value.byteLength;}
+async function withLoading(fn){if(state.loading)return;state.loading=true;lastPercent=0;stopProject();stopAutoMonitor();show('#loader',true);show('#load-progress',true);show('#stage-loading',true);setProgress('読み込みを準備',0,'');
+ const controls=['#file-btn','#url-btn','#file-input','#reload-btn','#new-btn','#clear-recents'];controls.forEach(id=>{if($(id))$(id).disabled=true;});
+ try{await (runtimePromise||(runtimePromise=loadRuntime()));return await fn();}finally{controls.forEach(id=>{if($(id))$(id).disabled=false;});show('#stage-loading',false);state.loading=false;}
+}
+function loadCached(id){return withLoading(()=>loadCachedInternal(id));}
 
 async function unzipProjectJSON(buffer){
  try{
-  const dv=new DataView(buffer);let eocd=-1;for(let i=Math.max(0,buffer.byteLength-65557);i<=buffer.byteLength-22;i++){if(dv.getUint32(i,true)===0x06054b50)eocd=i}
+  const dv=new DataView(buffer);let eocd=-1;for(let i=Math.max(0,sourceSize(buffer)-65557);i<=sourceSize(buffer)-22;i++){if(dv.getUint32(i,true)===0x06054b50)eocd=i}
   if(eocd<0)return null;const count=dv.getUint16(eocd+10,true),cd=dv.getUint32(eocd+16,true);let p=cd;
   for(let n=0;n<count;n++){
    if(dv.getUint32(p,true)!==0x02014b50)break;
@@ -186,7 +186,7 @@ function analyzeJSON(json,size){
  return a;
 }
 async function analyzeProject(buffer){
- const json=await unzipProjectJSON(buffer);return json?analyzeJSON(json,buffer.byteLength):{size:buffer.byteLength,level:buffer.byteLength>25e6?'重量':'不明',complexity:buffer.byteLength/1048576,targets:0,blocks:0,costumes:0,sounds:0,pen:false,threeD:false,cloneBlocks:0,warpProcedures:0,video:false,music:false,largeLists:0};
+ const json=await unzipProjectJSON(buffer);return json?analyzeJSON(json,sourceSize(buffer)):{size:sourceSize(buffer),level:sourceSize(buffer)>25e6?'重量':'不明',complexity:sourceSize(buffer)/1048576,targets:0,blocks:0,costumes:0,sounds:0,pen:false,threeD:false,cloneBlocks:0,warpProcedures:0,video:false,music:false,largeLists:0};
 }
 
 function autoProfile(a,d,mode){
@@ -230,22 +230,23 @@ function updateAnalysisText(){
  setText('#analysis-details','作品: '+a.level+'、'+formatBytes(a.size)+' / ブロック '+a.blocks.toLocaleString()+' / ターゲット '+a.targets+' / コスチューム '+a.costumes+' / 音 '+a.sounds+' / クローン生成 '+a.cloneBlocks+' / ペン '+(a.pen?'あり':'なし')+' / 3D系 '+(a.threeD?'検出':'未検出')+'。端末: '+d.tier+'、CPU論理 '+d.cores+'、メモリ目安 '+d.mem+'GB。適用: '+(p?.label||'未適用')+'。');
 }
 
-function setProgress(text,pct=null,detail=''){show('#load-progress',true);setText('#progress-text',text);setText('#progress-value',detail);if(pct!==null)$('#progress-bar').style.width=Math.max(0,Math.min(100,pct))+'%'}
-function hideProgress(){show('#load-progress',false);$('#progress-bar').style.width='0%'}
-async function readFile(file){
- return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onprogress=e=>{if(e.lengthComputable)setProgress('ファイルを読み込んでいます',e.loaded/e.total*40,Math.round(e.loaded/e.total*100)+'%')};fr.onerror=()=>reject(fr.error);fr.onload=()=>resolve(fr.result);fr.readAsArrayBuffer(file)});
+function setProgress(text,pct=null,detail='',error=false){
+ if(pct!==null)lastPercent=Math.max(lastPercent,Math.max(0,Math.min(100,pct)));progressUpdate={text,detail,pct,error,overall:lastPercent};
+ if(progressFrame)return;progressFrame=requestAnimationFrame(()=>{progressFrame=0;const p=progressUpdate;if(!p)return;show('#load-progress',true);setText('#progress-text',p.text);setText('#progress-value',Math.floor(p.overall)+'%');setText('#progress-detail',p.detail);setText('#stage-loading-text',p.text+' · '+Math.floor(p.overall)+'%');const bar=$('#load-progress');bar.classList.toggle('indeterminate',p.pct===null&&!p.error);bar.classList.toggle('failed',!!p.error);bar.setAttribute('aria-valuenow',Math.floor(p.overall));bar.setAttribute('aria-valuetext',p.text+' '+Math.floor(p.overall)+'% '+p.detail);$('#progress-bar').style.width=p.overall+'%';});
 }
+function hideProgress(){cancelAnimationFrame(progressFrame);progressFrame=0;progressUpdate=null;show('#load-progress',false);$('#progress-bar').style.width='0%';}
 async function fetchBuffer(url,label='ダウンロード中'){
- const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);const total=Number(r.headers.get('content-length'))||0;if(!r.body)return r.arrayBuffer();
- const reader=r.body.getReader(),parts=[];let got=0;while(true){const {done,value}=await reader.read();if(done)break;parts.push(value);got+=value.length;setProgress(label,total?got/total*40:20,total?Math.round(got/total*100)+'%':formatBytes(got))}
- const out=new Uint8Array(got);let off=0;for(const p of parts){out.set(p,off);off+=p.length}return out.buffer;
+ const r=await fetch(url);if(!r.ok)throw Error('HTTP '+r.status);const total=Number(r.headers.get('content-length'))||0;if(!r.body)return r.blob();const reader=r.body.getReader(),parts=[];let got=0;
+ while(true){const {done,value}=await reader.read();if(done)break;parts.push(value);got+=value.length;setProgress(label,total?Math.min(1,got/total)*25:null,formatBytes(got)+(total?' / '+formatBytes(total):' · 総サイズ未通知'));}
+ setProgress('取得完了',25,formatBytes(got));return new Blob(parts);
 }
+
 function projectIdFrom(input){
  const s=input.trim();if(/^\d+$/.test(s))return s;const m=s.match(/(?:scratch\.mit\.edu\/projects\/|turbowarp\.org\/)(\d+)/i);return m?.[1]||null;
 }
 async function loadURL(input){
  const id=projectIdFrom(input);if(id){
-  setProgress('Scratchプロジェクト情報を取得',4,'ID '+id);
+  setProgress('Scratchプロジェクト情報を取得',0,'ID '+id);
   const meta=await fetch('https://trampoline.turbowarp.org/api/projects/'+id);if(!meta.ok)throw new Error('共有されていないか、存在しないプロジェクトです');
   const j=await meta.json();return fetchBuffer('https://projects.scratch.mit.edu/'+id+'?token='+encodeURIComponent(j.project_token),'プロジェクトを取得しています');
  }
@@ -253,19 +254,31 @@ async function loadURL(input){
  return fetchBuffer(url,'URLから取得しています');
 }
 
-async function loadBuffer(buffer,name,opts={}){
- if(state.loading)return;state.loading=true;state.projectBuffer=buffer;state.projectName=name||'Scratch Project';state.currentCacheId=opts.cacheId||null;show('#stage-loading',true);setText('#stage-loading-text',opts.analysis?'保存済み解析結果を適用しています…':'作品を先読み解析しています…');setProgress(opts.analysis?'解析済みデータを再利用':'作品を解析しています',45,formatBytes(buffer.byteLength));
+async function loadBuffer(source,name,opts={}){
+ const blob=source instanceof Blob?source:new Blob([source]);state.slowWindows=state.fastWindows=0;state.lastAdjust=0;setText('#project-info','');state.projectBuffer=blob;state.projectName=name||'Scratch Project';state.currentCacheId=opts.cacheId||null;let client=null,completed=false,progressRuntime=null,progressHandler=null;
  try{
-  state.analysis=opts.analysis||await analyzeProject(buffer);state.device=deviceProfile();setProgress('端末に合わせて最適化',55,state.analysis.level);
-  const r=createRunner();applyProfile();setText('#stage-loading-text','TurboWarpコンパイラで読み込んでいます…');setProgress('プロジェクトをコンパイル・展開',68,'');
-  await r.loadProject(buffer);setProgress('描画を準備',96,'');
-  show('#loader',false);show('#player-panel',true);setText('#project-name',state.projectName);setText('#project-info',state.analysis.level+' · '+formatBytes(state.analysis.size)+' · コード表示なし');
-  requestAnimationFrame(()=>r.relayout?.());await sleep(60);if(state.settings.autostart)r.greenFlag();startAutoMonitor();setProgress('完了',100,opts.skipCache?'保存済みから起動':'端末に保存');if(!opts.skipCache)cacheProject(buffer,state.projectName,state.analysis,opts.cacheInfo||{}).catch(()=>{});await sleep(250);hideProgress();
- }finally{show('#stage-loading',false);state.loading=false}
+  setProgress('ZIP索引・作品情報をワーカーで解析',null,formatBytes(blob.size));let prepared=null;
+  try{client=new ScratchLoad.ArchiveClient(PIPELINE_URL);prepared=await client.call('open',{blob});}catch(e){client?.dispose();client=null;if(e.code==='ARCHIVE_DATA'||e.message.includes('ZIP')||e.message.includes('素材'))throw e;setProgress('互換読み込みに切り替え',null,e.message);}
+  state.device=deviceProfile();let input;
+  if(prepared&&!prepared.legacy){state.analysis=opts.analysis||prepared.analysis;input=prepared.text;
+   activeAssets={client,packed:prepared.packed,queue:new ScratchLoad.Queue(ScratchLoad.concurrency(state.device)),promises:new Map(),finished:0,total:prepared.analysis.uniqueAssets,expectedRefs:prepared.analysis.costumes+prepared.analysis.sounds+(prepared.analysis.fonts||0),errors:[]};
+   setProgress('解析完了・素材処理を準備',40,prepared.analysis.uniqueAssets+' 種類 · 展開容量 '+formatBytes(prepared.expandedBytes));
+  }else{client?.dispose();client=null;input=await blob.arrayBuffer();state.analysis=opts.analysis||await analyzeProject(input);setProgress('旧形式の互換読み込み',40,'SB / SB2等はランタイム標準経路を使用');}
+  const r=createRunner();applyProfile();progressRuntime=r.vm.runtime;const event=progressRuntime.constructor.ASSET_PROGRESS;
+  if(typeof event==='string'){const session=activeAssets;if(session)session.runtimeProgress=true;progressHandler=(finished,total)=>{if(session&&activeAssets!==session)return;const expected=Math.max(total,session?.expectedRefs||0,1);setProgress('画像・音声・フォントを展開中',session?40+Math.min(1,finished/expected)*54:null,finished+' / '+expected+' 件を展開'+(session?' · 素材供給 '+session.finished+' / '+session.total:''));};progressRuntime.on(event,progressHandler);}
+  await sleep(0);setProgress('画像・音声を展開・作品を構築',null,activeAssets?activeAssets.total+' 素材':'総処理量未確定');
+  const started=performance.now();await r.loadProject(input);
+  if(activeAssets?.errors.length||brokenAssets())throw Error('素材 '+((activeAssets?.errors.length||0)+brokenAssets())+' 件を読み込めませんでした。ファイルまたは接続を確認してください。');
+  setProgress('最初の描画を準備',96,'素材処理 '+((performance.now()-started)/1000).toFixed(2)+'秒');
+  show('#player-panel',true);setText('#project-name',state.projectName);setText('#project-info',state.analysis.level+' · '+formatBytes(blob.size)+' · '+(activeAssets?'ワーカー展開 / 並列 '+activeAssets.queue.limit:'互換読み込み'));
+  await new Promise(resolve=>requestAnimationFrame(()=>{r.relayout?.();requestAnimationFrame(resolve);}));
+  if(state.settings.autostart)r.greenFlag();startAutoMonitor();setProgress('完了',100,opts.skipCache?'保存済みから起動':'ブラウザー保存はバックグラウンドで実行');
+  if(!opts.skipCache)cacheProject(blob,state.projectName,state.analysis,opts.cacheInfo||{}).catch(()=>{});await sleep(350);hideProgress();show('#loader',false);completed=true;
+ }catch(e){stopProject();state.projectBuffer=null;show('#player-panel',false);throw e;}finally{if(progressHandler)progressRuntime.removeListener(progressRuntime.constructor.ASSET_PROGRESS,progressHandler);const session=activeAssets;activeAssets=null;client?.dispose();if(session){session.queue.close();await Promise.allSettled([...session.promises.values()]);session.promises.clear();}if(!completed)try{state.runner?.vm?.clear?.();}catch{}}
 }
-async function fromFile(file){if(!file)return;const sourceKey='file:'+file.name+':'+file.size+':'+(file.lastModified||0),hit=await cacheFindBySourceKey(sourceKey);if(hit)return loadCached(hit.id);const buffer=await readFile(file);await loadBuffer(buffer,file.name,{cacheInfo:{sourceKey,sourceType:'file',source:file.name}})}
-async function fromURL(){const input=$('#url-input').value.trim();if(!input)return;try{const sourceKey=sourceKeyForInput(input),hit=await cacheFindBySourceKey(sourceKey);if(hit)return loadCached(hit.id);const id=projectIdFrom(input),b=await loadURL(input);await loadBuffer(b,id?'Scratch #'+id:input.split('/').pop()||'URL Project',{cacheInfo:{sourceKey,sourceType:id?'scratch':'url',source:input}})}catch(e){fail(e)}}
-function fail(e){console.error(e);hideProgress();show('#stage-loading',false);state.loading=false;alert('読み込みに失敗しました。\n'+String(e?.message||e))}
+function fromFile(file){if(!file)return Promise.resolve();return withLoading(async()=>{const sourceKey='file:'+file.name+':'+file.size+':'+(file.lastModified||0),hit=await cacheFindBySourceKey(sourceKey);if(hit)return loadCachedInternal(hit.id);setProgress('ファイルを参照',25,formatBytes(file.size)+' · 全体コピーなし');await loadBuffer(file,file.name,{cacheInfo:{sourceKey,sourceType:'file',source:file.name}});});}
+async function fromURL(){const input=$('#url-input').value.trim();if(!input)return;try{await withLoading(async()=>{const sourceKey=sourceKeyForInput(input),hit=await cacheFindBySourceKey(sourceKey);if(hit)return loadCachedInternal(hit.id);const id=projectIdFrom(input),blob=await loadURL(input);await loadBuffer(blob,id?'Scratch #'+id:input.split('/').pop()||'URL Project',{cacheInfo:{sourceKey,sourceType:id?'scratch':'url',source:input}});});}catch(e){fail(e);}}
+function fail(e){console.error(e);setProgress('読み込みに失敗しました',null,String(e?.message||e),true);show('#loader',true);show('#stage-loading',false);state.loading=false;}
 
 function startAutoMonitor(){
  stopAutoMonitor();let last=performance.now(),sum=0,count=0,windowStart=last;
@@ -285,8 +298,8 @@ function autoAdjust(avg){
 
 function stopProject(){try{state.runner?.vm?.stopAll?.()}catch{try{state.runner?.vm?.runtime?.stopAll?.()}catch{}}}
 function greenFlag(){try{state.runner?.greenFlag?.()}catch(e){fail(e)}}
-async function reloadProject(){if(!state.projectBuffer)return;stopAutoMonitor();$('#project-mount').innerHTML='';await loadBuffer(state.projectBuffer,state.projectName)}
-function newProject(){stopProject();stopAutoMonitor();try{state.runner?.root?.remove?.()}catch{}state.runner=null;state.currentCacheId=null;$('#project-mount').innerHTML='';show('#player-panel',false);show('#loader',true);hideProgress();renderRecents()}
+async function reloadProject(){if(!state.projectBuffer)return;return withLoading(()=>loadBuffer(state.projectBuffer,state.projectName,{analysis:state.analysis,skipCache:true,cacheId:state.currentCacheId}));}
+function newProject(){if(state.loading)return;stopProject();stopAutoMonitor();state.runner?.vm?.clear?.();state.projectBuffer=null;state.currentCacheId=null;show('#player-panel',false);show('#loader',true);hideProgress();renderRecents();}
 async function fullscreen(){const el=$('#stage-viewport');try{if(document.fullscreenElement)await document.exitFullscreen();else await el.requestFullscreen();setTimeout(()=>state.runner?.relayout?.(),80)}catch{}}
 
 function syncSettingsUI(){
@@ -299,22 +312,22 @@ function readSettingsUI(){
 async function exportOffline(){
  const btn=$('#offline-export'),old=btn.textContent;btn.disabled=true;btn.textContent='完全ローカル版を作成中…';
  try{
-  const [runtime,css,js,baseHTML]=await Promise.all([
+  const [runtime,css,js,baseHTML,pipeline,worker,inflater]=await Promise.all([
     fetch(OFFLINE_RUNTIME_URL).then(r=>{if(!r.ok)throw Error('オフラインランタイム取得失敗');return r.text()}),
-    fetch('style.css?v=4').then(r=>r.text()),
-    fetch('app.js?v=4').then(r=>r.text()),
-    fetch('index.html').then(r=>r.text())
+    fetch('style.css?v=6').then(r=>r.text()),
+    fetch('app.js?v=6').then(r=>r.text()),
+    fetch('index.html').then(r=>r.text()),fetch('load-pipeline.js').then(r=>r.text()),fetch('project-archive.js').then(r=>r.text()),fetch('vendor/fflate.min.js').then(r=>r.text())
   ]);
-  const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script');
+  const safeRuntime=runtime.replace(/<\/script/gi,'<\\/script'),safeJS=js.replace(/<\/script/gi,'<\\/script'),safePipeline=pipeline.replace(/<\/script/gi,'<\\/script');
   const cleanBody=(baseHTML.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1]||'')
-    .replace(/<script src="app\.js[^>]*><\/script>/i,'');
-  const out='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#10141c"><title>Scratch Lite Launcher Offline</title><style>'+css+'</style></head><body>'+cleanBody+'<script>window.__SL_STANDALONE__=true;<\/script><script>'+safeRuntime+'<\/script><script>'+safeJS+'<\/script></body></html>';
+    .replace(/<script src="(?:app\.js|load-pipeline\.js)[^>]*><\/script>/gi,'');
+  const out='<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#10141c"><title>Scratch Lite Launcher Offline</title><style>'+css+'</style></head><body>'+cleanBody+'<script>window.__SL_STANDALONE__=true;window.__SL_WORKER_SOURCE__='+JSON.stringify(inflater+'\n'+worker).replace(/</g,'\\u003c')+';<\/script><script>'+safeRuntime+'<\/script><script>'+safePipeline+'<\/script><script>'+safeJS+'<\/script></body></html>';
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'text/html'}));a.download='scratch-lite-offline.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
  }catch(e){fail(e)}finally{btn.disabled=false;btn.textContent=old}
 }
 
 function bind(){
- $('#file-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>fromFile(e.target.files[0]).catch(fail);$('#url-btn').onclick=()=>fromURL();$('#url-input').onkeydown=e=>{if(e.key==='Enter')fromURL()};
+ $('#file-btn').onclick=()=>$('#file-input').click();$('#file-input').onchange=e=>{const file=e.target.files[0];e.target.value='';fromFile(file).catch(fail);};$('#url-btn').onclick=()=>fromURL();$('#url-input').onkeydown=e=>{if(e.key==='Enter')fromURL()};
  const dz=$('#drop-zone');['dragenter','dragover'].forEach(x=>dz.addEventListener(x,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(x=>dz.addEventListener(x,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>fromFile(e.dataTransfer.files[0]).catch(fail));dz.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')$('#file-input').click()};
  $('#flag-btn').onclick=greenFlag;$('#stop-btn').onclick=stopProject;$('#reload-btn').onclick=()=>reloadProject().catch(fail);$('#new-btn').onclick=newProject;$('#fullscreen-btn').onclick=fullscreen;
  $('#settings-btn').onclick=()=>{syncSettingsUI();updateAnalysisText();$('#settings-dialog').showModal()};$('#apply-btn').onclick=()=>{state.settings=readSettingsUI();saveSettings();$('#quick-mode').value=state.settings.mode;if(state.runner)applyProfile();$('#settings-dialog').close()};
@@ -325,11 +338,13 @@ function bind(){
 
 async function boot(){
  state.settings=loadSettings();state.device=deviceProfile();syncSettingsUI();bind();setText('#device-state',state.device.tier+' '+state.device.cores+'C/'+state.device.mem+'GB');renderRecents();
- try{await loadRuntime()}catch(e){setText('#engine-state','ランタイム取得失敗');$('#engine-state')?.classList.add('error');console.error(e)}
+ try{runtimePromise=loadRuntime();await runtimePromise}catch(e){runtimePromise=null;setText('#engine-state','ランタイム取得失敗');$('#engine-state')?.classList.add('error');console.error(e)}
  const qs=new URLSearchParams(location.search),cached=qs.get('cached'),project=qs.get('project');
  if(window.Scaffolding&&cached&&cached.length<=300){loadCached(cached).catch(fail)}
  else if(window.Scaffolding&&project&&/^\d{5,12}$/.test(project)){$('#url-input').value=project;fromURL().catch(fail)}
-  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js?v=6').catch(()=>{});
 }
+function brokenAssets(){return (state.runner?.vm?.runtime?.targets||[]).reduce((n,t)=>n+(t.sprite?.costumes||[]).filter(c=>c.broken).length+(t.sprite?.sounds||[]).filter(c=>c.broken).length,0);}
+window.ScratchLite={version:VERSION,loadFile:fromFile,inspect:()=>({loading:state.loading,name:state.projectName,analysis:state.analysis,firstSprite:(()=>{const t=state.runner?.vm?.runtime?.targets?.find(t=>!t.isStage);return t?{x:t.x,y:t.y}:null;})(),progress:progressUpdate,targets:state.runner?.vm?.runtime?.targets?.length||0,brokenAssets:brokenAssets(),assets:activeAssets?{finished:activeAssets.finished,total:activeAssets.total,concurrency:activeAssets.queue.limit}:null})};
 boot();
 })();

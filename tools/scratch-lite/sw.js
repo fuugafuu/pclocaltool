@@ -1,11 +1,10 @@
-const CACHE='scratch-lite-v4';
+const CACHE='scratch-lite-v6';
 const RUNTIME='https://cdn.jsdelivr.net/npm/@turbowarp/scaffolding@0.4.0/dist/scaffolding-min.js';
-const SHELL=['./','./index.html','./style.css?v=4','./app.js?v=4','./manifest.webmanifest'];
+const SHELL=['./','./index.html','./style.css?v=6','./app.js?v=6','./load-pipeline.js?v=6','./project-archive.js','./vendor/scaffolding-min.js','./vendor/fflate.min.js','./manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
     const c=await caches.open(CACHE);
     await c.addAll(SHELL);
-    try{const r=await fetch(RUNTIME,{cache:'reload'});if(r.ok)await c.put(RUNTIME,r.clone())}catch{}
     await self.skipWaiting();
   })());
 });

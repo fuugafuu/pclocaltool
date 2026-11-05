@@ -9,6 +9,9 @@
     "test:retro-agent": "node scripts/verify-retro-agent.cjs",
     "test:editor": "node scripts/verify-editor.cjs",
     "test:hub": "node scripts/verify-hub.cjs",
-    "measure:arena": "node scripts/measure-arena.cjs"
+    "measure:arena": "node scripts/measure-arena.cjs",
+    "test:scratch": "node scripts/verify-scratch.cjs",
+    "test:scratch-flows": "python scripts/create-scratch-fixtures.py && node scripts/verify-scratch-flows.cjs",
+    "measure:scratch": "node scripts/measure-scratch.cjs"
   }
 }

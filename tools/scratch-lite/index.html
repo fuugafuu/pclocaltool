@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#10141c">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Scratch Lite Launcher</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <div class="app">
@@ -39,7 +39,7 @@
     <label><span>最適化</span><select id="quick-mode"><option value="auto">オート</option><option value="compat">互換重視</option><option value="performance">速度重視</option><option value="manual">手動設定</option></select></label>
     <label class="check"><input id="autostart" type="checkbox" checked><span>読み込み後に自動開始</span></label>
   </div>
-  <div id="load-progress" class="progress hidden"><div class="progress-track"><i id="progress-bar"></i></div><div><span id="progress-text">準備中</span><b id="progress-value"></b></div></div>
+  <div id="load-progress" class="progress hidden" role="progressbar" aria-label="読み込みの工程進捗（目安）" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-track"><i id="progress-bar"></i></div><div><span id="progress-text">準備中</span><b id="progress-value">0%</b></div><p id="progress-detail" role="status"></p><small>工程全体の割合は目安です。素材は実処理件数を表示し、時間を算出できない解析・画像展開中は待機表示になります。</small></div>
 
   <section id="recent-section" class="recent-section hidden">
     <div class="recent-head">
@@ -47,7 +47,7 @@
       <button id="clear-recents" class="ghost danger">すべて削除</button>
     </div>
     <div id="recent-projects" class="recent-projects"></div>
-    <p id="recent-storage" class="recent-note"></p><p class="recent-note">★を付けると自動整理の対象から除外します。プロジェクト本体をこのブラウザ内に保存します。同じファイルやURLをもう一度取得せず、すぐ起動できます。</p>
+    <p id="recent-storage" class="recent-note"></p><p class="recent-note">プロジェクト本体をこのブラウザ内に保存し、再取得せず開けます。URL作品の外部素材・拡張機能は接続が必要な場合があります。</p>
   </section>
 </section>
 
@@ -114,7 +114,7 @@
 </form>
 </dialog>
 
-<script src="app.js?v=4"></script>
+<script src="load-pipeline.js?v=6"></script><script src="app.js?v=6"></script>
 </div>
 </body>
 </html>

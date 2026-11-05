@@ -22,3 +22,6 @@
 .recent-open{display:none}
 .recent-pin{position:absolute;right:29px;top:5px;width:26px;height:26px;min-height:26px;padding:0;border:0;background:transparent;color:#f5ca70;font-size:1.2rem}
 .recent-pin:hover{background:#273449}
+#progress-detail{font-size:13px;color:var(--muted,#b3c5d9);overflow-wrap:anywhere;min-height:1.5em}.progress small{display:block;color:#9aacc0;font-size:11px;line-height:1.6;margin-top:8px}.progress.indeterminate .progress-track{background:repeating-linear-gradient(115deg,#1e3347 0 12px,#2d4960 12px 24px);background-size:160px 100%;animation:sl-loading 1s linear infinite}@keyframes sl-loading{to{background-position:160px 0}}@media(prefers-reduced-motion:reduce){.progress.indeterminate .progress-track{animation:none}}
+#load-progress>div:nth-child(2){display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:10px}#progress-value{font-size:21px;font-variant-numeric:tabular-nums;white-space:nowrap;color:#89edce}button:disabled{cursor:wait;opacity:.5}.progress small{font-size:12px}
+.progress.failed .progress-track{background:#552a30;animation:none}.progress.failed #progress-bar{background:#ef8a9a}.progress.failed #progress-text{color:#ffb7c0}
