@@ -133,8 +133,24 @@ AI戦略:
 
 ## モデルの差し替え
 
-Web配布の更新対象はこのフォルダーの `model.js` です。同じスキーマのモデルに差し替えて再読み込みすると、1対1の予測に適用されます。オフラインでは最後に取得したモデルを使います。現行のモデルは公開データで学習した疎な INT8 モデルと、0.5B 教師から蒸留した INT4 モデルの合成です。対戦中は直近最大64手を順に再生して、現在の相手に適応します。3人戦はプロフィール予測と同時出し相関を使います。
+Web配布の更新対象はこのフォルダーの `model.js` です。同じスキーマのモデルに差し替えて再読み込みすると、1対1の予測に適用されます。オフラインでは最後に取得したモデルを使います。基本モデルは公開データで学習した疎な INT8 モデルと、0.5B 教師から蒸留した INT4 モデルの合成です。対戦中は直近最大64手を順に再生して、現在の相手に適応します。3人戦はプロフィール予測と同時出し相関を使います。
 
-Python 3.12 の PyTorch 環境で `python scripts/train-janken.py <data.json> --checkpoint <teacher.pt> --output <model.js>` を実行すると、単体で動く INT4 候補が得られます。チェックポイントは約2 GBのため作業用ドライブに置いてください。Python側で試合を周回ごとにシャッフルし、各入力にはそのラウンド以前の双方の手だけを含めます。教師の活性化するパラメータは1局面あたり約1,790万、全体で約5億です。
+Python 3.12 の PyTorch 環境で `python scripts/train-janken.py <data.json> --checkpoint <teacher.pt> --output <candidate.js>` を実行すると、単体で動く INT4 候補が得られます。チェックポイントは約2 GBのため作業用ドライブに置いてください。Python側で試合を周回ごとにシャッフルし、各入力にはそのラウンド以前の双方の手だけを含めます。教師の活性化するパラメータは1局面あたり約1,790万、全体で約5億です。
 
 学習データは [公開研究ログ](https://github.com/erik-brockbank/hm_rps_public/tree/77edd3a54741433e550a68bd5c9248086b05e676/data/human_data) から抽出した双方の手です。参加者ごとに分離した学習48,417手・検証10,020手・試験10,928手を使用しました。合成比率は検証セットで選びました。試験ログでは、試合内で適応する疎なモデルの64手制限なしの命中率67.08%に対し、合成は67.50%。対数損失は0.7415から0.7317でした。
+
+### 適応型決定木の再学習
+
+現行モデルは疎な INT8 と蒸留 INT4 の予測に、直近の反復・勝敗後の反応・双方の手の遷移を使う決定木を合成しています。各遷移予測には、同じ対戦の過去に出した予測の成績も特徴として入力します。決定木の葉は16ビット整数に量子化しています。古いランタイムでも同じファイルから従来の予測を実行できます。
+
+```sh
+node scripts/janken-features.cjs data.json training-output 2
+python scripts/train-janken-adaptive.py training-output training-output/candidate.js --feature-version 2
+node scripts/select-janken-adaptive.cjs data.json tools/janken-ai/model.js training-output/model.js training-output/candidate.js
+```
+
+学習スクリプトは CatBoost、LightGBM、NumPy を使用します。特徴量はブラウザと同じ JavaScript で生成し、その手を出す前に観測できる最大64手だけを使います。検証セットで合成比率と確率の温度を選び、最後に試験セットで量子化済みのモデルを測ります。以前の64手制限なしの試験値とは比較条件が異なります。
+
+同じ64手制限で試験10,928手を比較すると、次手命中率は66.60%から69.65%、対数損失は0.7395から0.6804でした。これは試験ログでの予測成績です。
+
+学習・モデル選択と別に評価した[人間同士の対戦データ](https://github.com/erik-brockbank/rps-games-analysis/tree/9f07e145abf1c56e13fd2cc22cba7e950aed6d24/data)では、双方を予測対象とした35,938件で45.26%から49.69%でした。

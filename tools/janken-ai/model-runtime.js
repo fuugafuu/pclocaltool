@@ -81,31 +81,80 @@
     };
   }
 
-  let logits;
-  try {
-    if (artifact.kind === 'dense-int4') logits = densePredictor(artifact);
-    if (artifact.kind === 'sparse-int8') logits = sparsePredictor(artifact);
-    if (artifact.kind === 'ensemble' && Number.isFinite(artifact.studentWeight) &&
-        artifact.studentWeight > 0 && artifact.studentWeight < 1) {
-      const sparse = sparsePredictor(artifact.sparse);
-      const dense = densePredictor(artifact.student);
-      const mix = artifact.studentWeight;
-      if (sparse && dense) logits = (history, keys) => {
+  function basePredictor(model) {
+    if (model?.kind === 'dense-int4') return densePredictor(model);
+    if (model?.kind === 'sparse-int8') return sparsePredictor(model);
+    if (model?.kind === 'ensemble' && Number.isFinite(model.studentWeight) &&
+        model.studentWeight > 0 && model.studentWeight < 1) {
+      const sparse = sparsePredictor(model.sparse);
+      const dense = densePredictor(model.student);
+      const mix = model.studentWeight;
+      if (sparse && dense) return (history, keys) => {
         const first = sparse(history, keys);
         const second = dense(history);
         return first.map((value, move) => (1 - mix) * value + mix * second[move]);
       };
     }
+  }
+
+  function adaptivePredictor(tree) {
+    const featureRows = globalThis.JankenAdaptiveFeatures;
+    if (typeof featureRows !== 'function' || tree?.kind !== 'adaptive-tree' ||
+        !Array.isArray(tree.depths) || !Array.isArray(tree.features) ||
+        !Array.isArray(tree.thresholds) || !Number.isFinite(tree.scale) ||
+        !Number.isFinite(tree.bias)) return;
+    const version = tree.featureVersion ?? 1;
+    if (version !== 1 && version !== 2) return;
+    const width = featureRows([],version)[0].length;
+    let splitCount = 0, leafCount = 0;
+    for (const depth of tree.depths) {
+      if (!Number.isInteger(depth) || depth < 0 || depth > 12) return;
+      splitCount += depth;
+      leafCount += 1 << depth;
+    }
+    if (tree.features.length !== splitCount || tree.thresholds.length !== splitCount ||
+        tree.features.some(id => !Number.isInteger(id) || id < 0 || id >= width) ||
+        tree.thresholds.some(value => !Number.isFinite(value))) return;
+    const bytes = decode(tree.weights);
+    if (bytes.length !== leafCount * 2) return;
+    const weights = new DataView(bytes.buffer);
+    const thresholds = Float32Array.from(tree.thresholds);
+    return history => featureRows(history,version).map(row => {
+      let split = 0, offset = 0, sum = 0;
+      for (const depth of tree.depths) {
+        let leaf = 0;
+        for (let bit = 0; bit < depth; bit++, split++) {
+          if (Math.fround(row[tree.features[split]]) > thresholds[split]) leaf |= 1 << bit;
+        }
+        sum += weights.getInt16((offset + leaf) * 2, true);
+        offset += 1 << depth;
+      }
+      return sum * tree.scale + tree.bias;
+    });
+  }
+
+  let logits, treeLogits;
+  const adaptive = artifact.adaptive;
+  const { treeWeight = 0, temperature = 1 } = adaptive || {};
+  try {
+    logits = basePredictor(artifact);
   } catch {
     return;
   }
   if (!logits) return;
+  if (treeWeight > 0 && treeWeight <= 1 && Number.isFinite(temperature) && temperature > 0) {
+    try { treeLogits = adaptivePredictor(adaptive.tree); } catch {}
+  }
 
   function distribution(history, keys, residual) {
     const scores = logits(history, keys);
     for (const key of keys) {
       for (let move = 0; move < 3; move++) scores[move] += residual[key * 3 + move];
     }
+    return softmax(scores);
+  }
+
+  function softmax(scores) {
     const max = Math.max(...scores);
     const values = Array.from(scores, value => Math.exp(value - max));
     const sum = values.reduce((a, b) => a + b, 0);
@@ -116,9 +165,18 @@
     const history = [];
     const residual = new Float32Array(4096 * 3);
     function predict() {
-      return distribution(history, sparseKeys(history), residual);
+      const weight = treeLogits ? treeWeight : 0;
+      if (weight === 1) return softmax(treeLogits(history).map(score => score / temperature));
+      const base = distribution(history, sparseKeys(history), residual);
+      if (!weight) return base;
+      const tree = softmax(treeLogits(history).map(score => score / temperature));
+      return base.map((value, move) => (1 - weight) * value + weight * tree[move]);
     }
     function observe(pair) {
+      if (treeLogits && treeWeight === 1) {
+        history.push(pair);
+        return;
+      }
       const keys = sparseKeys(history);
       const probabilities = distribution(history, keys, residual);
       const actual = Math.floor(pair / 3);
@@ -140,5 +198,7 @@
     return session.predict();
   }
 
-  globalThis.JankenLearnedModel = Object.freeze({ predict, createSession, kind: artifact.kind });
+  globalThis.JankenLearnedModel = Object.freeze({
+    predict, createSession, kind: treeLogits ? 'adaptive-hybrid' : artifact.kind
+  });
 })();

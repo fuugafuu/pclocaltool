@@ -65,6 +65,7 @@ self.PCT_OFFLINE_ASSETS = [
   "./tools/game/reversi/index.html",
   "./tools/game/reversi/style.css",
   "./tools/game/style.css",
+  "./tools/janken-ai/adaptive-features.js",
   "./tools/janken-ai/app.js",
   "./tools/janken-ai/engine.js",
   "./tools/janken-ai/index.html",
