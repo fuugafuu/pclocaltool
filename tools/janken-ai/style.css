@@ -16,3 +16,6 @@
 #train-dialog .info-box{margin-top:0;text-align:center}
 @media(max-width:1180px){.analytics-top-6{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.analytics-selects{width:100%;margin-top:8px}.analytics-selects select{flex:1;min-width:0}.analytics-top-6{grid-template-columns:1fr 1fr}.mini-stat-grid{grid-template-columns:1fr 1fr}.analysis-card{margin-top:0}}
+
+.move-inputs.versus-ai { grid-template-columns: minmax(0, 420px); }
+#mode-segment { flex-wrap: wrap; }

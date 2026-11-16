@@ -33,14 +33,7 @@
  function logError(error,type){
   if(errors.length>=MAX_ERRORS)errors.shift();
   errors.push({time:new Date().toLocaleTimeString('ja-JP'),type,message:String(error?.message||error||'不明なエラー').slice(0,350)});
-  document.getElementById('pct-hub-update').onclick=checkUpdate;
-  document.getElementById('pct-hub-reload').onclick=()=>location.reload();
-  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
-   navigator.serviceWorker.addEventListener('controllerchange',()=>{updateReady=true;document.getElementById('pct-hub-reload').hidden=false;document.getElementById('pct-hub-update').textContent='新しい版を準備しました';systemStatus();});
-   navigator.serviceWorker.register(new URL('../home-sw.js?v=11',toolsBase),{updateViaCache:'none'}).then(r=>{registration=r;systemStatus();}).catch(()=>{});
-  }
-  addEventListener('online',systemStatus);addEventListener('offline',systemStatus);
-  paintErrorCount();systemStatus();
+  paintErrorCount();
  }
  addEventListener('error',e=>{if(e.target===window)logError(e.error||e.message,'JavaScript');else if(e.target instanceof Element)logError((e.target.tagName||'リソース')+' の読み込みに失敗','読込')},true);
  addEventListener('unhandledrejection',e=>logError(e.reason,'非同期'),true);
