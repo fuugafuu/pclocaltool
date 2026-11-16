@@ -27,7 +27,7 @@ test('packaged model loads with adaptive features and also runs the base when th
   };
   const adaptive = load(features);
   const fallback = load(undefined);
-  assert.equal(adaptive.kind,'adaptive-hybrid');
+  assert.equal(adaptive.kind,'routed-distilled');
   assert.equal(fallback.kind,'ensemble');
   const result = adaptive.predict(rounds);
   assert.ok(result.every(value=>value>0&&value<1));

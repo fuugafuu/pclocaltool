@@ -154,3 +154,26 @@ node scripts/select-janken-adaptive.cjs data.json tools/janken-ai/model.js train
 同じ64手制限で試験10,928手を比較すると、次手命中率は66.60%から69.65%、対数損失は0.7395から0.6804でした。これは試験ログでの予測成績です。
 
 学習・モデル選択と別に評価した[人間同士の対戦データ](https://github.com/erik-brockbank/rps-games-analysis/tree/9f07e145abf1c56e13fd2cc22cba7e950aed6d24/data)では、双方を予測対象とした35,938件で45.26%から49.69%でした。
+
+### 1B 教師モデルの追加学習
+
+過去最大64手の特徴から共通ネットワークが最初の予測を出します。同じ特徴を使って、学習データから作った分岐で64個の専門モデルのうち1個を選びます。各専門モデルは共通ネットワークの予測に加える補正を学びます。ブラウザ用の候補は教師の確率分布を学習した4ビット量子化モデルです。
+
+新しいコーパスは [Brockbank の v3 実験ログ](https://github.com/erik-brockbank/rps/blob/b8b30a8ffbff2c860daff03d649bb1b1c7563211/analysis/rps_v3_data.csv) から作ります。既存の実験ログ2件と試合ID・参加者IDを照合し、参加者IDごとに学習・検証・試験へ分けます。別研究の [WXZ2014](https://search.r-project.org/CRAN/refmans/stratEst/html/WXZ2014.html) 全21,600手は外部評価に使います。ログから出力するのは双方の手の列のみです。
+
+```sh
+python scripts/prepare-janken-new-data.py rps-v3.csv WXZ2014.rda new-corpus.json --exclude rps-v2.csv rps-v1.csv
+node scripts/janken-features.cjs new-corpus.json new-features 2
+python scripts/train-janken-routed.py new-features new-teacher --epochs 4
+node scripts/compare-janken-routed.cjs new-corpus.json original-corpus.json new-teacher/student.json candidate.js
+```
+
+Python環境には PyTorch、NumPy、pyreadr が必要です。学習時はチェックポイント用に約4 GBの空き容量が必要です。比較では、公開モデルと候補の合成比率を検証セットで決め、試験セットと外部評価データは最終比較に使います。
+
+今回の教師は1,002,011,553パラメータで、1回の予測に15,703,650パラメータを使います。従来のログを再学習には使わず、新規41,810手で教師を学習しました。公開版は蒸留モデルと従来モデルの確率を50%ずつ合成しています。
+
+| 試験ログ | 従来の命中率 | 公開版の命中率 |
+| --- | ---: | ---: |
+| 新規 v3 の未見参加者 10,082手 | 54.51% | 55.90% |
+| 従来の試験ログ 10,928手 | 69.65% | 69.49% |
+| 人間同士の外部ログ 21,600手 | 52.12% | 51.69% |

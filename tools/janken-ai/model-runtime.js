@@ -7,9 +7,13 @@
   const uniform = [1 / 3, 1 / 3, 1 / 3];
   const decode = data => Uint8Array.from(atob(data), character => character.charCodeAt(0));
   function densePredictor(model) {
-    if (!Number.isInteger(model.history) || model.history < 1 || model.history > 32 ||
-        !Array.isArray(model.layers) || model.layers.length < 2 || model.layers.length > 8) return;
-    let expected = model.history * 10;
+    if (!Number.isInteger(model.history) || model.history < 1 || model.history > 32) return;
+    return quantizedPredictor(model, model.history * 10, 3, model.history);
+  }
+
+  function quantizedPredictor(model, inputWidth, outputWidth, oneHotHistory = 0) {
+    if (!Array.isArray(model.layers) || model.layers.length < 2 || model.layers.length > 8) return;
+    let expected = inputWidth;
     const layers = model.layers.map(layer => {
       if (layer.cols !== expected || !Number.isInteger(layer.rows) || layer.rows < 1 || layer.rows > 512 ||
           layer.scales?.length !== layer.rows || !layer.scales.every(value => Number.isFinite(value) && value > 0) ||
@@ -24,17 +28,17 @@
       }
       return { rows: layer.rows, cols: layer.cols, bias: layer.bias, weights };
     });
-    if (expected !== 3) return;
-    return history => {
-      let input;
+    if (expected !== outputWidth) return;
+    return data => {
+      let input = data;
       for (const [index, { rows, cols, bias, weights }] of layers.entries()) {
         const output = new Float32Array(rows);
         for (let row = 0; row < rows; row++) {
           let value = bias[row];
           const offset = row * cols;
-          if (index === 0) {
-            for (let lag = 0; lag < model.history; lag++) {
-              value += weights[offset + lag * 10 + (history[history.length - 1 - lag] ?? 9)];
+          if (index === 0 && oneHotHistory) {
+            for (let lag = 0; lag < oneHotHistory; lag++) {
+              value += weights[offset + lag * 10 + (data[data.length - 1 - lag] ?? 9)];
             }
           } else {
             for (let col = 0; col < cols; col++) value += weights[offset + col] * input[col];
@@ -45,6 +49,21 @@
       }
       return input;
     };
+  }
+
+  function candidatePredictor(model) {
+    const features = globalThis.JankenAdaptiveFeatures;
+    if (model?.kind !== 'candidate-int4' || model.featureVersion !== 2 || typeof features !== 'function') return;
+    const width = features([], 2)[0].length;
+    if (model.mean?.length !== width || model.scale?.length !== width ||
+        !model.mean.every(Number.isFinite) || !model.scale.every(value => Number.isFinite(value) && value > 0)) return;
+    const infer = quantizedPredictor(model, width, 1);
+    if (!infer) return;
+    return history => features(history, 2).map(row => {
+      const input = Float32Array.from(row, (value, index) =>
+        Math.max(-12, Math.min(12, (Math.fround(value) - model.mean[index]) / model.scale[index])));
+      return infer(input)[0];
+    });
   }
 
   function sparseKeys(pairs) {
@@ -133,7 +152,7 @@
     });
   }
 
-  let logits, treeLogits;
+  let logits, treeLogits, candidateLogits;
   const adaptive = artifact.adaptive;
   const { treeWeight = 0, temperature = 1 } = adaptive || {};
   try {
@@ -144,6 +163,10 @@
   if (!logits) return;
   if (treeWeight > 0 && treeWeight <= 1 && Number.isFinite(temperature) && temperature > 0) {
     try { treeLogits = adaptivePredictor(adaptive.tree); } catch {}
+  }
+  const { student, weight: studentWeight = 0 } = artifact.routed || {};
+  if (studentWeight > 0 && studentWeight <= 1) {
+    try { candidateLogits = candidatePredictor(student); } catch {}
   }
 
   function distribution(history, keys, residual) {
@@ -164,7 +187,7 @@
   function createSession() {
     const history = [];
     const residual = new Float32Array(4096 * 3);
-    function predict() {
+    function currentDistribution() {
       const weight = treeLogits ? treeWeight : 0;
       if (weight === 1) return softmax(treeLogits(history).map(score => score / temperature));
       const base = distribution(history, sparseKeys(history), residual);
@@ -172,8 +195,14 @@
       const tree = softmax(treeLogits(history).map(score => score / temperature));
       return base.map((value, move) => (1 - weight) * value + weight * tree[move]);
     }
+    function predict() {
+      if (!candidateLogits) return currentDistribution();
+      const candidate = softmax(candidateLogits(history));
+      if (studentWeight === 1) return candidate;
+      return currentDistribution().map((value, move) => (1 - studentWeight) * value + studentWeight * candidate[move]);
+    }
     function observe(pair) {
-      if (treeLogits && treeWeight === 1) {
+      if ((candidateLogits && studentWeight === 1) || (treeLogits && treeWeight === 1)) {
         history.push(pair);
         return;
       }
@@ -199,6 +228,6 @@
   }
 
   globalThis.JankenLearnedModel = Object.freeze({
-    predict, createSession, kind: treeLogits ? 'adaptive-hybrid' : artifact.kind
+    predict, createSession, kind: candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
   });
 })();
