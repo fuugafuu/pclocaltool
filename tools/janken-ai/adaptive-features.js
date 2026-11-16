@@ -61,7 +61,8 @@
     const current = history[n - 1];
     const second = history[n - 2];
     const previousOutcome = outcome[n - 1];
-    const predictions = version === 2 ? expertFeatures(own, other) : [];
+    const predictions = version >= 2 ? expertFeatures(own, other) : [];
+    const tracking = version === 3 ? recencyExperts(own, other) : [];
     const rows = [];
     for (let candidate = 0; candidate < 3; candidate++) {
       const row = [n];
@@ -102,9 +103,65 @@
       for (const [probabilities, quality, samples] of predictions) {
         row.push(probabilities[candidate], probabilityCounter(probabilities, candidate), quality, samples);
       }
+      for (const [probabilities, accuracy, logScore, samples] of tracking) {
+        row.push(probabilities[candidate], probabilityCounter(probabilities, candidate), accuracy, logScore, samples);
+      }
       rows.push(row);
     }
     return rows;
+  }
+
+  // Evaluate each strategy against successive known moves before updating its counts.
+  function recencyExperts(own, other) {
+    const outcome = own.map((move, i) => mod(move - other[i]));
+    const output = [];
+    for (const [a,b,invert] of [[own,other,false],[other,own,true]]) {
+      const keys = [
+        () => 0,
+        i => a[i-1],
+        i => b[i-1],
+        i => 3*a[i-1]+b[i-1],
+        i => invert ? mod(-outcome[i-1]) : outcome[i-1],
+        i => 3*a[i-1]+a[i-2],
+        i => 3*b[i-1]+b[i-2],
+        i => 27*a[i-1]+9*b[i-1]+3*a[i-2]+b[i-2],
+        i => mod(a[i-1]-a[i-2]),
+        i => mod(b[i-1]-b[i-2]),
+        i => mod(a[i-1]-a[i-3])
+      ];
+      for (const decay of [0.83,0.97]) {
+        const ages = Array.from({length:a.length+1}, (_, age) => decay ** age);
+        for (const [index, context] of keys.entries()) {
+          const relative = index === 4 || index >= 8;
+          const first = index === 0 ? 0 : index < 5 ? 1 : index === 10 ? 3 : 2;
+          const table = new Map();
+          let accuracy = 1/3, logScore = Math.log(1/3);
+          for (let i = first; i < a.length; i++) {
+            const key = context(i);
+            let entry = table.get(key);
+            if (!entry) { entry = [0,0,0,i]; table.set(key,entry); }
+            const actual = relative ? mod(a[i]-a[i-1]) : a[i];
+            const factor = ages[i-entry[3]];
+            const total = (entry[0]+entry[1]+entry[2])*factor;
+            const actualCount = entry[actual];
+            const best = Math.max(entry[0],entry[1],entry[2]);
+            const ties = Number(entry[0]===best)+Number(entry[1]===best)+Number(entry[2]===best);
+            accuracy = 0.9*accuracy+0.1*(actualCount===best ? 1/ties : 0);
+            logScore = 0.9*logScore+0.1*Math.log((actualCount*factor+0.5)/(total+1.5));
+            for (let move=0;move<3;move++) entry[move] *= factor;
+            entry[actual]++;
+            entry[3] = i;
+          }
+          const entry = a.length >= first && table.get(context(a.length));
+          const factor = entry ? ages[a.length-entry[3]] : 0;
+          const samples = entry ? factor*(entry[0]+entry[1]+entry[2]) : 0;
+          const probabilities = entry ? [0,1,2].map(move =>
+            (entry[relative ? mod(move-a.at(-1)) : move]*factor+0.5)/(samples+1.5)) : [1/3,1/3,1/3];
+          output.push([probabilities,accuracy,logScore,samples]);
+        }
+      }
+    }
+    return output;
   }
 
   function probabilityCounter(probabilities, candidate) {

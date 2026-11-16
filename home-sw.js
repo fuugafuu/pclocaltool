@@ -1,6 +1,6 @@
 'use strict';
 importScripts('./offline-assets.js');
-const CACHE = 'pct-next-offline-v17';
+const CACHE = 'pct-next-offline-v18';
 const scope = new URL(self.registration.scope);
 // Normalize version and navigation parameters: every local asset has one cache entry.
 function cacheKey(url) { return new Request(url.origin + url.pathname); }
@@ -34,6 +34,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return;
   if (url.pathname.endsWith('/')) url.pathname += 'index.html';
+  if (url.pathname === new URL('tools/janken-ai/play', scope).pathname) url.pathname += '.html';
   const key = cacheKey(url);
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);

@@ -123,7 +123,7 @@
         !Array.isArray(tree.thresholds) || !Number.isFinite(tree.scale) ||
         !Number.isFinite(tree.bias)) return;
     const version = tree.featureVersion ?? 1;
-    if (version !== 1 && version !== 2) return;
+    if (![1,2,3].includes(version)) return;
     const width = featureRows([],version)[0].length;
     let splitCount = 0, leafCount = 0;
     for (const depth of tree.depths) {
@@ -168,6 +168,13 @@
   if (studentWeight > 0 && studentWeight <= 1) {
     try { candidateLogits = candidatePredictor(student); } catch {}
   }
+  const { tree: challengerTree, temperature: challengerTemperature } = artifact.challenger || {};
+  let challengerLogits;
+  if (Number.isFinite(challengerTemperature) && challengerTemperature > 0) {
+    try { challengerLogits = adaptivePredictor(challengerTree); } catch {}
+  }
+  const predictAlternative = challengerLogits && (history =>
+    softmax(challengerLogits(history).map(value => value / challengerTemperature)));
 
   function distribution(history, keys, residual) {
     const scores = logits(history, keys);
@@ -228,6 +235,7 @@
   }
 
   globalThis.JankenLearnedModel = Object.freeze({
-    predict, createSession, kind: candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
+    predict, predictAlternative, playPolicy: artifact.playPolicy,
+    createSession, kind: candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
   });
 })();

@@ -1,0 +1,46 @@
+* { box-sizing: border-box; }
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Yu Gothic UI", sans-serif;
+  background: #111720;
+  color: #f2f5f9;
+}
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  margin: 0;
+  padding: 20px;
+}
+main { width: min(100%, 460px); }
+.result {
+  min-height: 174px;
+  display: grid;
+  gap: 10px;
+  place-content: center;
+  text-align: center;
+  margin-bottom: 18px;
+  border: 1px solid #344458;
+  background: #1b2532;
+  border-radius: 16px;
+}
+.opponent { color: #b7c6d9; }
+.opponent span { display: block; color: #f2f5f9; font-size: 1.55rem; margin-top: 6px; }
+.outcome { font-size: 1.45rem; font-weight: 800; margin: 0; }
+.outcome[data-result="win"] { color: #88dfbe; }
+.outcome[data-result="loss"] { color: #ffb8bc; }
+.hands { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+button {
+  min-height: 95px;
+  padding: 8px;
+  border: 1px solid #4b6381;
+  background: #213148;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+button span { display: block; margin-bottom: 5px; font-size: 1.75rem; }
+button:hover { background: #2c4464; }
+button:focus-visible { outline: 2px solid #88dfbe; outline-offset: 3px; }

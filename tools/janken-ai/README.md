@@ -6,6 +6,7 @@
 
 - 1対1
 - AIと対戦。AIはラウンド開始時に手を決め、プレイヤーが手を選ぶと双方の手と勝敗を表示します。
+- AIとすぐ対戦。対戦専用の `play.html` は手を選ぶボタン、AIの手、勝敗を表示します。結果を受けて予測を更新し、最近の手と予測モデルの成績をブラウザに保存します。
 - 1対1対1（3人じゃんけん）
 - あいこ判定
   - 全員同じ手
@@ -177,3 +178,18 @@ Python環境には PyTorch、NumPy、pyreadr が必要です。学習時はチ�
 | 新規 v3 の未見参加者 10,082手 | 54.51% | 55.90% |
 | 従来の試験ログ 10,928手 | 69.65% | 69.49% |
 | 人間同士の外部ログ 21,600手 | 52.12% | 51.69% |
+
+### 対戦専用画面の追加学習
+
+[OpenNeuro ds006761](https://github.com/OpenNeuroDatasets/ds006761/tree/51d35252b4b9a0ebe6483ad7eaf8b1d8accdd3a1) のイベント表から双方の手を取り出しました。同じ二人の対戦は同じ分割に置き、学習19,808件、検証4,712件、試験4,750件に分けています。次の手を予測する前に見える情報だけで、異なる時間幅の手の偏りと条件付き遷移を評価しました。
+
+```sh
+python scripts/prepare-janken-openneuro.py events openneuro.json
+node scripts/janken-features.cjs openneuro.json features 3
+python scripts/train-janken-adaptive.py features tree.js --feature-version 3 --trials 4
+node scripts/compare-janken-play.cjs openneuro.json v3-corpus.json original-corpus.json tree.js candidate.js
+```
+
+`events` には31組分の `*_events.tsv` を `sub-01.tsv` のように参加者番号で保存します。検証データで合成、周期予測、対戦中の確率補正を比較します。採用した確率補正は、実際に選んだ手と各手に付けた予測確率との差を蓄積し、次の予測に反映します。履歴と補正値は対戦専用画面からブラウザに保存します。
+
+試験4セットでは、補正後の次手命中率は新規OpenNeuroが43.56%（従来43.77%）、v3が55.96%（従来55.90%）、従来の人工対戦相手とのログが69.49%（同率）、WXZ2014が51.78%（従来51.69%）でした。

@@ -51,7 +51,7 @@ def main():
     parser.add_argument("features", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--trials", type=int, default=8)
-    parser.add_argument("--feature-version", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--feature-version", type=int, choices=(1, 2, 3), default=1)
     args = parser.parse_args()
     if not 1 <= args.trials <= 8:
         parser.error("--trials must be between 1 and 8")
