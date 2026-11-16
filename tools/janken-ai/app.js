@@ -32,7 +32,7 @@ function renderAll(){renderProfiles();renderSelects();renderTotals();renderAnaly
 function openProfile(id=null){const p=id?profile(id):null;$('#profile-dialog-title').textContent=p?'プロフィール編集':'プロフィール作成';$('#profile-id').value=p?.id||'';$('#profile-name').value=p?.name||'';$('#profile-icon').value=p?.icon||'';$('#profile-note').value=p?.note||'';$('#profile-dialog').showModal()}
 function deleteProfile(id){if(match?.ids?.includes(id))return alert('対戦中のプロフィールは削除できません。');if(db.profiles.length<=2)return alert('最低2プロフィール必要です。');const p=profile(id);if(!confirm(`${p?.name||'このプロフィール'}を削除しますか？ 学習履歴も削除されます。`))return;db.profiles=db.profiles.filter(x=>x.id!==id);save()}
 $('#profile-form').addEventListener('submit',e=>{e.preventDefault();const id=$('#profile-id').value,name=$('#profile-name').value.trim();if(!name)return;const icon=$('#profile-icon').value.trim()||'👤',note=$('#profile-note').value.trim();if(id){const p=profile(id);p.name=name;p.icon=icon;p.note=note}else db.profiles.push({id:uid(),name,icon,note,color:COLORS[db.profiles.length%COLORS.length],events:[],createdAt:Date.now()});localStorage.setItem(KEY,JSON.stringify(db));$('#profile-dialog').close();renderAll()});
-$('#new-profile').onclick=()=>openProfile();$('.dialog-cancel').forEach(b=>b.onclick=()=>$('#profile-dialog').close());
+$('#new-profile').onclick=()=>openProfile();$$('.dialog-cancel').forEach(b=>b.onclick=()=>$('#profile-dialog').close());
 
 let gameMode='duel';
 function persistActiveMatch(){db.activeMatch=match?JSON.parse(JSON.stringify(match)):null;localStorage.setItem(KEY,JSON.stringify(db));}
@@ -50,7 +50,12 @@ $('#start-match').onclick=startMatch;$('#end-match').onclick=endMatch;
 
 function contextForOpponent(pid){
  const rounds=match?.rounds||[],last=rounds.at(-1);
- return{profilePrevMove:last?.moves?.[pid],profilePrevResult:last?.resolution?.results?.[pid],userPrevMove:last?.moves?.[match.selfId],selfId:match.selfId,opponentId:pid,matchId:match.id,mode:match.mode,participants:match.ids.length};
+ const order=['rock','paper','scissors'];
+ const pairs=match.ids.length===2?rounds.slice(-64).flatMap(round=>{
+   const human=order.indexOf(round.moves?.[pid]),other=order.indexOf(round.moves?.[match.selfId]);
+   return human<0||other<0?[]:[human*3+other];
+ }):null;
+ return{pairs,profilePrevMove:last?.moves?.[pid],profilePrevResult:last?.resolution?.results?.[pid],userPrevMove:last?.moves?.[match.selfId],selfId:match.selfId,opponentId:pid,matchId:match.id,mode:match.mode,participants:match.ids.length};
 }
 function computeRecommendation(){
  const preds=match.opponentIds.map(id=>({id,...E.predictProfile(profile(id),contextForOpponent(id))}));
@@ -118,7 +123,7 @@ function parseTrainSequence(text){
 }
 function updateTrainPreview(){const seq=parseTrainSequence($('#train-sequence')?.value);if($('#train-preview'))$('#train-preview').textContent=`${seq.length}手 認識`}
 $('#quick-train').onclick=()=>{$('#train-sequence').value='';renderSelects();updateTrainPreview();$('#train-dialog').showModal()};
-$('.train-cancel').forEach(b=>b.onclick=()=>$('#train-dialog').close());$('#train-sequence').oninput=updateTrainPreview;
+$$('.train-cancel').forEach(b=>b.onclick=()=>$('#train-dialog').close());$('#train-sequence').oninput=updateTrainPreview;
 $('#train-form').addEventListener('submit',e=>{e.preventDefault();const p=profile($('#train-profile').value),seq=parseTrainSequence($('#train-sequence').value);if(!p||!seq.length)return alert('認識できる手を入力してください。');const batch=uid(),base=Date.now()-seq.length;for(let i=0;i<seq.length;i++)p.events.push({time:base+i,move:seq[i],result:null,context:{source:'manual',trainingBatch:batch,participants:0,opponentIds:[]}});localStorage.setItem(KEY,JSON.stringify(db));$('#train-dialog').close();renderAll();});
 
 $('#export-data').onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`janken-ai-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
@@ -129,7 +134,7 @@ $('#theme-toggle').onclick=()=>setTheme((db.settings?.theme||'dark')==='dark'?'l
 
 function restoreActiveMatch(){
  const m=db.activeMatch;if(!validActiveMatch(m)){db.activeMatch=null;localStorage.setItem(KEY,JSON.stringify(db));return;}
- match=m;gameMode=m.mode||'duel';$('#mode-segment button').forEach(b=>b.classList.toggle('active',b.dataset.mode===gameMode));$('#opponent-b-wrap').classList.toggle('hidden',gameMode!=='trio');
+ match=m;gameMode=m.mode||'duel';$$('#mode-segment button').forEach(b=>b.classList.toggle('active',b.dataset.mode===gameMode));$('#opponent-b-wrap').classList.toggle('hidden',gameMode!=='trio');
  $('#self-profile').value=m.selfId;$('#opponent-a').value=m.opponentIds?.[0]||'';if(m.opponentIds?.[1])$('#opponent-b').value=m.opponentIds[1];$('#ai-mode').value=m.aiMode||'adaptive';
  $('#setup-panel').classList.add('hidden');$('#match-area').classList.remove('hidden');computeRecommendation();renderMatch();
 }

@@ -1,6 +1,6 @@
 'use strict';
 importScripts('./offline-assets.js');
-const CACHE = 'pct-next-offline-v13';
+const CACHE = 'pct-next-offline-v14';
 const scope = new URL(self.registration.scope);
 // Normalize version and navigation parameters: every local asset has one cache entry.
 function cacheKey(url) { return new Request(url.origin + url.pathname); }
@@ -39,6 +39,18 @@ self.addEventListener('fetch', event => {
     const cache = await caches.open(CACHE);
     // Static assets are installed as a single release; avoid mixing script versions.
     const cached = await cache.match(key);
+    if (url.pathname === new URL('tools/janken-ai/model.js', scope).pathname) {
+      try {
+        const response = await fetch(request, {cache:'no-cache'});
+        if (response.ok) {
+          try { await cache.put(key, response.clone()); } catch {}
+          return response;
+        }
+        return cached || response;
+      } catch {
+        return cached || Response.error();
+      }
+    }
     if (cached) return cached;
     try {
       const response = await fetch(request);

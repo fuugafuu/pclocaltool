@@ -98,7 +98,9 @@
 
   function predictProfile(profile, context={}){
     const events=Array.isArray(profile?.events)?profile.events:[];
-    if(!events.length)return {dist:emptyDist(),confidence:.06,sample:0,specificSample:0,components:[],top:'rock',agreement:1/3};
+    const prediction=Array.isArray(context.pairs)?globalThis.JankenLearnedModel?.predict(context.pairs):null;
+    const learned=prediction?{rock:prediction[0],paper:prediction[1],scissors:prediction[2]}:null;
+    if(!events.length&&!learned)return {dist:emptyDist(),confidence:.06,sample:0,specificSample:0,components:[],top:'rock',agreement:1/3};
     const comps=[],push=x=>x&&comps.push(x);
     push(makeComponent(.9,'全体傾向',distFrom(events,()=>true,.985,.8),28));
     push(makeComponent(1.55,'直近傾向',distFrom(events,()=>true,.80,.58),10));
@@ -122,6 +124,12 @@
     const last=events.at(-1)?.move; let streak=0; for(let i=events.length-1;i>=0&&events[i].move===last;i--)streak++;
     if(last&&streak>=2){ const d={rock:.2,scissors:.2,paper:.2};d[last]=1.2+Math.min(1.4,(streak-2)*.3);comps.push({name:`${streak}連続中`,dist:normalize(d),n:streak,weight:.52+Math.min(.45,streak*.08)}); }
     const base={rock:0,scissors:0,paper:0};let totalW=0;for(const c of comps){addWeighted(base,c.dist,c.weight);totalW+=c.weight;}
+    if(learned){
+      const weight=totalW*3+1;
+      comps.push({name:'公開対戦で学習したモデル',dist:learned,n:context.pairs.length,weight});
+      addWeighted(base,learned,weight);
+      totalW+=weight;
+    }
     const dist=normalize(base),top=topMove(dist),votes={rock:0,scissors:0,paper:0};for(const c of comps)votes[topMove(c.dist)]+=c.weight;
     const agreement=totalW?Math.max(...MOVES.map(m=>votes[m]))/totalW:1/3,certainty=1-entropy(dist),sample=events.length,specificSample=spec.length;
     const confidence=clamp(.05+Math.min(.34,sample/70)+certainty*.30+agreement*.20+Math.min(.11,specificSample/45),.05,.97);

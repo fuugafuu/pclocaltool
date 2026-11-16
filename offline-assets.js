@@ -68,6 +68,8 @@ self.PCT_OFFLINE_ASSETS = [
   "./tools/janken-ai/app.js",
   "./tools/janken-ai/engine.js",
   "./tools/janken-ai/index.html",
+  "./tools/janken-ai/model-runtime.js",
+  "./tools/janken-ai/model.js",
   "./tools/janken-ai/style.css",
   "./tools/math-assist/advanced.js",
   "./tools/math-assist/algebra.js",
