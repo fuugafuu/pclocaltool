@@ -38,7 +38,7 @@ test('online calibration updates probabilities only after an observed hand', () 
 test('adaptive features use the last 64 rounds and rotate with the candidate hand', () => {
   const rounds = Array.from({length:80}, (_, i) => (i*i+2*i) % 9);
   const rotate = round => ((Math.floor(round/3)+1)%3)*3+(round%3+1)%3;
-  for (const version of [1,2,3,4]) {
+  for (const version of [1,2,3,4,5]) {
     const expected = features(rounds,version);
     assert.deepEqual(expected,features(rounds.slice(-64),version));
     const asFloat32 = rows => rows.map(row => row.map(Math.fround));

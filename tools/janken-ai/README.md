@@ -216,3 +216,31 @@ node scripts/select-janken-refinement.cjs tree.js candidate.js original-corpus.j
 | v3 10,082手 | 55.96% | 56.19% |
 | 従来の試験ログ 10,928手 | 69.49% | 69.66% |
 | WXZ2014 21,600手 | 51.78% | 52.12% |
+
+### 対戦途中で変わる傾向の学習
+
+[Guennouni と Speekenbrink の公開対戦データ](https://github.com/mspeekenbrink/sdam-r/blob/93245a342bf0d6c5c4cf26d9cab124b67920e51c/data/rps.rda)から、新たに52人の2,600手を取り込みました。各参加者の50手をまとめたまま、1,500手を学習、550手を検証、550手を試験に使います。学習には既存の学習分割も合わせ、計138,885手を使います。
+
+選択頻度、勝敗後の変化、相手の手に対する反応を、異なる長さの履歴から見積もります。各方式は過去の手を順番に予測し、実際の手に事前に付けていた確率から信頼度を更新します。これらの値を決定木と4ビット量子化ニューラルネットの特徴にも使います。
+
+```sh
+python scripts/prepare-janken-transfer.py rps.rda transfer.json
+node --max-old-space-size=5000 scripts/janken-features.cjs pooled-with-transfer.json pooled-v5 5
+python scripts/train-janken-adaptive.py pooled-v5 tree.js --feature-version 5 --trials 2
+python scripts/train-janken-routed.py pooled-v5 neural --feature-version 5 --student-only --epochs 16 --threads 4
+node scripts/select-janken-opponent.cjs tree.js neural/student.json candidate.js original-corpus.json v3-corpus.json openneuro.json transfer.json external-holdout.json
+```
+
+`pooled-with-transfer.json` は、前節の `pooled.json` の各分割に、対応する `transfer.json` の分割を加えたものです。検証で改良方式と合成比率を選び、試験では固定します。
+
+採用した4ビットモデルの合成比率は60%を基準とし、従来モデルより確信度が高い予測では比率を上げます。
+
+| 試験ログ | 従来の命中率 | 更新後の命中率 |
+| --- | ---: | ---: |
+| 新規の人間対AIログ 550手 | 60.73% | 61.82% |
+| OpenNeuro 4,750手 | 45.16% | 45.52% |
+| v3 10,082手 | 56.19% | 56.68% |
+| 従来の試験ログ 10,928手 | 69.66% | 69.78% |
+| WXZ2014 21,600手 | 52.12% | 52.03% |
+| 人間同士の外部ログ 8,588手 | 51.75% | 51.73% |
+| 全試験 56,498手 | 55.68% | 55.80% |

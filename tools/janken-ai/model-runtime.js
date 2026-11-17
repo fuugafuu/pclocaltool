@@ -53,13 +53,15 @@
 
   function candidatePredictor(model) {
     const features = globalThis.JankenAdaptiveFeatures;
-    if (model?.kind !== 'candidate-int4' || model.featureVersion !== 2 || typeof features !== 'function') return;
-    const width = features([], 2)[0].length;
+    const version = model?.featureVersion;
+    if (model?.kind !== 'candidate-int4' || ![2,5].includes(version) || typeof features !== 'function' ||
+        (version === 5 && !features.opponentExperts)) return;
+    const width = features([], version)[0].length;
     if (model.mean?.length !== width || model.scale?.length !== width ||
         !model.mean.every(Number.isFinite) || !model.scale.every(value => Number.isFinite(value) && value > 0)) return;
     const infer = quantizedPredictor(model, width, 1);
     if (!infer) return;
-    return (history, rows = features(history, 2)) => rows.map(row => {
+    return (history, rows = features(history, version)) => rows.map(row => {
       const input = new Float32Array(width);
       for (let index = 0; index < width; index++) {
         input[index] = Math.max(-12, Math.min(12, (Math.fround(row[index]) - model.mean[index]) / model.scale[index]));
@@ -125,7 +127,8 @@
         !Array.isArray(tree.thresholds) || !Number.isFinite(tree.scale) ||
         !Number.isFinite(tree.bias)) return;
     const version = tree.featureVersion ?? 1;
-    if (![1,2,3,4].includes(version) || (version === 4 && !featureRows.supportsSequenceEvidence)) return;
+    if (![1,2,3,4,5].includes(version) || (version >= 4 && !featureRows.supportsSequenceEvidence) ||
+        (version === 5 && !featureRows.opponentExperts)) return;
     const width = featureRows([],version)[0].length;
     let splitCount = 0, leafCount = 0;
     for (const depth of tree.depths) {
@@ -185,8 +188,23 @@
   }
   // Each feature version appends columns, so inference can share the largest row.
   const buildFeatures = globalThis.JankenAdaptiveFeatures;
-  const featureVersion = Math.max(refinementLogits ? refinement.tree.featureVersion ?? 1 : 0,
-    treeLogits ? adaptive.tree.featureVersion ?? 1 : 0, candidateLogits ? 2 : 0);
+  const followup = artifact.followup;
+  const followupWeight = followup?.weight;
+  const followupTemperature = Number.isFinite(followup?.temperature) && followup.temperature > 0
+    ? followup.temperature : 1;
+  let followupLogits;
+  const useExperts = followup?.kind === 'online-experts' && followupWeight > 0 && followupWeight <= 1 &&
+    Number.isInteger(followup.scale) && followup.scale >= 0 && followup.scale < 3 &&
+    Number.isFinite(followup.threshold) && buildFeatures?.opponentExperts && buildFeatures.blendOpponent;
+  if (followupWeight > 0 && followupWeight <= 1) {
+    try {
+      if (followup.kind === 'tree') followupLogits = adaptivePredictor(followup.model);
+      if (followup.kind === 'network') followupLogits = candidatePredictor(followup.model);
+    } catch {}
+  }
+  const featureVersion = Math.max(followupLogits ? followup.model.featureVersion ?? 1 : 0,
+    refinementLogits ? refinement.tree.featureVersion ?? 1 : 0,
+    treeLogits ? adaptive.tree.featureVersion ?? 1 : 0, candidateLogits ? student.featureVersion : 0);
   const period = refinement?.period;
   const usePeriod = Number.isInteger(period?.confirmations) && period.confirmations >= 6 &&
     period.strength > 0 && period.strength <= 0.95;
@@ -235,19 +253,26 @@
     }
     function predict() {
       const rows = featureVersion ? buildFeatures(history, featureVersion) : undefined;
+      const updated = followupLogits && softmax(
+        followupLogits(history, rows).map(score => score / followupTemperature));
+      if (updated && followupWeight === 1) return updated;
       const refined = refinementLogits && softmax(refinementLogits(history, rows));
       let prediction = refined && refinementWeight === 1 ? refined : priorPrediction(rows);
       if (refined && refinementWeight < 1) {
         prediction = prediction.map((value, move) =>
           (1 - refinementWeight) * value + refinementWeight * refined[move]);
       }
-      if (!usePeriod) return prediction;
-      const expected = periodicPrediction(history, period.confirmations);
-      return expected < 0 ? prediction : prediction.map((value, move) =>
-        (1 - period.strength) * value + period.strength * Number(move === expected));
+      if (usePeriod) {
+        const expected = periodicPrediction(history, period.confirmations);
+        if (expected >= 0) prediction = prediction.map((value, move) =>
+          (1 - period.strength) * value + period.strength * Number(move === expected));
+      }
+      if (updated) return buildFeatures.blendLearned(prediction, updated, followup);
+      return useExperts ? buildFeatures.blendOpponent(prediction,
+        buildFeatures.opponentExperts(history, [followup.scale])[0], followup) : prediction;
     }
     function observe(pair) {
-      if ((refinementLogits && refinementWeight === 1) || (candidateLogits && studentWeight === 1) ||
+      if ((followupLogits && followupWeight === 1) || (refinementLogits && refinementWeight === 1) || (candidateLogits && studentWeight === 1) ||
           (treeLogits && treeWeight === 1)) {
         history.push(pair);
         return;

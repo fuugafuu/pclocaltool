@@ -5,7 +5,7 @@ const features = require('../tools/janken-ai/adaptive-features.js');
 const [, , dataset, output, featureVersion = '1'] = process.argv;
 if (!dataset || !output) throw new Error('Expected dataset and output directory');
 const version = Number(featureVersion);
-if (![1, 2, 3, 4].includes(version)) throw new Error('Unsupported feature version');
+if (![1, 2, 3, 4, 5].includes(version)) throw new Error('Unsupported feature version');
 fs.mkdirSync(output, {recursive:true});
 const groups = JSON.parse(fs.readFileSync(dataset, 'utf8'));
 for (const [split, games] of Object.entries(groups)) {

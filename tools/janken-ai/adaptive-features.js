@@ -64,6 +64,7 @@
     const predictions = version >= 2 ? expertFeatures(own, other) : [];
     const tracking = version >= 3 ? recencyExperts(own, other) : [];
     const echoes = version >= 4 ? sequenceEvidence(own, other, outcome) : [];
+    const opponents = version >= 5 ? opponentExperts(history) : [];
     const rows = [];
     for (let candidate = 0; candidate < 3; candidate++) {
       const row = [n];
@@ -108,6 +109,7 @@
         row.push(probabilities[candidate], probabilityCounter(probabilities, candidate), accuracy, logScore, samples);
       }
       for (const counts of echoes) row.push(counts[candidate], counts[0] + counts[1] + counts[2]);
+      for (const [probabilities, evidence] of opponents) row.push(probabilities[candidate], evidence);
       rows.push(row);
     }
     return rows;
@@ -193,7 +195,90 @@
     return probabilities[(candidate + 2) % 3];
   }
 
+  // Each row rewards a different behavioral cue only after the next hand is observed.
+  // Absolute moves and moves relative to the previous two players share the same tables.
+  function opponentExperts(rounds, scales = [0, 1, 2]) {
+    const history = rounds.slice(-MAX_HISTORY);
+    const own = history.map(pair => Math.floor(pair / 3));
+    const other = history.map(pair => pair % 3);
+    const outcome = own.map((move, i) => mod(move - other[i]));
+    const frequency = [0, 0, 0];
+    const anchors = [];
+    for (const move of other) {
+      const maximum = Math.max(...frequency);
+      anchors.push(frequency.indexOf(maximum));
+      for (let i = 0; i < 3; i++) frequency[i] *= 0.85;
+      frequency[move]++;
+    }
+    anchors.push(frequency.indexOf(Math.max(...frequency)));
+    const definitions = [
+      [0, () => 0, () => 0, 1],
+      [1, () => 0, i => own[i - 1], 1],
+      [1, () => 0, i => other[i - 1], 1],
+      [1, i => own[i - 1], () => 0, 3],
+      [1, i => other[i - 1], () => 0, 3],
+      [1, i => outcome[i - 1], i => own[i - 1], 3],
+      [1, i => outcome[i - 1], i => other[i - 1], 3],
+      [1, i => outcome[i - 1], i => anchors[i], 3],
+      [2, i => own[i - 1] * 3 + own[i - 2], () => 0, 9],
+      [2, i => mod(own[i - 1] - own[i - 2]), i => own[i - 1], 3],
+      [2, i => outcome[i - 1] * 3 + outcome[i - 2], i => own[i - 1], 9]
+    ];
+    return scales.map(scale => {
+      const decay = [0.76, 0.95, 1][scale];
+      const discounts = Array.from({length: own.length + 1}, (_, age) => decay ** age);
+      const votes = [0, 0, 0];
+      let totalWeight = 0;
+      let scoreSum = 0;
+      for (const [start, context, anchor, contexts] of definitions) {
+        const counts = new Float64Array(contexts * 3);
+        const timestamps = new Uint8Array(contexts);
+        let evidence = 0;
+        for (let i = start; i < own.length; i++) {
+          const key = context(i);
+          const offset = key * 3;
+          const discount = discounts[i - timestamps[key]];
+          for (let move = 0; move < 3; move++) counts[offset + move] *= discount;
+          const actual = offset + mod(own[i] - anchor(i));
+          const sum = counts[offset] + counts[offset + 1] + counts[offset + 2];
+          evidence = (scale === 0 ? 0.84 : 0.95) * evidence +
+            Math.log(3 * (counts[actual] + 0.5) / (sum + 1.5));
+          counts[actual]++;
+          timestamps[key] = i;
+        }
+        if (own.length < start) continue;
+        const key = context(own.length);
+        const offset = key * 3;
+        const discount = discounts[own.length - timestamps[key]];
+        const sum = discount * (counts[offset] + counts[offset + 1] + counts[offset + 2]);
+        const strength = sum / (sum + 2);
+        const weight = Math.exp(Math.max(-8, Math.min(8, evidence))) * strength;
+        const base = anchor(own.length);
+        for (let move = 0; move < 3; move++) {
+          votes[move] += weight * (discount * counts[offset + mod(move - base)] + 0.5) / (sum + 1.5);
+        }
+        scoreSum += weight * evidence;
+        totalWeight += weight;
+      }
+      return totalWeight ? [votes.map(vote => vote / totalWeight), scoreSum / totalWeight] : [[1/3,1/3,1/3], 0];
+    });
+  }
+
+  function blendOpponent(prior, [forecast, evidence], settings) {
+    const trust = settings.weight / (1 + Math.exp(settings.threshold - evidence));
+    return prior.map((value, move) => (1 - trust) * value + trust * forecast[move]);
+  }
+
+  function blendLearned(prior, forecast, settings) {
+    const difference = settings.confidenceGain ? Math.max(...forecast) - Math.max(...prior) : 0;
+    const weight = Math.max(0, Math.min(1, settings.weight + (settings.confidenceGain || 0) * difference));
+    return prior.map((value, move) => (1 - weight) * value + weight * forecast[move]);
+  }
+
   adaptiveFeatures.supportsSequenceEvidence = true;
+  adaptiveFeatures.opponentExperts = opponentExperts;
+  adaptiveFeatures.blendOpponent = blendOpponent;
+  adaptiveFeatures.blendLearned = blendLearned;
   if (typeof module === 'object' && module.exports) module.exports = adaptiveFeatures;
   else root.JankenAdaptiveFeatures = adaptiveFeatures;
 })(globalThis);

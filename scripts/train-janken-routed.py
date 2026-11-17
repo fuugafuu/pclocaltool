@@ -89,11 +89,11 @@ def route(values, router):
     return leaves
 
 
-def fit_student(x, y, valid, labels, teacher=None):
+def fit_student(x, y, valid, labels, teacher=None, epochs=20):
     model = scorer(x.shape[-1], 160, 64)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.0016, weight_decay=0.02)
     best, state = float("inf"), None
-    for _ in range(20):
+    for _ in range(epochs):
         for batch in torch.randperm(len(y)).split(512):
             optimizer.zero_grad(set_to_none=True)
             logits = score(model, x[batch])
@@ -175,11 +175,32 @@ def main():
     parser.add_argument("job", type=Path)
     parser.add_argument("--epochs", type=int, default=4)
     parser.add_argument("--threads", type=int, default=6)
+    parser.add_argument("--student-only", action="store_true")
+    parser.add_argument("--feature-version", type=int, choices=(2, 5), default=2)
     args = parser.parse_args()
     if min(args.epochs, args.threads) < 1:
         parser.error("epochs and threads must be positive")
     torch.set_num_threads(args.threads)
     torch.manual_seed(10149)
+    if args.student_only:
+        x, y = read_features(args.features, "train")
+        valid, labels = read_features(args.features, "validation")
+        mean = x.mean((0, 1))
+        scale = x.std((0, 1)).clamp_min(0.015)
+        x.sub_(mean).div_(scale).clamp_(-12, 12)
+        valid.sub_(mean).div_(scale).clamp_(-12, 12)
+        student = fit_student(x, y, valid, labels, epochs=args.epochs)
+        layers = pack_student(student)
+        with torch.no_grad():
+            result = probabilities(score(student, valid), labels)
+        args.job.mkdir(parents=True, exist_ok=False)
+        artifact = dict(kind="candidate-int4", featureVersion=args.feature_version,
+                        mean=mean.tolist(), scale=scale.tolist(), layers=layers)
+        (args.job / "student.json").write_text(json.dumps(artifact, separators=(",", ":")), encoding="utf-8")
+        print("quantized student validation", result, flush=True)
+        return
+    if args.feature_version != 2:
+        parser.error("Feature version 5 requires --student-only")
     data = {name: read_features(args.features, name)
             for name in ("train", "validation", "test", "external")}
     x, y = data["train"]
