@@ -69,3 +69,32 @@ test('packaged model loads with adaptive features and also runs the base when th
   assert.ok(Math.abs(result.reduce((sum,value)=>sum+value,0)-1)<1e-10);
   assert.notDeepEqual(Array.from(result),Array.from(fallback.predict(rounds)));
 });
+
+test('a quantized neural mixture agrees with the geometric mean of component predictions', () => {
+  const source = fs.readFileSync('tools/janken-ai/model.js', 'utf8').trim();
+  const artifact = JSON.parse(source.slice('globalThis.JankenModelArtifact='.length, -1));
+  const model = artifact.followup.model.kind === 'candidate-mixture'
+    ? artifact.followup.model.models[0] : artifact.followup.model;
+  const alternative = structuredClone(model);
+  const last = alternative.layers.at(-1);
+  last.scales = last.scales.map(value => value * 0.5);
+  last.bias = last.bias.map(value => value * 0.5);
+  const runtime = fs.readFileSync('tools/janken-ai/model-runtime.js', 'utf8');
+  function predict(network) {
+    const ctx = { JankenAdaptiveFeatures: features,
+      JankenModelArtifact: { ...artifact, followup: {
+        kind: 'network', model: network, weight: 1, temperature: 1
+      } } };
+    new Function('globalThis', runtime)(ctx);
+    return ctx.JankenLearnedModel.predict([0, 3, 6, 1, 5, 8, 4, 3]);
+  }
+  const first = predict(model);
+  const second = predict(alternative);
+  const expected = first.map((value, move) => Math.sqrt(value * second[move]));
+  const total = expected.reduce((sum, value) => sum + value, 0);
+  const actual = predict({ kind: 'candidate-mixture', featureVersion: model.featureVersion,
+    models: [model, alternative] });
+  actual.forEach((value, move) => assert.ok(Math.abs(value - expected[move] / total) < 1e-7));
+  assert.deepEqual(predict({ kind: 'candidate-mixture', featureVersion: model.featureVersion,
+    models: [model, alternative], maxHistory: 8 }), first);
+});

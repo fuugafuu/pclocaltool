@@ -89,15 +89,17 @@ def route(values, router):
     return leaves
 
 
-def fit_student(x, y, valid, labels, teacher=None, epochs=20):
-    model = scorer(x.shape[-1], 160, 64)
+def fit_student(x, y, valid, labels, teacher=None, epochs=20, width=160, hidden=64,
+                training_weights=None, validation_weights=None):
+    model = scorer(x.shape[-1], width, hidden)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.0016, weight_decay=0.02)
     best, state = float("inf"), None
     for _ in range(epochs):
         for batch in torch.randperm(len(y)).split(512):
             optimizer.zero_grad(set_to_none=True)
             logits = score(model, x[batch])
-            loss = F.cross_entropy(logits, y[batch])
+            loss = F.cross_entropy(logits, y[batch]) if training_weights is None else (
+                F.cross_entropy(logits, y[batch], reduction="none") * training_weights[batch]).mean()
             if teacher is not None:
                 soft = (teacher[batch] / 1.6).softmax(1)
                 loss = 0.65 * loss + 0.896 * F.kl_div(
@@ -105,7 +107,9 @@ def fit_student(x, y, valid, labels, teacher=None, epochs=20):
             loss.backward()
             optimizer.step()
         with torch.no_grad():
-            loss = F.cross_entropy(score(model, valid), labels).item()
+            losses = F.cross_entropy(score(model, valid), labels, reduction="none")
+            loss = (losses.mean() if validation_weights is None else
+                    (losses * validation_weights).mean()).item()
         if loss < best:
             best = loss
             state = {key: value.clone() for key, value in model.state_dict().items()}
@@ -177,11 +181,27 @@ def main():
     parser.add_argument("--threads", type=int, default=6)
     parser.add_argument("--student-only", action="store_true")
     parser.add_argument("--feature-version", type=int, choices=(2, 5), default=2)
+    parser.add_argument("--student-width", type=int, default=160)
+    parser.add_argument("--student-hidden", type=int, default=64)
+    parser.add_argument("--seed", type=int, default=10149)
+    parser.add_argument("--training-source-rounds")
+    parser.add_argument("--validation-source-rounds")
+    parser.add_argument("--source-weights", default="2,2,2,1")
     args = parser.parse_args()
     if min(args.epochs, args.threads) < 1:
         parser.error("epochs and threads must be positive")
     torch.set_num_threads(args.threads)
-    torch.manual_seed(10149)
+    torch.manual_seed(args.seed)
+    def source_weights(specification, count):
+        if specification is None:
+            return None
+        sizes = [int(value) for value in specification.split(",")]
+        weights = [float(value) for value in args.source_weights.split(",")]
+        if (len(sizes) != len(weights) or min(sizes) < 1 or not np.isfinite(weights).all()
+                or min(weights) <= 0 or sum(sizes) != count):
+            parser.error("Source sizes must be positive, match source weights, and add to the split size")
+        return torch.cat([torch.full((size,), count * weight / size / sum(weights))
+                          for size, weight in zip(sizes, weights)])
     if args.student_only:
         x, y = read_features(args.features, "train")
         valid, labels = read_features(args.features, "validation")
@@ -189,13 +209,23 @@ def main():
         scale = x.std((0, 1)).clamp_min(0.015)
         x.sub_(mean).div_(scale).clamp_(-12, 12)
         valid.sub_(mean).div_(scale).clamp_(-12, 12)
-        student = fit_student(x, y, valid, labels, epochs=args.epochs)
+        if not (1 <= args.student_width <= 512 and 1 <= args.student_hidden <= 512):
+            parser.error("Browser layer widths must be between 1 and 512")
+        student = fit_student(x, y, valid, labels, epochs=args.epochs,
+                              width=args.student_width, hidden=args.student_hidden,
+                              training_weights=source_weights(args.training_source_rounds, len(y)),
+                              validation_weights=source_weights(args.validation_source_rounds, len(labels)))
         layers = pack_student(student)
         with torch.no_grad():
             result = probabilities(score(student, valid), labels)
         args.job.mkdir(parents=True, exist_ok=False)
         artifact = dict(kind="candidate-int4", featureVersion=args.feature_version,
-                        mean=mean.tolist(), scale=scale.tolist(), layers=layers)
+                        mean=mean.tolist(), scale=scale.tolist(), layers=layers,
+                        training=dict(seed=args.seed, epochs=args.epochs,
+                                      width=args.student_width, hidden=args.student_hidden,
+                                      trainingSources=args.training_source_rounds,
+                                      validationSources=args.validation_source_rounds,
+                                      sourceWeights=args.source_weights))
         (args.job / "student.json").write_text(json.dumps(artifact, separators=(",", ":")), encoding="utf-8")
         print("quantized student validation", result, flush=True)
         return

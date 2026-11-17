@@ -52,6 +52,19 @@
   }
 
   function candidatePredictor(model) {
+    if (model?.kind === 'candidate-mixture' && model.models?.length === 2 &&
+        model.models.every(component => component.kind === 'candidate-int4' &&
+          component.featureVersion === model.featureVersion)) {
+      if (model.maxHistory !== undefined &&
+          (!Number.isInteger(model.maxHistory) || model.maxHistory < 1 || model.maxHistory > 64)) return;
+      const predictors = model.models.map(candidatePredictor);
+      if (predictors.some(predictor => !predictor)) return;
+      return (history, rows) => {
+        if (model.maxHistory && history.length >= model.maxHistory) return predictors[0](history, rows);
+        const predictions = predictors.map(predictor => predictor(history, rows));
+        return predictions[0].map((score, move) => 0.5 * (score + predictions[1][move]));
+      };
+    }
     const features = globalThis.JankenAdaptiveFeatures;
     const version = model?.featureVersion;
     if (model?.kind !== 'candidate-int4' || ![2,5].includes(version) || typeof features !== 'function' ||

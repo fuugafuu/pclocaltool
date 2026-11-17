@@ -244,3 +244,35 @@ node scripts/select-janken-opponent.cjs tree.js neural/student.json candidate.js
 | WXZ2014 21,600手 | 52.12% | 52.03% |
 | 人間同士の外部ログ 8,588手 | 51.75% | 51.73% |
 | 全試験 56,498手 | 55.68% | 55.80% |
+
+### Roshambo.meの実対戦ログによる追加学習
+
+Elias Bouacida と Renaud Foucart による「Rituals of Reasons」の公開資料に含まれる、Lasse Hassing提供のRoshambo.me対戦ログを使います。[公開元](https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/NZTMN9)のファイル398373には455,180行があります。SHA-256は `1e6166bfb8cdea62d2ea16966381dab0d76f4e35ed80fa767126dc7657641e45` です。データのライセンスは [CC BY-NC-SA 4.0](https://entrepot.recherche.data.gouv.fr/api/access/datafile/398329) です。
+
+1がグー、2がパー、3がチョキです。同じラウンド番号であいこが続く場合も、ファイル内の順番を維持します。無効な手では履歴を切り、4手以上有効な対戦だけを使います。同じ手列と双方を入れ替えた手列を一組として重複を除き、既存データと同じ列も取り除きます。両者の視点は同じ分割へ置きます。
+
+追加分は学習413,008手、検証89,102手、試験87,800手です。既存分と合わせて551,893手で学習します。参加者IDは含まれないため、分割は対戦列単位であり、同じ参加者かどうかは照合できません。
+
+```sh
+python scripts/prepare-janken-roshambo.py roshambo.tab roshambo.json --exclude pooled-with-transfer.json v3-corpus.json external.json
+node scripts/janken-features.cjs pooled-with-roshambo.json fresh-features 5
+python scripts/train-janken-routed.py fresh-features fresh-network --student-only --feature-version 5 --threads 6 --epochs 12 --student-width 160 --student-hidden 64 --seed 90311 --training-source-rounds 75767,41810,19808,1500,413008 --validation-source-rounds 10020,8698,4712,550,89102 --source-weights 2,2,2,1,2
+```
+
+`pooled-with-roshambo.json` は前節の学習データの各分割に、対応する追加データを加えます。特徴ファイルは512手ずつ書き出します。変換中に全サンプルの特徴をメモリへ保持する必要がありません。
+
+モデル選択には次のコマンドを使います。`JANKEN_CHALLENGER` に新しいネットワークの `student.json` を指定し、`JANKEN_VALIDATION_ONLY=1` を設定すると試験を行わずに候補を比較できます。設定を外して再実行すると、固定した候補を試験して `comparison/model.js` に出力します。
+
+```sh
+node scripts/tune-janken-confidence.cjs comparison original-corpus.json v3-corpus.json openneuro.json transfer.json external-holdout.json roshambo.json
+```
+
+検証で選んだ設定では、最初の8手で旧ネットワークと追加学習ネットワークの出力を平均し、それ以降は旧ネットワークの出力を使います。平均は確率を出す直前のスコアで行います。従来の木・蒸留モデルとの合成と対戦中の補正は継続します。
+
+| 試験ログ | 更新前 | 更新後 |
+| --- | ---: | ---: |
+| Roshambo.me 87,800手 | 37.04% | 37.32% |
+| 従来の6種類 56,498手 | 55.80% | 55.81% |
+| 合計144,298手 | 44.39% | 44.56% |
+
+合計では252手多く当たりました。従来の人工対戦相手とのログと転移学習データでは、それぞれ4手減っています。90%は未達です。モデル重みの配布条件と出典は [MODEL-LICENSE.md](MODEL-LICENSE.md) に記載しています。
