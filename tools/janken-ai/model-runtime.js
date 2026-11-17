@@ -59,9 +59,11 @@
         !model.mean.every(Number.isFinite) || !model.scale.every(value => Number.isFinite(value) && value > 0)) return;
     const infer = quantizedPredictor(model, width, 1);
     if (!infer) return;
-    return history => features(history, 2).map(row => {
-      const input = Float32Array.from(row, (value, index) =>
-        Math.max(-12, Math.min(12, (Math.fround(value) - model.mean[index]) / model.scale[index])));
+    return (history, rows = features(history, 2)) => rows.map(row => {
+      const input = new Float32Array(width);
+      for (let index = 0; index < width; index++) {
+        input[index] = Math.max(-12, Math.min(12, (Math.fround(row[index]) - model.mean[index]) / model.scale[index]));
+      }
       return infer(input)[0];
     });
   }
@@ -123,7 +125,7 @@
         !Array.isArray(tree.thresholds) || !Number.isFinite(tree.scale) ||
         !Number.isFinite(tree.bias)) return;
     const version = tree.featureVersion ?? 1;
-    if (![1,2,3].includes(version)) return;
+    if (![1,2,3,4].includes(version) || (version === 4 && !featureRows.supportsSequenceEvidence)) return;
     const width = featureRows([],version)[0].length;
     let splitCount = 0, leafCount = 0;
     for (const depth of tree.depths) {
@@ -138,7 +140,7 @@
     if (bytes.length !== leafCount * 2) return;
     const weights = new DataView(bytes.buffer);
     const thresholds = Float32Array.from(tree.thresholds);
-    return history => featureRows(history,version).map(row => {
+    return (history, rows = featureRows(history, version)) => rows.map(row => {
       let split = 0, offset = 0, sum = 0;
       for (const depth of tree.depths) {
         let leaf = 0;
@@ -175,6 +177,29 @@
   }
   const predictAlternative = challengerLogits && (history =>
     softmax(challengerLogits(history).map(value => value / challengerTemperature)));
+  const refinement = artifact.refinement;
+  const refinementWeight = refinement?.weight;
+  let refinementLogits;
+  if (refinementWeight > 0 && refinementWeight <= 1) {
+    try { refinementLogits = adaptivePredictor(refinement.tree); } catch {}
+  }
+  // Each feature version appends columns, so inference can share the largest row.
+  const buildFeatures = globalThis.JankenAdaptiveFeatures;
+  const featureVersion = Math.max(refinementLogits ? refinement.tree.featureVersion ?? 1 : 0,
+    treeLogits ? adaptive.tree.featureVersion ?? 1 : 0, candidateLogits ? 2 : 0);
+  const period = refinement?.period;
+  const usePeriod = Number.isInteger(period?.confirmations) && period.confirmations >= 6 &&
+    period.strength > 0 && period.strength <= 0.95;
+
+  function periodicPrediction(history, confirmations) {
+    const end = history.length;
+    for (let lag = 1; lag <= 16 && lag + confirmations <= end; lag++) {
+      let index = end - confirmations;
+      while (index < end && Math.floor(history[index] / 3) === Math.floor(history[index - lag] / 3)) index++;
+      if (index === end) return Math.floor(history[end - lag] / 3);
+    }
+    return -1;
+  }
 
   function distribution(history, keys, residual) {
     const scores = logits(history, keys);
@@ -194,22 +219,36 @@
   function createSession() {
     const history = [];
     const residual = new Float32Array(4096 * 3);
-    function currentDistribution() {
+    function currentDistribution(rows) {
       const weight = treeLogits ? treeWeight : 0;
-      if (weight === 1) return softmax(treeLogits(history).map(score => score / temperature));
+      if (weight === 1) return softmax(treeLogits(history, rows).map(score => score / temperature));
       const base = distribution(history, sparseKeys(history), residual);
       if (!weight) return base;
-      const tree = softmax(treeLogits(history).map(score => score / temperature));
+      const tree = softmax(treeLogits(history, rows).map(score => score / temperature));
       return base.map((value, move) => (1 - weight) * value + weight * tree[move]);
     }
-    function predict() {
-      if (!candidateLogits) return currentDistribution();
-      const candidate = softmax(candidateLogits(history));
+    function priorPrediction(rows) {
+      if (!candidateLogits) return currentDistribution(rows);
+      const candidate = softmax(candidateLogits(history, rows));
       if (studentWeight === 1) return candidate;
-      return currentDistribution().map((value, move) => (1 - studentWeight) * value + studentWeight * candidate[move]);
+      return currentDistribution(rows).map((value, move) => (1 - studentWeight) * value + studentWeight * candidate[move]);
+    }
+    function predict() {
+      const rows = featureVersion ? buildFeatures(history, featureVersion) : undefined;
+      const refined = refinementLogits && softmax(refinementLogits(history, rows));
+      let prediction = refined && refinementWeight === 1 ? refined : priorPrediction(rows);
+      if (refined && refinementWeight < 1) {
+        prediction = prediction.map((value, move) =>
+          (1 - refinementWeight) * value + refinementWeight * refined[move]);
+      }
+      if (!usePeriod) return prediction;
+      const expected = periodicPrediction(history, period.confirmations);
+      return expected < 0 ? prediction : prediction.map((value, move) =>
+        (1 - period.strength) * value + period.strength * Number(move === expected));
     }
     function observe(pair) {
-      if ((candidateLogits && studentWeight === 1) || (treeLogits && treeWeight === 1)) {
+      if ((refinementLogits && refinementWeight === 1) || (candidateLogits && studentWeight === 1) ||
+          (treeLogits && treeWeight === 1)) {
         history.push(pair);
         return;
       }
@@ -236,6 +275,7 @@
 
   globalThis.JankenLearnedModel = Object.freeze({
     predict, predictAlternative, playPolicy: artifact.playPolicy,
-    createSession, kind: candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
+    createSession, kind: refinementLogits ? 'sequence-refined' :
+      candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
   });
 })();

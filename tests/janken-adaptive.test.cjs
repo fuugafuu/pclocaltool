@@ -38,12 +38,17 @@ test('online calibration updates probabilities only after an observed hand', () 
 test('adaptive features use the last 64 rounds and rotate with the candidate hand', () => {
   const rounds = Array.from({length:80}, (_, i) => (i*i+2*i) % 9);
   const rotate = round => ((Math.floor(round/3)+1)%3)*3+(round%3+1)%3;
-  for (const version of [1,2,3]) {
+  for (const version of [1,2,3,4]) {
     const expected = features(rounds,version);
     assert.deepEqual(expected,features(rounds.slice(-64),version));
     const asFloat32 = rows => rows.map(row => row.map(Math.fround));
     assert.deepEqual(asFloat32(features(rounds.map(rotate),version)),asFloat32([expected[2],expected[0],expected[1]]));
     assert.ok(expected.flat().every(Number.isFinite));
+    if (version > 1) {
+      features(rounds, version - 1).forEach((row, index) => {
+        assert.deepEqual(expected[index].slice(0, row.length), row);
+      });
+    }
   }
 });
 test('packaged model loads with adaptive features and also runs the base when they are unavailable', () => {
@@ -57,7 +62,7 @@ test('packaged model loads with adaptive features and also runs the base when th
   };
   const adaptive = load(features);
   const fallback = load(undefined);
-  assert.equal(adaptive.kind,'routed-distilled');
+  assert.equal(adaptive.kind,'sequence-refined');
   assert.equal(fallback.kind,'ensemble');
   const result = adaptive.predict(rounds);
   assert.ok(result.every(value=>value>0&&value<1));

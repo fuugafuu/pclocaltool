@@ -62,7 +62,8 @@
     const second = history[n - 2];
     const previousOutcome = outcome[n - 1];
     const predictions = version >= 2 ? expertFeatures(own, other) : [];
-    const tracking = version === 3 ? recencyExperts(own, other) : [];
+    const tracking = version >= 3 ? recencyExperts(own, other) : [];
+    const echoes = version >= 4 ? sequenceEvidence(own, other, outcome) : [];
     const rows = [];
     for (let candidate = 0; candidate < 3; candidate++) {
       const row = [n];
@@ -106,9 +107,33 @@
       for (const [probabilities, accuracy, logScore, samples] of tracking) {
         row.push(probabilities[candidate], probabilityCounter(probabilities, candidate), accuracy, logScore, samples);
       }
+      for (const counts of echoes) row.push(counts[candidate], counts[0] + counts[1] + counts[2]);
       rows.push(row);
     }
     return rows;
+  }
+
+  // Find repeated suffixes in several representations of previous rounds.
+  // Each match votes with the move that followed it, mapped back to today's anchor.
+  function sequenceEvidence(own, other, outcome) {
+    const n = own.length;
+    const changes = own.map((move, i) => i ? mod(move - own[i - 1]) : -1);
+    const pairs = own.map((move, i) => move * 3 + other[i]);
+    const evidence = [];
+    for (const [symbols, relative] of [[own, false], [changes, true], [pairs, false], [outcome, true]]) {
+      const counts = Array.from({length: 4}, () => [0, 0, 0]);
+      for (let next = n - 1; next > 0; next--) {
+        let length = 0;
+        while (length < Math.min(12, next) && symbols[next - length - 1] === symbols[n - length - 1]) length++;
+        const predicted = relative ? mod(own[next] - own[next - 1] + own[n - 1]) : own[next];
+        const ageWeight = 1 / (1 + (n - next) / 16);
+        for (const [index, minimum] of [2, 3, 5, 8].entries()) {
+          if (length >= minimum) counts[index][predicted] += ageWeight;
+        }
+      }
+      evidence.push(...counts);
+    }
+    return evidence;
   }
 
   // Evaluate each strategy against successive known moves before updating its counts.
@@ -168,6 +193,7 @@
     return probabilities[(candidate + 2) % 3];
   }
 
+  adaptiveFeatures.supportsSequenceEvidence = true;
   if (typeof module === 'object' && module.exports) module.exports = adaptiveFeatures;
   else root.JankenAdaptiveFeatures = adaptiveFeatures;
 })(globalThis);

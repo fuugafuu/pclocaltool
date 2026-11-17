@@ -193,3 +193,26 @@ node scripts/compare-janken-play.cjs openneuro.json v3-corpus.json original-corp
 `events` には31組分の `*_events.tsv` を `sub-01.tsv` のように参加者番号で保存します。検証データで合成、周期予測、対戦中の確率補正を比較します。採用した確率補正は、実際に選んだ手と各手に付けた予測確率との差を蓄積し、次の予測に反映します。履歴と補正値は対戦専用画面からブラウザに保存します。
 
 試験4セットでは、補正後の次手命中率は新規OpenNeuroが43.56%（従来43.77%）、v3が55.96%（従来55.90%）、従来の人工対戦相手とのログが69.49%（同率）、WXZ2014が51.78%（従来51.69%）でした。
+
+### 過去の手の並びを使った再学習
+
+従来コーパス、v3、OpenNeuroの学習分割を合わせた137,385手で決定木を学習しました。直近64手から、自分の手、手の変化、双方の手、勝敗の並びを照合し、似た並びの直後に出た手を特徴に加えています。近い時点の一致を重く扱います。
+
+再現するには、3コーパスを分割ごとに連結し、学習分割から重複する対戦列と、検証・試験・外部評価にも含まれる同一の対戦列を取り除いて `pooled.json` を作ります。
+
+```sh
+node --max-old-space-size=5000 scripts/janken-features.cjs pooled.json pooled-features 4
+python scripts/train-janken-adaptive.py pooled-features tree.js --feature-version 4 --trials 4
+node scripts/select-janken-refinement.cjs tree.js candidate.js original-corpus.json v3-corpus.json openneuro.json
+```
+
+合成比率と周期予測の採否は、3コーパスの検証分割の平均命中率と対数損失で決めます。対戦専用画面と同じく、各試験では次の手を入力に含めず、予測の後で履歴と補正を更新します。
+
+再学習した決定木に60%、従来モデルに40%の重みを付けています。4種類の試験ログ47,360手を合計すると、命中数は26,489手から26,680手に増えました。
+
+| 試験ログ | 従来の命中率 | 更新後の命中率 |
+| --- | ---: | ---: |
+| OpenNeuro 4,750手 | 43.56% | 45.16% |
+| v3 10,082手 | 55.96% | 56.19% |
+| 従来の試験ログ 10,928手 | 69.49% | 69.66% |
+| WXZ2014 21,600手 | 51.78% | 52.12% |
