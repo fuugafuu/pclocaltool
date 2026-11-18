@@ -71,6 +71,7 @@ self.PCT_OFFLINE_ASSETS = [
   "./tools/janken-ai/index.html",
   "./tools/janken-ai/model-runtime.js",
   "./tools/janken-ai/model.js",
+  "./tools/janken-ai/opponent-model.js",
   "./tools/janken-ai/play-policy.js",
   "./tools/janken-ai/play.css",
   "./tools/janken-ai/play.html",

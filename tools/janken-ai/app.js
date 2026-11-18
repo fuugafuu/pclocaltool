@@ -7,6 +7,7 @@ const aiProfile={id:AI_ID,name:'AI',icon:'🤖',events:[]};
 let resultTimer;
 const COLORS=['#6aa8ff','#6fd9b6','#f5bb6b','#d58aff','#ff8398','#71d9f2'];
 let db=load(), match=null, currentRecommendation=null;
+let battleSession=null, battleMatchId=null;
 
 function uid(){return crypto.randomUUID?.()||('p'+Date.now().toString(36)+Math.random().toString(36).slice(2))}
 function fresh(){return{version:1,profiles:[],history:[],activeMatch:null,settings:{theme:'dark'},createdAt:Date.now()}}
@@ -111,8 +112,38 @@ function computeRecommendation(){
  const joint=match.opponentIds.length===2?E.jointDistribution(db.history,match.opponentIds[0],match.opponentIds[1]):null;
  const seed=versusAI?crypto.getRandomValues(new Uint32Array(1))[0]:seedForMatch();
  const rec=E.recommend(preds,match.aiMode,joint,seed);
- const explore=versusAI&&(seed%100<8||Math.abs(rec.candidates[0].utility-rec.candidates[1].utility)<0.02);
- currentRecommendation={...rec,move:explore?E.MOVES[Math.floor(seed/100)%3]:rec.move,predictions:preds,joint};
+ if (versusAI) {
+   const model = window.JankenLearnedModel;
+   const order = ['rock','paper','scissors'];
+   if (battleMatchId !== match.id || battleSession?.diagnostics().rounds !== match.rounds.length) {
+     const settings = { ...model?.battlePolicy };
+     if (match.aiMode === 'safe') settings.exploration = Math.max(settings.exploration || 0, 0.2);
+     if (match.aiMode === 'aggressive') settings.temperature = Math.min(settings.temperature || 0.16, 0.04);
+     battleSession = window.JankenOpponent.createSession({
+       settings, network: model?.predictBattleFeatures,
+       state: match.battleState?.round === match.rounds.length ? match.battleState : undefined
+     });
+     battleMatchId = match.id;
+     if (battleSession.diagnostics().rounds !== match.rounds.length) {
+       for (const round of match.rounds) {
+         battleSession.prepare(round.battlePrior);
+         battleSession.observe(order.indexOf(round.moves[match.selfId]), order.indexOf(round.moves[AI_ID]));
+       }
+     }
+     match.battleState = battleSession.exportState();
+   }
+   const prior = order.map(move => preds[0].dist[move]);
+   const prepared = battleSession.prepare(prior);
+   const dist = Object.fromEntries(order.map((move,index) => [move,prepared.forecast[index]]));
+   const top = order[prepared.forecast.indexOf(Math.max(...prepared.forecast))];
+   const tactical = [{ ...preds[0], dist, top }];
+   currentRecommendation = {
+     ...rec, move: order[window.JankenOpponent.sample(prepared.action)],
+     predictions: tactical, joint, battlePrior: prior
+   };
+ } else {
+   currentRecommendation={...rec,predictions:preds,joint};
+ }
 }
 function reasonText(){
  const parts=currentRecommendation.predictions.map(p=>{const pr=profile(p.id),specific=p.specificSample?`・対あなた ${p.specificSample}手`:'';return`${pr.name}は ${E.ICONS[p.top]}${E.LABELS[p.top]} 予測 ${pct(p.dist[p.top])}（確信 ${pct(p.confidence)}${specific}）`});
@@ -150,6 +181,12 @@ function recordRound(humanMove){
  const resolution=E.resolveRound(moves),now=Date.now(),previous=match.rounds.at(-1);
  const predictions=Object.fromEntries(currentRecommendation.predictions.map(p=>[p.id,{dist:{...p.dist},confidence:p.confidence,top:p.top,sample:p.sample,specificSample:p.specificSample}]));
  const round={id:uid(),time:now,moves,resolution,predictions,recommendation:versusAI?null:{move:currentRecommendation.move,confidence:currentRecommendation.confidence,win:currentRecommendation.win,draw:currentRecommendation.draw,loss:currentRecommendation.loss,effectiveMode:currentRecommendation.effectiveMode,jointBlend:currentRecommendation.jointBlend,followed:moves[match.selfId]===currentRecommendation.move}};
+ if (versusAI) {
+   const order = ['rock','paper','scissors'];
+   round.battlePrior = currentRecommendation.battlePrior;
+   battleSession.observe(order.indexOf(moves[match.selfId]), order.indexOf(moves[AI_ID]));
+   match.battleState = battleSession.exportState();
+ }
  match.rounds.push(round);db.history.push({matchId:match.id,mode:match.mode,ids:[...match.ids],selfId:match.selfId,round});
  for(const id of match.ids){
    if(id===AI_ID)continue;
@@ -169,7 +206,23 @@ function renderSessionStats(){
  for(const r of rs){const x=r.resolution.results[match.selfId];if(x==='win')w++;else if(x==='draw')d++;else l++;for(const oid of match.mode==='ai'?[match.selfId]:match.opponentIds){const p=r.predictions?.[oid],actual=r.moves?.[oid];if(p&&actual){predN++;if(p.top===actual)predHit++;}}if(r.recommendation?.followed){followN++;if(x==='win')followW++;}}
  $('#session-rounds').textContent=rs.length;$('#session-wins').textContent=w;$('#session-draws').textContent=d;$('#session-losses').textContent=l;$('#session-ai-hit').textContent=predN?pct(predHit/predN):'—';$('#session-follow').textContent=followN?pct(followW/followN):'—';$('#undo-round').disabled=!rs.length;
 }
-$('#undo-round').onclick=()=>{if(!match?.rounds.length)return;clearResult();const r=match.rounds.pop();db.history=db.history.filter(h=>h.round.id!==r.id);for(const id of match.ids){if(id===AI_ID)continue;const p=profile(id);const idx=p.events.findLastIndex?.(e=>e.context?.roundId===r.id||(e.context?.source==='match'&&!e.context?.roundId&&e.context?.matchId===match.id&&e.time===r.time&&e.move===r.moves[id]))??-1;if(idx>=0)p.events.splice(idx,1)}persistActiveMatch();computeRecommendation();renderMatch();renderAll()};
+$('#undo-round').onclick=()=>{
+ if(!match?.rounds.length)return;
+ clearResult();
+ const r=match.rounds.pop();
+ db.history=db.history.filter(h=>h.round.id!==r.id);
+ for(const id of match.ids){
+   if(id===AI_ID)continue;
+   const p=profile(id);
+   const idx=p.events.findLastIndex?.(e=>e.context?.roundId===r.id||(e.context?.source==='match'&&!e.context?.roundId&&e.context?.matchId===match.id&&e.time===r.time&&e.move===r.moves[id]))??-1;
+   if(idx>=0)p.events.splice(idx,1);
+ }
+ delete match.battleState;
+ computeRecommendation();
+ persistActiveMatch();
+ renderMatch();
+ renderAll();
+};
 
 function transitionDist(events,prev){const c={rock:.4,scissors:.4,paper:.4};let n=0;for(let i=1;i<events.length;i++)if(events[i-1]?.move===prev&&E.MOVES.includes(events[i]?.move)){c[events[i].move]++;n++;}return{n,dist:E.normalize(c)}}
 function renderAnalytics(){

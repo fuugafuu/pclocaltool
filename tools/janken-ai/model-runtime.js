@@ -83,6 +83,22 @@
     });
   }
 
+  function battlePredictor(model) {
+    if (model?.kind !== 'battle-int4' || model.featureVersion !== 1 ||
+        !Array.isArray(model.mean) || model.mean.length !== 675 ||
+        !model.mean.every(Number.isFinite) || model.scale?.length !== model.mean.length ||
+        !model.scale.every(value => Number.isFinite(value) && value > 0)) return;
+    const infer = quantizedPredictor(model, model.mean.length, 1);
+    if (!infer) return;
+    return rows => softmax(rows.map(row => {
+      const input = new Float32Array(model.mean.length);
+      for (let index = 0; index < input.length; index++) {
+        input[index] = Math.max(-12, Math.min(12, (Math.fround(row[index]) - model.mean[index]) / model.scale[index]));
+      }
+      return infer(input)[0];
+    }));
+  }
+
   function sparseKeys(pairs) {
     const end = pairs.length;
     const keys = [0, 1 + Math.min(4, Math.floor(Math.log2(end + 1)))];
@@ -311,8 +327,11 @@
     return session.predict();
   }
 
+  let predictBattleFeatures;
+  try { predictBattleFeatures = battlePredictor(artifact.battleModel); } catch {}
   globalThis.JankenLearnedModel = Object.freeze({
     predict, predictAlternative, playPolicy: artifact.playPolicy,
+    predictBattleFeatures, battlePolicy: artifact.battlePolicy,
     createSession, kind: refinementLogits ? 'sequence-refined' :
       candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
   });
