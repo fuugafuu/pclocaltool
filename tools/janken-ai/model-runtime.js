@@ -107,7 +107,9 @@
     if (model?.kind === 'battle-ensemble') {
       if (!Array.isArray(model.models) || model.models.length < 2 || model.models.length > 4 ||
           !model.models.every(({ head, weight, opening }) => head?.kind === 'battle-int4' &&
-            head.featureVersion === model.featureVersion && Number.isFinite(weight) && weight > 0 &&
+            (head.featureVersion === model.featureVersion ||
+              (model.featureVersion === 4 && head.featureVersion === 3)) &&
+            Number.isFinite(weight) && weight > 0 &&
             Number.isFinite(opening) && opening >= 0)) return;
       const heads = model.models.map(({ head }) => battlePredictor(head));
       if (heads.some(head => !head)) return;
@@ -128,7 +130,7 @@
       };
       return predict;
     }
-    const width = { 1: 675, 2: 677, 3: 684 }[model?.featureVersion];
+    const width = { 1: 675, 2: 677, 3: 684, 4: 113 }[model?.featureVersion];
     if (model?.kind !== 'battle-int4' || !width ||
         !Array.isArray(model.mean) || model.mean.length !== width ||
         !model.mean.every(Number.isFinite) || model.scale?.length !== model.mean.length ||
@@ -137,8 +139,9 @@
     if (!infer) return;
     function logits(row, activations) {
       const input = new Float32Array(model.mean.length);
+      const offset = model.featureVersion === 4 ? row.length - width : 0;
       for (let index = 0; index < input.length; index++) {
-        input[index] = Math.max(-12, Math.min(12, (Math.fround(row[index]) - model.mean[index]) / model.scale[index]));
+        input[index] = Math.max(-12, Math.min(12, (Math.fround(row[offset + index]) - model.mean[index]) / model.scale[index]));
       }
       return infer(input, activations)[0];
     }
@@ -380,14 +383,26 @@
     return session.predict();
   }
 
+  const baseBattle = artifact.battleModel;
+  let battleFeatureVersion = baseBattle?.featureVersion;
   let predictBattleFeatures;
-  try { predictBattleFeatures = battlePredictor(artifact.battleModel); } catch {}
+  try {
+    // Older cached runtimes can still use the original three heads during an update.
+    if (artifact.humanBattleHead && baseBattle?.kind === 'battle-ensemble' && battleFeatureVersion === 3) {
+      predictBattleFeatures = battlePredictor({ ...baseBattle, featureVersion: 4,
+        models: [...baseBattle.models, artifact.humanBattleHead] });
+      if (predictBattleFeatures) battleFeatureVersion = 4;
+    }
+  } catch {}
+  if (!predictBattleFeatures) {
+    try { predictBattleFeatures = battlePredictor(baseBattle); } catch {}
+  }
   globalThis.JankenLearnedModel = Object.freeze({
     predict, predictAlternative, playPolicy: artifact.playPolicy,
     predictBattleFeatures, battlePolicy: artifact.battlePolicy,
     describeBattleNetwork: predictBattleFeatures?.describe,
     inspectBattleFeatures: predictBattleFeatures?.inspect,
-    battleFeatureVersion: predictBattleFeatures ? artifact.battleModel.featureVersion : undefined,
+    battleFeatureVersion: predictBattleFeatures ? battleFeatureVersion : undefined,
     createSession, kind: refinementLogits ? 'sequence-refined' :
       candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
   });

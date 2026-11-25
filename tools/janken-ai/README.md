@@ -400,3 +400,35 @@ python scripts/train-janken-battle.py battle-features-v3 battle-opening.json --e
 node scripts/benchmark-janken-battle.cjs battle-report-v4.json 44000 14 96 model
 node scripts/replay-janken-battle.cjs ec142b8 replay-v4.json openneuro.json transfer-verified.json
 ```
+
+### 人間の手の選び方を学習するネットワーク
+
+RPSvAIの公開アーカイブから300手が揃った554試合を取り込みました。同じ参加者の繰り返し対戦をまとめて分け、学習110,400手、検証23,100手、試験32,700手としました。既存の人間ログと合わせて662,293手で訓練しています。学習入力に使うのは、その時点までに観測した両者の手だけです。 [研究論文](https://www.nature.com/articles/s41598-025-95444-6) · [固定版アーカイブ](https://github.com/AraiKensuke/RPSvAI/tree/627bee16a4aa7e21bef3f2ed6c0147037584fbfe/DATA/TMB2)
+
+追加のネットワークは113入力、96・36ユニットの中間層、14,473パラメーターで、重みを4ビットに量子化しています。直近8手の並び、手の分布、勝敗によって手を切り替える傾向を短期・長期の両方で入力します。既存の3系統と並行して推論し、対戦中の予測成績に応じて学習済みモデルの比率を更新します。3D対戦画面では「人間の傾向」として表示します。
+
+設定選択にはRPSvAI、OpenNeuro、Roshambo.meの検証分割を使います。Zhangらの2実験の対戦ログは研究単位で最終試験に置いています。実験ごとに異なる手の符号は公開コード表に従って統一しています。録画ログを使った評価では、当時の相手の次の手を事前に予測する精度を測ります。 [Zhangらの論文](https://www.mdpi.com/2073-4336/12/3/52) · [公開データ](https://osf.io/s54hb/)
+
+| 人間ログの再生試験 | 手数 | 旧版の的中率 | 新版の的中率 |
+| --- | ---: | ---: | ---: |
+| RPSvAI・未学習の参加者 | 32,700 | 47.56% | 50.78% |
+| Zhangら実験1・人間対人間 | 9,200 | 44.04% | 46.87% |
+| Zhangら実験2・人間対AI | 19,600 | 58.30% | 61.17% |
+| OpenNeuro | 4,750 | 42.36% | 45.01% |
+| Guennouniら | 550 | 54.91% | 59.09% |
+| 合計 | 66,800 | 49.92% | 52.95% |
+
+各対戦の最初の12手を集計した5,442手では、的中率が37.54%から42.08%へ上がりました。
+
+18種類の生成AIと各96手の比較（各版17,280手）では、勝率は63.33%から63.73%へ、あいこ率は18.25%から18.15%へ変化しました。RPS Contest公開ランキング1位のIO2_fightinguuuに同じ乱数種で再戦した12試合では、旧版の6勝6敗に対して新版は4勝7敗1分でした。 [RPS Contestランキング](https://rpscontest.com/leaderboard/1)
+
+```sh
+python scripts/prepare-janken-arai.py arai.zip arai.json
+node scripts/prepare-janken-human-battle.cjs human-features arai.json pooled-with-roshambo.json
+python scripts/train-janken-battle.py human-features human.json --epochs 12 --width 96 --hidden 36 --seed 78532 --source-weights 3 1
+git show 4300a7c:tools/janken-ai/model.js > model-v4.js
+node scripts/pack-janken-human-battle.cjs model-v4.js human.json tools/janken-ai/model.js
+python scripts/prepare-janken-zhang.py RPS_data_exp1.csv zhang-exp1.json
+python scripts/prepare-janken-zhang.py Exp2-PRS-ALL.txt zhang-exp2.json
+node scripts/replay-janken-battle.cjs 4300a7c human-replay-v5.json arai.json zhang-exp1.json zhang-exp2.json
+```

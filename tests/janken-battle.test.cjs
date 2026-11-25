@@ -87,7 +87,9 @@ test('the trained battle network accepts causal features and returns a normalize
   assert.ok(Math.abs(prediction.reduce((sum, value) => sum + value, 0) - 1) < 1e-10);
   const rows = learner.trainingFeatures();
   const graph = model.describeBattleNetwork();
-  assert.equal(graph.length, 3);
+  assert.equal(graph.length, 4);
+  assert.equal(graph[3].sizes[0], brain.humanInputWidth);
+  assert.deepEqual(rows.map(row => row.slice(684)), brain.humanFeatures([]));
   const trace = model.inspectBattleFeatures(rows, 0, 2);
   for (const [index, { sizes, connections }] of graph.entries()) {
     assert.deepEqual(trace[index].activations.map(layer => layer.length), sizes);
@@ -102,6 +104,22 @@ test('the trained battle network accepts causal features and returns a normalize
       sum + head.share * head.probabilities[move], 0)) < 1e-10);
   }
   assert.ok(trace[2].share > model.inspectBattleFeatures(rows, 96, 2)[2].share);
+});
+
+test('human behavior features are candidate-specific and depend only on observed pairs', () => {
+  const settings = { contextWeight: 1, specialistWeight: 1, metaWeight: 1 };
+  const history = [0, 3, 6, 1, 4, 7, 2, 5, 8];
+  const old = brain.createSession({ settings, featureVersion: 3, history });
+  const learner = brain.createSession({ settings, featureVersion: 4, state: old.exportState() });
+  const oldRows = old.trainingFeatures();
+  const firstRows = learner.trainingFeatures();
+  assert.deepEqual(firstRows.map(row => row.slice(684)), brain.humanFeatures(history));
+  assert.deepEqual(firstRows.map(row => row.slice(0, 684)), oldRows);
+  assert.deepEqual(firstRows.map(row => row.slice(685, 688)), [[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
+  assert.ok(firstRows.every(row => row.every(Number.isFinite)));
+  assert.equal(learner.trainingFeatures(), firstRows);
+  learner.observe(0, 2);
+  assert.deepEqual(learner.trainingFeatures().map(row => row.slice(684)), brain.humanFeatures([...history, 2]));
 });
 
 test('the periodic learner keeps its evidence through random hands and a saved-state reload', () => {

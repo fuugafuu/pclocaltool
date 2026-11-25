@@ -22,13 +22,62 @@
   const defaults = Object.freeze({
     scoreDecay: 0.94, scoreRate: 0.65, smoothing: 0.35,
     exploration: 0.06, evidenceScale: 3, temperature: 0.16, defense: 2.5,
-    specialistWeight: 0, drawPenalty: 0, contextWeight: 0, metaWeight: 0
+    specialistWeight: 0, drawPenalty: 0, contextWeight: 0, metaWeight: 0, networkWeight: 0
   });
   const periods = Array.from({ length: 23 }, (_, i) => i + 2);
   const windows = [4, 6, 9, 13, 19, 27, 39, 56];
   const specialistCount = periods.length + windows.length * 3 + 1;
   const contextCount = 5;
   const metaCount = 8;
+  const humanInputWidth = 113;
+
+  function humanFeatures(history) {
+    const end = history.length;
+    const last = history[end - 1];
+    const counts = Array.from({ length: 18 }, () => [0, 0, 0]);
+    const lastHuman = Math.floor(last / 3), lastAi = last % 3;
+    const lastOutcome = mod(lastHuman - lastAi);
+    let shortWeight = 1, longWeight = 1;
+    for (let index = end - 1; index >= Math.max(0, end - 96); index--) {
+      const current = Math.floor(history[index] / 3);
+      const previous = history[index - 1];
+      const human = Math.floor(previous / 3), ai = previous % 3;
+      const outcome = mod(human - ai);
+      const response = mod(current - human + lastHuman);
+      const counter = mod(current - ai + lastAi);
+      const categories = [current, human === lastHuman ? current : -1, ai === lastAi ? current : -1,
+        outcome === lastOutcome ? response : -1, outcome === lastOutcome ? counter : -1,
+        previous === last ? current : -1,
+        Number.isInteger(previous) ? response : -1, Number.isInteger(previous) ? counter : -1,
+        Number.isInteger(previous) && Math.floor(history[index - 2] / 3) === Math.floor(history[end - 2] / 3)
+          && human === lastHuman ? current : -1];
+      categories.forEach((hand, group) => {
+        if (hand >= 0) {
+          counts[group][hand] += shortWeight;
+          counts[group + 9][hand] += longWeight;
+        }
+      });
+      shortWeight *= 0.82;
+      longWeight *= 0.972;
+    }
+    return [0, 1, 2].map(move => {
+      const row = [Math.min(end, 96) / 96, Number(move === 0), Number(move === 1), Number(move === 2), Number(end > 0)];
+      for (let lag = 1; lag <= 8; lag++) {
+        const pair = history[end - lag];
+        const human = Math.floor(pair / 3), ai = pair % 3;
+        const outcome = mod(human - ai);
+        for (let value = 0; value < 3; value++) {
+          row.push(Number(mod(human - move) === value), Number(mod(ai - move) === value),
+            Number(outcome === value));
+        }
+      }
+      for (const group of counts) {
+        const mass = group[0] + group[1] + group[2];
+        row.push((group[move] + 0.45) / (mass + 1.35), Math.log1p(mass) / 4);
+      }
+      return row;
+    });
+  }
 
   // The rival may forecast our next hand, counter it, or counter our response.
   function counterReads(own, opponent, context) {
@@ -148,6 +197,7 @@
     settings.drawPenalty = clamp(settings.drawPenalty, 0, 0.5);
     settings.contextWeight = clamp(settings.contextWeight, 0, 1);
     settings.metaWeight = clamp(settings.metaWeight, 0, 1);
+    settings.networkWeight = clamp(settings.networkWeight, 0, 1);
     const own = [], opponent = [], history = [];
     const tables = [];
     for (const perspective of [0, 1]) {
@@ -158,7 +208,7 @@
     const expertCount = tables.length * 3;
     const scores = new Float64Array(expertCount + 3);
     const accuracies = new Float64Array(expertCount + 3).fill(1 / 3);
-    const useContexts = settings.contextWeight > 0 || options.featureVersion === 3;
+    const useContexts = settings.contextWeight > 0 || options.featureVersion >= 3;
     const useMeta = settings.metaWeight > 0;
     const specialistScores = new Float64Array(specialistCount + (useContexts ? contextCount : 0) + (useMeta ? metaCount : 0));
     let baseScore = 0;
@@ -220,11 +270,15 @@
       if (options.featureVersion >= 2) {
         rows.forEach((row, move) => row.push(specialist[move], clamp(relativeEvidence, -12, 12) / 12));
       }
-      if (options.featureVersion === 3) {
+      if (options.featureVersion >= 3) {
         rows.forEach((row, move) => {
           for (const probabilities of contexts) row.push(probabilities[move]);
           row.push(contextForecast[move], clamp(contextEvidence, -12, 12) / 12);
         });
+      }
+      if (options.featureVersion === 4) {
+        const features = humanFeatures(history.slice(-96));
+        rows.forEach((row, move) => row.push(...features[move]));
       }
       const learned = typeof options.network === 'function' ? normalize(options.network(rows, round)) : uniform;
       const predictions = forecasts.predictions.concat([uniform, normalize(prior), learned]);
@@ -238,12 +292,15 @@
         (1 + Math.exp(2 + Math.max(0, relativeEvidence) - contextEvidence)) : 0;
       const metaTrust = meta.length ? settings.metaWeight /
         (1 + Math.exp(1.5 + Math.max(0, relativeEvidence, contextEvidence) - metaEvidence)) : 0;
+      const networkTrust = settings.networkWeight / (1 + Math.exp(
+        Math.max(0, relativeEvidence, contextEvidence, metaEvidence) + baseScore - scores[expertCount + 2]));
       const forecast = base.map((value, move) => {
         const combined = (1 - contextTrust) * ((1 - trust) * value + trust * specialist[move]) +
           contextTrust * contextForecast[move];
         const counter = meta.length ? meta.reduce((sum, dist, index) =>
           sum + metaWeights[index] * dist[move], 0) / metaTotal : 0;
-        return (1 - metaTrust) * combined + metaTrust * counter;
+        const online = (1 - metaTrust) * combined + metaTrust * counter;
+        return (1 - networkTrust) * online + networkTrust * learned[move];
       });
       const utility = [0, 1, 2].map(move =>
         forecast[mod(move - 1)] - forecast[mod(move + 1)] - settings.drawPenalty * forecast[move]);
@@ -371,7 +428,7 @@
     };
   }
 
-  const api = { createSession, sample, normalize, defaults };
+  const api = { createSession, sample, normalize, defaults, humanFeatures, humanInputWidth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.JankenOpponent = api;
 })(globalThis);

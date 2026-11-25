@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--hidden", type=int, default=16)
     parser.add_argument("--seed", type=int, default=611181)
     parser.add_argument("--opening", action="store_true", help="Emphasize the first 24 rounds")
+    parser.add_argument("--source-weights", type=float, nargs="+")
     args = parser.parse_args()
     if args.epochs < 1:
         parser.error("epochs must be positive")
@@ -31,11 +32,25 @@ def main():
     torch.manual_seed(args.seed)
     x, y = helpers.read_features(args.features, "train")
     validation, labels = helpers.read_features(args.features, "validation")
+    manifest = json.loads((args.features / "manifest.json").read_text(encoding="utf-8"))
+    round_scale = 96 if manifest["featureVersion"] == 4 else 64
+
     def opening_weights(rows):
-        weights = 0.18 + 2.5 * torch.exp(-rows[:, 0, 0] * 64 / 24)
+        weights = 0.18 + 2.5 * torch.exp(-rows[:, 0, 0] * round_scale / 24)
         return weights / weights.mean()
-    training_weights = opening_weights(x) if args.opening else None
-    validation_weights = opening_weights(validation) if args.opening else None
+
+    def sample_weights(rows, split):
+        weights = opening_weights(rows) if args.opening else None
+        if args.source_weights:
+            counts = manifest["sourceRounds"][split]
+            if len(counts) != len(args.source_weights) or min(args.source_weights) <= 0:
+                parser.error("Provide one positive weight per source")
+            source = torch.repeat_interleave(torch.tensor(args.source_weights), torch.tensor(counts))
+            weights = source if weights is None else weights * source
+        return weights / weights.mean() if weights is not None else None
+
+    training_weights = sample_weights(x, "train")
+    validation_weights = sample_weights(validation, "validation")
     mean = x.mean((0, 1))
     scale = x.std((0, 1)).clamp_min(0.015)
     x.sub_(mean).div_(scale).clamp_(-12, 12)
@@ -46,12 +61,12 @@ def main():
     layers = helpers.pack_student(model)
     with torch.no_grad():
         result = helpers.probabilities(helpers.score(model, validation), labels)
-    manifest = json.loads((args.features / "manifest.json").read_text(encoding="utf-8"))
     artifact = dict(kind="battle-int4", featureVersion=manifest["featureVersion"], mean=mean.tolist(),
                     scale=scale.tolist(), layers=layers, validation=result,
                     training=dict(seed=args.seed, epochs=args.epochs, width=args.width, hidden=args.hidden,
-                                  rounds=len(y), generatedGames=manifest["generatedGames"],
-                                  opening=args.opening))
+                                  rounds=len(y), generatedGames=manifest.get("generatedGames"),
+                                  sourceRounds=manifest.get("sourceRounds"),
+                                  sourceWeights=args.source_weights, opening=args.opening))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(artifact, separators=(",", ":")), encoding="utf-8")
     print("quantized battle model", result, flush=True)
