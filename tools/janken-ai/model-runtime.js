@@ -84,7 +84,7 @@
   }
 
   function battlePredictor(model) {
-    const width = model?.featureVersion === 2 ? 677 : model?.featureVersion === 1 ? 675 : 0;
+    const width = { 1: 675, 2: 677, 3: 684 }[model?.featureVersion];
     if (model?.kind !== 'battle-int4' || !width ||
         !Array.isArray(model.mean) || model.mean.length !== width ||
         !model.mean.every(Number.isFinite) || model.scale?.length !== model.mean.length ||

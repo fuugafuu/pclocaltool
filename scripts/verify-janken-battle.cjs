@@ -40,7 +40,7 @@ async function main() {
       network: typeof window.JankenLearnedModel.predictBattleFeatures,
       policy: window.JankenLearnedModel.battlePolicy?.id,
       features: window.JankenLearnedModel.battleFeatureVersion
-    })), { network: 'function', policy: 'adversarial-v2', features: 2 });
+    })), { network: 'function', policy: 'adversarial-v3', features: 3 });
     assert.equal(await page.locator('[data-move]').count(), 3);
     assert.equal(await page.locator('#opponent-move').textContent(), '—');
     assert.equal(await page.evaluate(() => window.__testCommittedHands.length), 1);

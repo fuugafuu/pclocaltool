@@ -22,11 +22,43 @@
   const defaults = Object.freeze({
     scoreDecay: 0.94, scoreRate: 0.65, smoothing: 0.35,
     exploration: 0.06, evidenceScale: 3, temperature: 0.16, defense: 2.5,
-    specialistWeight: 0, drawPenalty: 0
+    specialistWeight: 0, drawPenalty: 0, contextWeight: 0
   });
   const periods = Array.from({ length: 23 }, (_, i) => i + 2);
   const windows = [4, 6, 9, 13, 19, 27, 39, 56];
   const specialistCount = periods.length + windows.length * 3 + 1;
+  const contextCount = 5;
+
+  function contextForecasts(own, opponent) {
+    const n = own.length;
+    const counts = Array.from({ length: contextCount }, () => [0.38, 0.38, 0.38]);
+    if (n < 2) return counts.map(normalize);
+    const recentResult = mod(opponent[n - 1] - own[n - 1]);
+    for (let end = n - 2; end >= Math.max(0, n - 96); end--) {
+      const recency = 0.976 ** (n - 2 - end);
+      const offset = mod(opponent[n - 1] - opponent[end]);
+      let opponentLength = 0, ownLength = 0, jointLength = 0, relativeLength = 0;
+      for (let lag = 0; lag < Math.min(6, end + 1); lag++) {
+        const recent = n - 1 - lag, previous = end - lag;
+        const opponentMatch = opponent[recent] === opponent[previous];
+        const ownMatch = own[recent] === own[previous];
+        if (opponentLength === lag && opponentMatch) opponentLength++;
+        if (ownLength === lag && ownMatch) ownLength++;
+        if (jointLength === lag && opponentMatch && ownMatch) jointLength++;
+        if (relativeLength === lag && mod(opponent[recent] - opponent[previous]) === offset &&
+            mod(own[recent] - own[previous]) === offset) relativeLength++;
+      }
+      const next = opponent[end + 1];
+      if (opponentLength >= 2) counts[0][next] += recency * opponentLength;
+      if (ownLength >= 2) counts[1][next] += recency * ownLength;
+      if (jointLength >= 2) counts[2][next] += recency * jointLength * 2;
+      if (relativeLength >= 2) counts[3][mod(next + offset)] += recency * relativeLength * 2;
+      if (recentResult === mod(opponent[end] - own[end])) {
+        counts[4][mod(next + offset)] += recency * (relativeLength >= 2 ? 2 : 0.5);
+      }
+    }
+    return counts.map(normalize);
+  }
   function specialists(own, opponent) {
     const predictions = [];
     for (const period of periods) {
@@ -93,6 +125,7 @@
     settings.defense = clamp(settings.defense, 0, 8);
     settings.specialistWeight = clamp(settings.specialistWeight, 0, 1);
     settings.drawPenalty = clamp(settings.drawPenalty, 0, 0.5);
+    settings.contextWeight = clamp(settings.contextWeight, 0, 1);
     const own = [], opponent = [], history = [];
     const tables = [];
     for (const perspective of [0, 1]) {
@@ -103,9 +136,10 @@
     const expertCount = tables.length * 3;
     const scores = new Float64Array(expertCount + 3);
     const accuracies = new Float64Array(expertCount + 3).fill(1 / 3);
-    const specialistScores = new Float64Array(specialistCount);
+    const useContexts = settings.contextWeight > 0 || options.featureVersion === 3;
+    const specialistScores = new Float64Array(specialistCount + (useContexts ? contextCount : 0));
     let baseScore = 0;
-    const useSpecialists = settings.specialistWeight > 0 || options.featureVersion === 2;
+    const useSpecialists = settings.specialistWeight > 0 || options.featureVersion >= 2 || useContexts;
     let round = 0, predictiveEdge = 0, payoff = 0, pending;
 
     function expertForecasts() {
@@ -147,9 +181,22 @@
       const specialist = extra.length ? [0, 1, 2].map(move =>
         extra.reduce((sum, distribution, index) => sum + extraWeights[index] * distribution[move], 0) / extraTotal) : uniform;
       const relativeEvidence = extra.length ? Math.log(extraTotal / extra.length) - baseScore : 0;
+      const contexts = useContexts ? contextForecasts(own, opponent) : [];
+      const contextScores = specialistScores.subarray(specialistCount);
+      const contextWeights = contexts.map((_, index) => Math.exp(clamp(contextScores[index], -12, 12)));
+      const contextTotal = contextWeights.reduce((sum, weight) => sum + weight, 0);
+      const contextEvidence = contexts.length ? Math.log(contextTotal / contexts.length) - baseScore : 0;
+      const contextForecast = contexts.length ? [0, 1, 2].map(move =>
+        contexts.reduce((sum, distribution, index) => sum + contextWeights[index] * distribution[move], 0) / contextTotal) : uniform;
       const rows = featureRows(forecasts);
-      if (options.featureVersion === 2) {
+      if (options.featureVersion >= 2) {
         rows.forEach((row, move) => row.push(specialist[move], clamp(relativeEvidence, -12, 12) / 12));
+      }
+      if (options.featureVersion === 3) {
+        rows.forEach((row, move) => {
+          for (const probabilities of contexts) row.push(probabilities[move]);
+          row.push(contextForecast[move], clamp(contextEvidence, -12, 12) / 12);
+        });
       }
       const learned = typeof options.network === 'function' ? normalize(options.network(rows)) : uniform;
       const predictions = forecasts.predictions.concat([uniform, normalize(prior), learned]);
@@ -159,7 +206,10 @@
       const base = [0, 1, 2].map(move =>
         predictions.reduce((sum, distribution, index) => sum + weights[index] * distribution[move], 0) / total);
       const trust = extra.length ? settings.specialistWeight / (1 + Math.exp(2 - relativeEvidence)) : 0;
-      const forecast = base.map((value, move) => (1 - trust) * value + trust * specialist[move]);
+      const contextTrust = contexts.length ? settings.contextWeight /
+        (1 + Math.exp(2 + Math.max(0, relativeEvidence) - contextEvidence)) : 0;
+      const forecast = base.map((value, move) => (1 - contextTrust) *
+        ((1 - trust) * value + trust * specialist[move]) + contextTrust * contextForecast[move]);
       const utility = [0, 1, 2].map(move =>
         forecast[mod(move - 1)] - forecast[mod(move + 1)] - settings.drawPenalty * forecast[move]);
       const maximum = Math.max(...utility);
@@ -170,7 +220,7 @@
       const exploitation = (1 - settings.exploration) * confidence * (1 - safety);
       const action = sharpened.map(value => exploitation * value / sum + (1 - exploitation) / 3);
       const visible = Object.freeze({ forecast: Object.freeze(forecast), action: Object.freeze(action) });
-      pending = { predictions, public: visible, rows, base, extra };
+      pending = { predictions, public: visible, rows, base, extra: extra.concat(contexts) };
       return visible;
     }
 
@@ -259,7 +309,8 @@
       predictiveEdge = state.predictiveEdge;
       payoff = state.payoff;
       const auxiliary = state.specialists;
-      if (Array.isArray(auxiliary?.scores) && auxiliary.scores.length === specialistScores.length &&
+      if (Array.isArray(auxiliary?.scores) &&
+          (auxiliary.scores.length === specialistScores.length || auxiliary.scores.length === specialistCount) &&
           auxiliary.scores.every(value => finite(value, -10000, 10000)) &&
           finite(auxiliary.base, -10000, 10000)) {
         specialistScores.set(auxiliary.scores);

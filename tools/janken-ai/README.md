@@ -348,3 +348,29 @@ node scripts/prepare-janken-battle.cjs battle-features-v2 pooled-with-transfer.j
 python scripts/train-janken-battle.py battle-features-v2 battle-model-v2.json --epochs 24
 node scripts/benchmark-janken-battle.cjs battle-report-v2.json 28000 8 500 model
 ```
+
+### 直前の展開が似た局面からの予測
+
+直近96手の各局面を現在と最大6手まで照合します。相手の手、自分の手、両者の手、手を同じだけずらした並び、直前の勝敗という5つの見方で、似た局面の直後に相手が出した手を集計します。照合が長く新しいほど、その手の重みを増やします。周期や頻度からの予測も並行して続け、これまでの予測結果が良かった方式へ、その場で重みを移します。
+
+これらの確率と成績を入力に加え、231,045手で対戦用ネットワークを再学習しました。同じ41,260手の検証で、採用した小型ネットワーク単体の命中率は旧版66.91%に対して66.81%、対数損失は0.7355から0.7290でした。幅を広げた候補の単体命中率は67.02%でしたが、採用した候補の方が設定選びに使った対戦で勝ち数と負け数の差が大きくなりました。
+
+設定は乱数種9600〜9603で選び、別の乱数種39000〜39007で18種類の相手と各500手、各版72,000手を対戦しました。同じ条件の `4539005` と比較しています。
+
+| 指標 | 更新前 | 更新後 |
+| --- | ---: | ---: |
+| 次の手の命中率 | 65.23% | 66.56% |
+| 勝率 | 62.04% | 63.52% |
+| あいこ率 | 19.67% | 19.23% |
+| 負け率 | 18.29% | 17.25% |
+| こちらの直近4手に反応する相手への勝率 | 37.50% | 46.93% |
+| 手の相対関係から反応する相手への勝率 | 36.00% | 45.48% |
+
+手の遷移を読む相手など、一部への勝率は低下しました。実ログの再生では計5,300手で2,274手から2,325手へ増え、OpenNeuroは41.35%から42.48%、別の人間対AIは56.36%から55.82%でした。2種類とも対数損失は改善しています。実ログでは、記録された次の手の予測を評価しました。総合90%は未達です。
+
+```sh
+node scripts/prepare-janken-battle.cjs battle-features-v3 pooled-with-transfer.json 3
+python scripts/train-janken-battle.py battle-features-v3 battle-model-v3.json --epochs 24
+node scripts/benchmark-janken-battle.cjs battle-report-v3.json 39000 8 500 model
+node scripts/replay-janken-battle.cjs 4539005 replay-v3.json openneuro.json transfer.json
+```

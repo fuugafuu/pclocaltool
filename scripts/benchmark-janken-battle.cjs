@@ -7,6 +7,7 @@ const { execFileSync } = require('node:child_process');
 const brain = require('../tools/janken-ai/opponent-model.js');
 const { createOpponent, randomGenerator, testFamilies } = require('./janken-opponents.cjs');
 const directory = path.resolve(__dirname, '../tools/janken-ai');
+const reference = '4539005';
 const [output, seedStart = '1000', seedCount = '6', rounds = '400', mode = 'fast', settingsFile] = process.argv.slice(2);
 if (!output) throw new Error('Expected report path, seed start, count, rounds, fast/model mode');
 
@@ -30,7 +31,7 @@ new Function('module', execFileSync('git', ['show', 'd12908e:tools/janken-ai/pla
   { encoding: 'utf8' }))(previousModule);
 const previous = previousModule.exports;
 const incumbentModule = { exports: {} };
-new Function('module', execFileSync('git', ['show', 'aba06d5:tools/janken-ai/opponent-model.js'],
+new Function('module', execFileSync('git', ['show', reference + ':tools/janken-ai/opponent-model.js'],
   { encoding: 'utf8' }))(incumbentModule);
 const incumbent = incumbentModule.exports;
 
@@ -73,7 +74,7 @@ function match(family, seed, name, settings, model, forecastModel = model) {
 async function main() {
   const supplied = settingsFile ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : null;
   const configurations = supplied?.configurations || [
-    { name: 'incumbent', settings: loadModel('aba06d5').battlePolicy },
+    { name: 'incumbent', settings: loadModel(reference).battlePolicy },
     { name: 'adaptive', settings: mode === 'model' ? loadModel().battlePolicy || {} : {} }
   ];
   const families = supplied?.families || testFamilies;
@@ -86,7 +87,7 @@ async function main() {
     worker.once('exit', code => { if (code) reject(new Error('Benchmark worker failed: ' + code)); });
   })));
   const report = { seedStart: Number(seedStart), seeds: Number(seedCount), rounds: Number(rounds),
-    mode, configurations,
+    mode, configurations, reference,
     modelSha256: mode === 'model' ? createHash('sha256').update(fs.readFileSync(path.join(directory, 'model.js'))).digest('hex') : undefined,
     families: Object.fromEntries(results) };
   for (const [family, scores] of results) {
@@ -104,7 +105,7 @@ else {
   const model = mode === 'model' ? loadModel() : null;
   const oldModel = mode === 'model' && workerData.configurations.some(config =>
     config.name === 'incumbent' || config.network === 'incumbent')
-    ? loadModel('aba06d5') : null;
+    ? loadModel(reference) : null;
   const scores = {};
   for (const { name, settings, network } of workerData.configurations) {
     const total = { wins: 0, losses: 0, draws: 0, hits: 0, rounds: 0 };

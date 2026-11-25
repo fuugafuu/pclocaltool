@@ -14,7 +14,8 @@ const trainingFamilies = [
   'constant', 'cycle', 'biased', 'copy', 'counter-last', 'counter-frequency',
   'counter-transition', 'win-stay', 'rotation', 'switch', 'noisy-pattern', 'meta'
 ];
-const testFamilies = [...trainingFamilies, 'conditional-mix', 'loss-switch', 'meta-fast', 'random'];
+const testFamilies = [...trainingFamilies, 'conditional-mix', 'loss-switch', 'meta-fast', 'random',
+  'long-response', 'relative-response'];
 
 function createOpponent(family, seed) {
   if (!testFamilies.includes(family)) throw new Error('Unknown opponent family: ' + family);
@@ -30,6 +31,8 @@ function createOpponent(family, seed) {
     const total = raw.reduce((sum, value) => sum + value, 0);
     return raw.map(value => value / total);
   });
+  const response = ['long-response','relative-response'].includes(family)
+    ? Array.from({ length: 81 }, () => Math.floor(random() * 3)) : [];
   const own = [], other = [];
   const learner = family.startsWith('meta') ? opponentModel.createSession({
     settings: { scoreDecay: family === 'meta-fast' ? 0.8 : 0.97,
@@ -76,6 +79,16 @@ function createOpponent(family, seed) {
     }
     if (family === 'conditional-mix') {
       return opponentModel.sample(transition[3 * own.at(-1) + other.at(-1)], random);
+    }
+    if (family === 'long-response' || family === 'relative-response') {
+      if (own.length < 4) return favorite;
+      if (family === 'long-response') {
+        return response[27 * other.at(-1) + 9 * other.at(-2) + 3 * other.at(-3) + other.at(-4)];
+      }
+      const anchor = own.at(-1);
+      const key = 27 * mod(other.at(-1) - anchor) + 9 * mod(own.at(-2) - anchor) +
+        3 * mod(other.at(-2) - anchor) + mod(own.at(-3) - anchor);
+      return mod(response[key] + anchor);
     }
     if (family === 'loss-switch') {
       if (lossStreak >= 2) { switched = mod(switched + rotation); lossStreak = 0; }

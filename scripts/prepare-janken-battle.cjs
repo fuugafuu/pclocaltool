@@ -9,7 +9,7 @@ if (!humanCorpus) throw new Error('Expected output directory and player-disjoint
 fs.mkdirSync(output, { recursive: true });
 const source = JSON.parse(fs.readFileSync(humanCorpus, 'utf8'));
 const featureVersion = Number(process.argv[4] || 1);
-if (![1, 2].includes(featureVersion)) throw new Error('Unsupported battle feature version');
+if (![1, 2, 3].includes(featureVersion)) throw new Error('Unsupported battle feature version');
 const createLearner = () => brain.createSession({ featureVersion });
 const width = createLearner().trainingFeatures()[0].length;
 const report = { featureVersion, width, rounds: {}, generatedGames: {} };

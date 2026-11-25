@@ -107,3 +107,18 @@ test('the periodic learner keeps its evidence through random hands and a saved-s
   }
   assert.ok(correct >= 245, 'Correct predictions in last 300 rounds: ' + correct);
 });
+
+test('context evidence extends v2 saved learning and resumes identically after a reload', () => {
+  const old = brain.createSession({ featureVersion: 2, settings: { specialistWeight: 1 } });
+  for (let turn = 0; turn < 90; turn++) old.observe((turn * 7 + Math.floor(turn / 5)) % 3, turn % 3);
+  const state = old.exportState();
+  const settings = { contextWeight: 1, specialistWeight: 1 };
+  const updated = brain.createSession({ featureVersion: 3, settings, state });
+  assert.equal(updated.diagnostics().rounds, 90);
+  assert.equal(updated.trainingFeatures()[0].length, 684);
+  assert.deepEqual(updated.exportState().specialists.scores.slice(0, state.specialists.scores.length),
+    state.specialists.scores);
+  for (let turn = 0; turn < 60; turn++) updated.observe((turn * 2 + Math.floor(turn / 7)) % 3, turn % 3);
+  const restored = brain.createSession({ featureVersion: 3, settings, state: updated.exportState() });
+  assert.deepEqual(restored.prepare(), updated.prepare());
+});
