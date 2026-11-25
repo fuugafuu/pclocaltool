@@ -10,11 +10,17 @@ const directory = path.resolve(__dirname, '../tools/janken-ai');
 const [output, seedStart = '1000', seedCount = '6', rounds = '400', mode = 'fast', settingsFile] = process.argv.slice(2);
 if (!output) throw new Error('Expected report path, seed start, count, rounds, fast/model mode');
 
-function loadModel() {
+function loadModel(revision) {
   const environment = { JankenAdaptiveFeatures: require('../tools/janken-ai/adaptive-features.js'),
     JankenOpponent: brain };
   for (const file of ['model.js', 'model-runtime.js']) {
-    new Function('globalThis', fs.readFileSync(path.join(directory, file), 'utf8'))(environment);
+    const source = revision ? execFileSync('git', ['show', revision + ':tools/janken-ai/' + file],
+      { encoding: 'utf8', maxBuffer: 4e6 }) : fs.readFileSync(path.join(directory, file), 'utf8');
+    new Function('globalThis', source)(environment);
+    if (file === 'model.js' && !revision && process.env.JANKEN_BATTLE_CHALLENGER) {
+      environment.JankenModelArtifact.battleModel = JSON.parse(
+        fs.readFileSync(process.env.JANKEN_BATTLE_CHALLENGER, 'utf8'));
+    }
   }
   return environment.JankenLearnedModel;
 }
@@ -23,22 +29,30 @@ const previousModule = { exports: {} };
 new Function('module', execFileSync('git', ['show', 'd12908e:tools/janken-ai/play-policy.js'],
   { encoding: 'utf8' }))(previousModule);
 const previous = previousModule.exports;
+const incumbentModule = { exports: {} };
+new Function('module', execFileSync('git', ['show', 'aba06d5:tools/janken-ai/opponent-model.js'],
+  { encoding: 'utf8' }))(incumbentModule);
+const incumbent = incumbentModule.exports;
 
-function match(family, seed, updated, settings, model, network) {
+function match(family, seed, name, settings, model, forecastModel = model) {
   const enemy = createOpponent(family, seed);
   const random = randomGenerator(seed ^ 0x5a13d911);
-  const learner = updated ? brain.createSession({ settings, network }) : null;
+  const implementation = name === 'incumbent' ? incumbent : brain;
+  const learner = settings !== null ? implementation.createSession({
+    settings, network: forecastModel?.predictBattleFeatures, featureVersion: forecastModel?.battleFeatureVersion
+  }) : null;
   const history = [], biases = Array(6).fill(0);
   let wins = 0, losses = 0, hits = 0;
   for (let turn = 0; turn < Number(rounds); turn++) {
-    const prior = model ? model.predict(history) : [1 / 3, 1 / 3, 1 / 3];
+    const prior = previous.calibrate(model?.predict(history) || [1 / 3, 1 / 3, 1 / 3],
+      history, biases, model?.playPolicy?.calibration);
     let forecast, move;
-    if (updated) {
+    if (learner) {
       const prepared = learner.prepare(prior);
       forecast = prepared.forecast;
       move = brain.sample(prepared.action, random);
     } else {
-      forecast = previous.calibrate(prior, history, biases, model?.playPolicy?.calibration);
+      forecast = prior;
       move = previous.counter(forecast, random);
     }
     // Both hands are committed before either player receives the opponent's current hand.
@@ -47,8 +61,8 @@ function match(family, seed, updated, settings, model, network) {
     wins += Number(reward === 1);
     losses += Number(reward === -1);
     hits += Number(forecast.indexOf(Math.max(...forecast)) === actual);
-    if (updated) learner.observe(actual, move);
-    else previous.trainCalibration(biases, forecast, history, actual, model?.playPolicy?.calibration);
+    if (learner) learner.observe(actual, move);
+    previous.trainCalibration(biases, prior, history, actual, model?.playPolicy?.calibration);
     enemy.observe(move, actual);
     history.push(actual * 3 + move);
     if (history.length > 64) history.shift();
@@ -59,7 +73,7 @@ function match(family, seed, updated, settings, model, network) {
 async function main() {
   const supplied = settingsFile ? JSON.parse(fs.readFileSync(settingsFile, 'utf8')) : null;
   const configurations = supplied?.configurations || [
-    { name: 'previous', settings: null },
+    { name: 'incumbent', settings: loadModel('aba06d5').battlePolicy },
     { name: 'adaptive', settings: mode === 'model' ? loadModel().battlePolicy || {} : {} }
   ];
   const families = supplied?.families || testFamilies;
@@ -88,11 +102,16 @@ async function main() {
 if (isMainThread) main().catch(error => { console.error(error); process.exitCode = 1; });
 else {
   const model = mode === 'model' ? loadModel() : null;
+  const oldModel = mode === 'model' && workerData.configurations.some(config =>
+    config.name === 'incumbent' || config.network === 'incumbent')
+    ? loadModel('aba06d5') : null;
   const scores = {};
-  for (const { name, settings } of workerData.configurations) {
+  for (const { name, settings, network } of workerData.configurations) {
     const total = { wins: 0, losses: 0, draws: 0, hits: 0, rounds: 0 };
     for (let seed = Number(seedStart); seed < Number(seedStart) + Number(seedCount); seed++) {
-      const result = match(workerData.family, seed, settings !== null, settings, model, model?.predictBattleFeatures);
+      const prior = name === 'incumbent' ? oldModel : model;
+      const forecastModel = network === 'incumbent' ? oldModel : prior;
+      const result = match(workerData.family, seed, name, settings, prior, forecastModel);
       for (const key of Object.keys(total)) total[key] += result[key];
     }
     scores[name] = total;

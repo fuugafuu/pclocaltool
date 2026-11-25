@@ -80,8 +80,30 @@ test('the trained battle network accepts causal features and returns a normalize
   }
   const model = environment.JankenLearnedModel;
   assert.equal(typeof model.predictBattleFeatures, 'function');
-  const learner = brain.createSession({ network: model.predictBattleFeatures, settings: model.battlePolicy });
+  const learner = brain.createSession({ network: model.predictBattleFeatures, settings: model.battlePolicy,
+    featureVersion: model.battleFeatureVersion });
   const prediction = learner.prepare().forecast;
   assert.ok(prediction.every(value => value > 0 && value < 1));
   assert.ok(Math.abs(prediction.reduce((sum, value) => sum + value, 0) - 1) < 1e-10);
+});
+
+test('the periodic learner keeps its evidence through random hands and a saved-state reload', () => {
+  const settings = { specialistWeight: 1, temperature: 0.04, evidenceScale: 0.8, exploration: 0.03 };
+  const random = randomGenerator(44271);
+  const pattern = [0, 2, 2, 0, 1, 0, 0, 2, 1, 2, 1];
+  let learner = brain.createSession({ settings, featureVersion: 2 });
+  let correct = 0;
+  for (let round = 0; round < 600; round++) {
+    const prepared = learner.prepare();
+    assert.equal(learner.trainingFeatures()[0].length, 677);
+    const hand = random() < 0.12 ? Math.floor(random() * 3) : pattern[round % pattern.length];
+    if (round >= 300) correct += Number(prepared.forecast.indexOf(Math.max(...prepared.forecast)) === hand);
+    learner.observe(hand, brain.sample(prepared.action, random));
+    if (round === 299) {
+      const restored = brain.createSession({ settings, featureVersion: 2, state: learner.exportState() });
+      assert.deepEqual(restored.prepare(), learner.prepare());
+      learner = restored;
+    }
+  }
+  assert.ok(correct >= 245, 'Correct predictions in last 300 rounds: ' + correct);
 });

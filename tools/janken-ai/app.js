@@ -121,6 +121,7 @@ function computeRecommendation(){
      if (match.aiMode === 'aggressive') settings.temperature = Math.min(settings.temperature || 0.16, 0.04);
      battleSession = window.JankenOpponent.createSession({
        settings, network: model?.predictBattleFeatures,
+       featureVersion: model?.battleFeatureVersion,
        state: match.battleState?.round === match.rounds.length ? match.battleState : undefined
      });
      battleMatchId = match.id;

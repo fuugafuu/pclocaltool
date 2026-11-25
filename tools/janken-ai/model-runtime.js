@@ -84,8 +84,9 @@
   }
 
   function battlePredictor(model) {
-    if (model?.kind !== 'battle-int4' || model.featureVersion !== 1 ||
-        !Array.isArray(model.mean) || model.mean.length !== 675 ||
+    const width = model?.featureVersion === 2 ? 677 : model?.featureVersion === 1 ? 675 : 0;
+    if (model?.kind !== 'battle-int4' || !width ||
+        !Array.isArray(model.mean) || model.mean.length !== width ||
         !model.mean.every(Number.isFinite) || model.scale?.length !== model.mean.length ||
         !model.scale.every(value => Number.isFinite(value) && value > 0)) return;
     const infer = quantizedPredictor(model, model.mean.length, 1);
@@ -332,6 +333,7 @@
   globalThis.JankenLearnedModel = Object.freeze({
     predict, predictAlternative, playPolicy: artifact.playPolicy,
     predictBattleFeatures, battlePolicy: artifact.battlePolicy,
+    battleFeatureVersion: predictBattleFeatures ? artifact.battleModel.featureVersion : undefined,
     createSession, kind: refinementLogits ? 'sequence-refined' :
       candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind
   });

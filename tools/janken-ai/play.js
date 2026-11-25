@@ -17,6 +17,7 @@
     saved.biases.every(value=>Number.isFinite(value)&&Math.abs(value)<=1) ? saved.biases : Array(6).fill(0);
   const battle = window.JankenOpponent.createSession({
     settings: model?.battlePolicy, network: model?.predictBattleFeatures,
+    featureVersion: model?.battleFeatureVersion,
     state: saved?.battle, history: memory
   });
   let lastResult;

@@ -21,8 +21,43 @@
   ];
   const defaults = Object.freeze({
     scoreDecay: 0.94, scoreRate: 0.65, smoothing: 0.35,
-    exploration: 0.06, evidenceScale: 3, temperature: 0.16, defense: 2.5
+    exploration: 0.06, evidenceScale: 3, temperature: 0.16, defense: 2.5,
+    specialistWeight: 0, drawPenalty: 0
   });
+  const periods = Array.from({ length: 23 }, (_, i) => i + 2);
+  const windows = [4, 6, 9, 13, 19, 27, 39, 56];
+  const specialistCount = periods.length + windows.length * 3 + 1;
+  function specialists(own, opponent) {
+    const predictions = [];
+    for (const period of periods) {
+      const counts = [0.22, 0.22, 0.22];
+      let weight = 1;
+      for (let i = opponent.length - period; i >= 0 && weight > 0.09; i -= period) {
+        counts[opponent[i]] += weight;
+        weight *= 0.82;
+      }
+      predictions.push(normalize(counts));
+    }
+    const counts = [0, 0, 0];
+    let offset = 0;
+    for (const window of windows) {
+      const length = Math.min(own.length, window);
+      while (offset < length) counts[own[own.length - 1 - offset++]]++;
+      const favorite = counts.indexOf(Math.max(...counts));
+      for (let rotation = 0; rotation < 3; rotation++) {
+        const guess = mod(favorite + rotation);
+        predictions.push(length >= 3 ? [0, 1, 2].map(move => move === guess ? 0.8 : 0.1) : uniform);
+      }
+    }
+    const joint = [0.4, 0.4, 0.4];
+    let weight = 1;
+    for (let i = opponent.length - 2; i >= 0 && weight > 0.08; i--) {
+      if (opponent[i] === opponent.at(-1) && own[i] === own.at(-1)) joint[opponent[i + 1]] += weight;
+      weight *= 0.985;
+    }
+    predictions.push(normalize(joint));
+    return predictions;
+  }
 
   function normalize(values) {
     if (!Array.isArray(values) || values.length !== 3 ||
@@ -56,6 +91,8 @@
     settings.evidenceScale = clamp(settings.evidenceScale, 0.5, 20);
     settings.temperature = clamp(settings.temperature, 0.03, 1);
     settings.defense = clamp(settings.defense, 0, 8);
+    settings.specialistWeight = clamp(settings.specialistWeight, 0, 1);
+    settings.drawPenalty = clamp(settings.drawPenalty, 0, 0.5);
     const own = [], opponent = [], history = [];
     const tables = [];
     for (const perspective of [0, 1]) {
@@ -66,6 +103,9 @@
     const expertCount = tables.length * 3;
     const scores = new Float64Array(expertCount + 3);
     const accuracies = new Float64Array(expertCount + 3).fill(1 / 3);
+    const specialistScores = new Float64Array(specialistCount);
+    let baseScore = 0;
+    const useSpecialists = settings.specialistWeight > 0 || options.featureVersion === 2;
     let round = 0, predictiveEdge = 0, payoff = 0, pending;
 
     function expertForecasts() {
@@ -101,15 +141,27 @@
     function prepare(prior) {
       if (pending) return pending.public;
       const forecasts = expertForecasts();
+      const extra = useSpecialists ? specialists(own, opponent) : [];
+      const extraWeights = extra.map((_, index) => Math.exp(clamp(specialistScores[index], -12, 12)));
+      const extraTotal = extraWeights.reduce((sum, weight) => sum + weight, 0);
+      const specialist = extra.length ? [0, 1, 2].map(move =>
+        extra.reduce((sum, distribution, index) => sum + extraWeights[index] * distribution[move], 0) / extraTotal) : uniform;
+      const relativeEvidence = extra.length ? Math.log(extraTotal / extra.length) - baseScore : 0;
       const rows = featureRows(forecasts);
+      if (options.featureVersion === 2) {
+        rows.forEach((row, move) => row.push(specialist[move], clamp(relativeEvidence, -12, 12) / 12));
+      }
       const learned = typeof options.network === 'function' ? normalize(options.network(rows)) : uniform;
       const predictions = forecasts.predictions.concat([uniform, normalize(prior), learned]);
       const weights = predictions.map((_, index) =>
         Math.exp(settings.scoreRate * clamp(scores[index], -14, 14)));
       const total = weights.reduce((sum, weight) => sum + weight, 0);
-      const forecast = [0, 1, 2].map(move =>
+      const base = [0, 1, 2].map(move =>
         predictions.reduce((sum, distribution, index) => sum + weights[index] * distribution[move], 0) / total);
-      const utility = [0, 1, 2].map(move => forecast[mod(move - 1)] - forecast[mod(move + 1)]);
+      const trust = extra.length ? settings.specialistWeight / (1 + Math.exp(2 - relativeEvidence)) : 0;
+      const forecast = base.map((value, move) => (1 - trust) * value + trust * specialist[move]);
+      const utility = [0, 1, 2].map(move =>
+        forecast[mod(move - 1)] - forecast[mod(move + 1)] - settings.drawPenalty * forecast[move]);
       const maximum = Math.max(...utility);
       const sharpened = utility.map(value => Math.exp((value - maximum) / settings.temperature));
       const sum = sharpened[0] + sharpened[1] + sharpened[2];
@@ -118,7 +170,7 @@
       const exploitation = (1 - settings.exploration) * confidence * (1 - safety);
       const action = sharpened.map(value => exploitation * value / sum + (1 - exploitation) / 3);
       const visible = Object.freeze({ forecast: Object.freeze(forecast), action: Object.freeze(action) });
-      pending = { predictions, public: visible, rows };
+      pending = { predictions, public: visible, rows, base, extra };
       return visible;
     }
 
@@ -127,6 +179,12 @@
           !Number.isInteger(ourMove) || ourMove < 0 || ourMove > 2) throw new Error('Invalid committed Janken hand');
       if (!pending) prepare();
       const { predictions, public: result } = pending;
+      if (pending.extra.length) {
+        baseScore = 0.96 * baseScore + Math.log(3 * pending.base[enemyMove]);
+        pending.extra.forEach((distribution, index) => {
+          specialistScores[index] = 0.96 * specialistScores[index] + Math.log(3 * distribution[enemyMove]);
+        });
+      }
       for (let index = 0; index < predictions.length; index++) {
         const distribution = predictions[index];
         scores[index] = settings.scoreDecay * scores[index] +
@@ -162,12 +220,14 @@
     }
 
     function trainingFeatures() {
-      return pending?.rows || featureRows(expertForecasts());
+      if (!pending) prepare();
+      return pending.rows;
     }
 
     function exportState() {
       return {
         version: 1, round, history: history.slice(), predictiveEdge, payoff,
+        specialists: useSpecialists ? { scores: Array.from(specialistScores), base: baseScore } : undefined,
         scores: Array.from(scores), accuracies: Array.from(accuracies),
         tables: tables.map(table => [...table.counts].map(([key, entry]) => [key, ...entry]))
       };
@@ -198,6 +258,13 @@
       accuracies.set(state.accuracies);
       predictiveEdge = state.predictiveEdge;
       payoff = state.payoff;
+      const auxiliary = state.specialists;
+      if (Array.isArray(auxiliary?.scores) && auxiliary.scores.length === specialistScores.length &&
+          auxiliary.scores.every(value => finite(value, -10000, 10000)) &&
+          finite(auxiliary.base, -10000, 10000)) {
+        specialistScores.set(auxiliary.scores);
+        baseScore = auxiliary.base;
+      }
       state.tables.forEach((entries, index) => {
         for (const [key, ...entry] of entries) tables[index].counts.set(key, entry);
       });

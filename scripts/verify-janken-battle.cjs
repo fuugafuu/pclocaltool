@@ -38,8 +38,9 @@ async function main() {
     await page.goto(base + '/tools/janken-ai/play.html');
     assert.deepEqual(await page.evaluate(() => ({
       network: typeof window.JankenLearnedModel.predictBattleFeatures,
-      policy: window.JankenLearnedModel.battlePolicy?.id
-    })), { network: 'function', policy: 'adversarial-v1' });
+      policy: window.JankenLearnedModel.battlePolicy?.id,
+      features: window.JankenLearnedModel.battleFeatureVersion
+    })), { network: 'function', policy: 'adversarial-v2', features: 2 });
     assert.equal(await page.locator('[data-move]').count(), 3);
     assert.equal(await page.locator('#opponent-move').textContent(), '—');
     assert.equal(await page.evaluate(() => window.__testCommittedHands.length), 1);

@@ -2,6 +2,7 @@
 import argparse
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import torch
@@ -17,6 +18,7 @@ def main():
         parser.error("epochs must be positive")
     spec = importlib.util.spec_from_file_location(
         "janken_training", Path(__file__).with_name("train-janken-routed.py"))
+    sys.dont_write_bytecode = True
     helpers = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(helpers)
     torch.set_num_threads(6)
@@ -31,7 +33,8 @@ def main():
     layers = helpers.pack_student(model)
     with torch.no_grad():
         result = helpers.probabilities(helpers.score(model, validation), labels)
-    artifact = dict(kind="battle-int4", featureVersion=1, mean=mean.tolist(),
+    manifest = json.loads((args.features / "manifest.json").read_text(encoding="utf-8"))
+    artifact = dict(kind="battle-int4", featureVersion=manifest["featureVersion"], mean=mean.tolist(),
                     scale=scale.tolist(), layers=layers, validation=result,
                     training=dict(seed=611181, epochs=args.epochs, width=48, hidden=16))
     args.output.parent.mkdir(parents=True, exist_ok=True)

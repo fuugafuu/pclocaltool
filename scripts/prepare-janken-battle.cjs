@@ -8,8 +8,11 @@ const [output, humanCorpus] = process.argv.slice(2);
 if (!humanCorpus) throw new Error('Expected output directory and player-disjoint human corpus');
 fs.mkdirSync(output, { recursive: true });
 const source = JSON.parse(fs.readFileSync(humanCorpus, 'utf8'));
-const width = brain.createSession().trainingFeatures()[0].length;
-const report = { featureVersion: 1, width, rounds: {}, generatedGames: {} };
+const featureVersion = Number(process.argv[4] || 1);
+if (![1, 2].includes(featureVersion)) throw new Error('Unsupported battle feature version');
+const createLearner = () => brain.createSession({ featureVersion });
+const width = createLearner().trainingFeatures()[0].length;
+const report = { featureVersion, width, rounds: {}, generatedGames: {} };
 
 for (const split of ['train', 'validation']) {
   const valuesFile = fs.openSync(path.join(output, split + '.f32'), 'w');
@@ -34,9 +37,9 @@ for (const split of ['train', 'validation']) {
   }
   try {
     for (const encoded of source[split]) {
-      let learner = brain.createSession();
+      let learner = createLearner();
       for (const pair of Buffer.from(encoded, 'base64')) {
-        if (pair === 255) { learner = brain.createSession(); continue; }
+        if (pair === 255) { learner = createLearner(); continue; }
         if (pair > 8) throw new Error('Invalid human corpus hand');
         learner.prepare();
         record(learner, Math.floor(pair / 3), pair % 3);
@@ -49,7 +52,7 @@ for (const split of ['train', 'validation']) {
         const seed = start + familyIndex * 500 + game;
         const enemy = createOpponent(family, seed);
         const random = randomGenerator(seed ^ 0x1337fa29);
-        const learner = brain.createSession();
+        const learner = createLearner();
         const style = game % 4;
         const favorite = Math.floor(random() * 3);
         const sequence = [];
