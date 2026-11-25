@@ -374,3 +374,29 @@ python scripts/train-janken-battle.py battle-features-v3 battle-model-v3.json --
 node scripts/benchmark-janken-battle.cjs battle-report-v3.json 39000 8 500 model
 node scripts/replay-janken-battle.cjs 4539005 replay-v3.json openneuro.json transfer.json
 ```
+
+### 序盤特化と裏読み、神経回路 3D
+
+対戦モデルを標準・広域・序盤の3系統に拡張しました。入力は各候補手684特徴、隠れ層はそれぞれ48・16、80・32、72・24で、合計142,203パラメーターです。3系統の重みは4ビット量子化しています。序盤モデルは231,045手の訓練時に序盤の誤差を重く扱い、対戦時も序盤で高い混合比を持ちます。
+
+相手がこちらの手をコピーする、先読みしてその手に勝つ、その読み返しを予想するなど、8通りを並行で評価します。予測は直近の実績で重み付けし、手の選択ではあいこの確率にもペナルティーを付けています。相手の手を受け取る前にAIの手を確定します。
+
+設定選びに使った乱数とは別の44000〜44013で、18種類の相手と各96手、各版24,192手を対戦しました。最初の12手は各版3,024手です。比較対象は `ec142b8` です。
+
+| 指標 | 最初の12手・旧版 → 新版 | 96手・旧版 → 新版 |
+| --- | ---: | ---: |
+| 勝率 | 42.89% → 47.92% | 59.88% → 61.45% |
+| あいこ率 | 28.87% → 25.93% | 20.99% → 19.88% |
+| 負け率 | 28.24% → 26.16% | 19.14% → 18.67% |
+| 次の手の命中率 | 52.58% → 53.47% | 63.46% → 63.47% |
+
+こちらの直前の手に勝つ相手への勝率は3.42ポイント、負けると戦法を変える相手への勝率は6.40ポイント上がりました。両者の手の相対関係で反応する相手への勝率は2.23ポイント下がりました。人間の記録5,300手の再生では、次の手の命中率は43.87%から43.66%に下がりました。
+
+[神経回路 3D](network.html) では実際の各層、絶対値の大きい学習済み結線、手を出した対戦の入力と活性値を表示します。対戦後に3系統を切り替え、混合比・予測・最終的な手の選択確率を確認できます。表示はドラッグや矢印キーで回せます。
+
+```sh
+python scripts/train-janken-battle.py battle-features-v3 battle-wide.json --epochs 22 --width 80 --hidden 32 --seed 60391
+python scripts/train-janken-battle.py battle-features-v3 battle-opening.json --epochs 20 --width 72 --hidden 24 --seed 92141 --opening
+node scripts/benchmark-janken-battle.cjs battle-report-v4.json 44000 14 96 model
+node scripts/replay-janken-battle.cjs ec142b8 replay-v4.json openneuro.json transfer-verified.json
+```

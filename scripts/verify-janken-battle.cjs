@@ -40,7 +40,7 @@ async function main() {
       network: typeof window.JankenLearnedModel.predictBattleFeatures,
       policy: window.JankenLearnedModel.battlePolicy?.id,
       features: window.JankenLearnedModel.battleFeatureVersion
-    })), { network: 'function', policy: 'adversarial-v3', features: 3 });
+    })), { network: 'function', policy: 'adversarial-v4', features: 3 });
     assert.equal(await page.locator('[data-move]').count(), 3);
     assert.equal(await page.locator('#opponent-move').textContent(), '—');
     assert.equal(await page.evaluate(() => window.__testCommittedHands.length), 1);
@@ -93,8 +93,35 @@ async function main() {
     await page.goto(base + '/tools/janken-ai/play.html');
     await page.locator('[data-move="rock"]').click();
     assert.equal(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).battle.round, simpleKey), 4);
+    await page.setViewportSize({ width: 1250, height: 900 });
+    await page.goto(base + '/tools/janken-ai/network.html');
+    assert.equal(await page.locator('#opponent-move').textContent(), '—');
+    assert.equal(await page.locator('#network-probs').isVisible(), false);
+    assert.equal(await page.locator('#branch-list button').count(), 3);
+    const committed = await page.evaluate(() => window.__testCommittedHands.at(-1));
+    await page.locator('[data-move="paper"]').click();
+    const trace = await page.evaluate(() => JSON.parse(window.render_game_to_text()));
+    assert.equal(trace.ai, names[committed]);
+    assert.equal(trace.round, 5);
+    assert.equal(trace.signal.length, 3);
+    assert.match(await page.locator('#network-decision').textContent(), /AIが出した手の選択確率/);
+    await page.evaluate(() => window.advanceTime(200));
+    assert.notEqual(await page.evaluate(() => JSON.parse(window.render_game_to_text()).yaw), trace.yaw);
+    await page.locator('#branch-list button').last().click();
+    assert.match(await page.locator('#network-shape').textContent(), /684 → 72 → 24 → 1/);
+    assert.match(await page.locator('#network-status').textContent(), /第5手・パーの信号/);
+    await page.locator('#network-pause').click();
+    await page.locator('#network-canvas').press('ArrowRight');
+    const rotated = await page.evaluate(() => JSON.parse(window.render_game_to_text()));
+    assert.equal(rotated.paused, true);
+    await page.locator('#network-reset').click();
+    assert.notEqual(await page.evaluate(() => JSON.parse(window.render_game_to_text()).yaw), rotated.yaw);
+    await page.screenshot({ path: 'output/janken-battle/network.png', fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({ path: 'output/janken-battle/network-mobile.png', fullPage: true });
     assert.deepEqual(errors, []);
-    console.log('Committed hands, learning persistence, undo, legacy migration, corrupt-state recovery and mobile layout pass');
+    console.log('Committed hands, learning persistence, undo, migration, 3D controls and mobile layout pass');
   } finally {
     await context.close();
     await browser.close();

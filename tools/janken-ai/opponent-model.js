@@ -22,12 +22,33 @@
   const defaults = Object.freeze({
     scoreDecay: 0.94, scoreRate: 0.65, smoothing: 0.35,
     exploration: 0.06, evidenceScale: 3, temperature: 0.16, defense: 2.5,
-    specialistWeight: 0, drawPenalty: 0, contextWeight: 0
+    specialistWeight: 0, drawPenalty: 0, contextWeight: 0, metaWeight: 0
   });
   const periods = Array.from({ length: 23 }, (_, i) => i + 2);
   const windows = [4, 6, 9, 13, 19, 27, 39, 56];
   const specialistCount = periods.length + windows.length * 3 + 1;
   const contextCount = 5;
+  const metaCount = 8;
+
+  // The rival may forecast our next hand, counter it, or counter our response.
+  function counterReads(own, opponent, context) {
+    const self = [0.6, 0.6, 0.6];
+    const n = own.length;
+    const recentOwn = own.at(-1), recentOpponent = opponent.at(-1);
+    let weight = 1;
+    for (let i = n - 1; i >= 0 && weight > 0.04; i--) {
+      const sameOwn = i > 0 && own[i - 1] === recentOwn;
+      const sameOpponent = i > 0 && opponent[i - 1] === recentOpponent;
+      self[own[i]] += weight * (0.4 + Number(sameOwn) + 1.6 * Number(sameOpponent));
+      weight *= 0.93;
+    }
+    const guessedSelf = normalize(self);
+    const rotate = (distribution, depth) => [0, 1, 2].map(move => distribution[mod(move - depth)]);
+    const anchors = n ? [0, 1, 2].map(move => move === recentOwn ? 0.8 : 0.1) : uniform;
+    return [0, 1, 2].map(depth => rotate(guessedSelf, depth))
+      .concat([0, 1, 2].map(depth => rotate(anchors, depth)),
+        [rotate(context, 1), rotate(context, 2)]);
+  }
 
   function contextForecasts(own, opponent) {
     const n = own.length;
@@ -120,12 +141,13 @@
     settings.scoreRate = clamp(settings.scoreRate, 0.1, 2);
     settings.smoothing = clamp(settings.smoothing, 0.1, 2);
     settings.exploration = clamp(settings.exploration, 0.02, 0.9);
-    settings.evidenceScale = clamp(settings.evidenceScale, 0.5, 20);
+    settings.evidenceScale = clamp(settings.evidenceScale, 0.2, 20);
     settings.temperature = clamp(settings.temperature, 0.03, 1);
     settings.defense = clamp(settings.defense, 0, 8);
     settings.specialistWeight = clamp(settings.specialistWeight, 0, 1);
     settings.drawPenalty = clamp(settings.drawPenalty, 0, 0.5);
     settings.contextWeight = clamp(settings.contextWeight, 0, 1);
+    settings.metaWeight = clamp(settings.metaWeight, 0, 1);
     const own = [], opponent = [], history = [];
     const tables = [];
     for (const perspective of [0, 1]) {
@@ -137,9 +159,10 @@
     const scores = new Float64Array(expertCount + 3);
     const accuracies = new Float64Array(expertCount + 3).fill(1 / 3);
     const useContexts = settings.contextWeight > 0 || options.featureVersion === 3;
-    const specialistScores = new Float64Array(specialistCount + (useContexts ? contextCount : 0));
+    const useMeta = settings.metaWeight > 0;
+    const specialistScores = new Float64Array(specialistCount + (useContexts ? contextCount : 0) + (useMeta ? metaCount : 0));
     let baseScore = 0;
-    const useSpecialists = settings.specialistWeight > 0 || options.featureVersion >= 2 || useContexts;
+    const useSpecialists = settings.specialistWeight > 0 || options.featureVersion >= 2 || useContexts || useMeta;
     let round = 0, predictiveEdge = 0, payoff = 0, pending;
 
     function expertForecasts() {
@@ -182,12 +205,17 @@
         extra.reduce((sum, distribution, index) => sum + extraWeights[index] * distribution[move], 0) / extraTotal) : uniform;
       const relativeEvidence = extra.length ? Math.log(extraTotal / extra.length) - baseScore : 0;
       const contexts = useContexts ? contextForecasts(own, opponent) : [];
-      const contextScores = specialistScores.subarray(specialistCount);
+      const contextScores = specialistScores.subarray(specialistCount, specialistCount + contexts.length);
       const contextWeights = contexts.map((_, index) => Math.exp(clamp(contextScores[index], -12, 12)));
       const contextTotal = contextWeights.reduce((sum, weight) => sum + weight, 0);
       const contextEvidence = contexts.length ? Math.log(contextTotal / contexts.length) - baseScore : 0;
       const contextForecast = contexts.length ? [0, 1, 2].map(move =>
         contexts.reduce((sum, distribution, index) => sum + contextWeights[index] * distribution[move], 0) / contextTotal) : uniform;
+      const meta = useMeta ? counterReads(own, opponent, contextForecast) : [];
+      const metaStart = extra.length + contexts.length;
+      const metaWeights = meta.map((_, index) => Math.exp(clamp(specialistScores[metaStart + index], -12, 12)));
+      const metaTotal = metaWeights.reduce((sum, weight) => sum + weight, 0);
+      const metaEvidence = meta.length ? Math.log(metaTotal / meta.length) - baseScore : 0;
       const rows = featureRows(forecasts);
       if (options.featureVersion >= 2) {
         rows.forEach((row, move) => row.push(specialist[move], clamp(relativeEvidence, -12, 12) / 12));
@@ -198,7 +226,7 @@
           row.push(contextForecast[move], clamp(contextEvidence, -12, 12) / 12);
         });
       }
-      const learned = typeof options.network === 'function' ? normalize(options.network(rows)) : uniform;
+      const learned = typeof options.network === 'function' ? normalize(options.network(rows, round)) : uniform;
       const predictions = forecasts.predictions.concat([uniform, normalize(prior), learned]);
       const weights = predictions.map((_, index) =>
         Math.exp(settings.scoreRate * clamp(scores[index], -14, 14)));
@@ -208,8 +236,15 @@
       const trust = extra.length ? settings.specialistWeight / (1 + Math.exp(2 - relativeEvidence)) : 0;
       const contextTrust = contexts.length ? settings.contextWeight /
         (1 + Math.exp(2 + Math.max(0, relativeEvidence) - contextEvidence)) : 0;
-      const forecast = base.map((value, move) => (1 - contextTrust) *
-        ((1 - trust) * value + trust * specialist[move]) + contextTrust * contextForecast[move]);
+      const metaTrust = meta.length ? settings.metaWeight /
+        (1 + Math.exp(1.5 + Math.max(0, relativeEvidence, contextEvidence) - metaEvidence)) : 0;
+      const forecast = base.map((value, move) => {
+        const combined = (1 - contextTrust) * ((1 - trust) * value + trust * specialist[move]) +
+          contextTrust * contextForecast[move];
+        const counter = meta.length ? meta.reduce((sum, dist, index) =>
+          sum + metaWeights[index] * dist[move], 0) / metaTotal : 0;
+        return (1 - metaTrust) * combined + metaTrust * counter;
+      });
       const utility = [0, 1, 2].map(move =>
         forecast[mod(move - 1)] - forecast[mod(move + 1)] - settings.drawPenalty * forecast[move]);
       const maximum = Math.max(...utility);
@@ -220,7 +255,7 @@
       const exploitation = (1 - settings.exploration) * confidence * (1 - safety);
       const action = sharpened.map(value => exploitation * value / sum + (1 - exploitation) / 3);
       const visible = Object.freeze({ forecast: Object.freeze(forecast), action: Object.freeze(action) });
-      pending = { predictions, public: visible, rows, base, extra: extra.concat(contexts) };
+      pending = { predictions, public: visible, rows, base, extra: extra.concat(contexts, meta) };
       return visible;
     }
 
@@ -310,7 +345,8 @@
       payoff = state.payoff;
       const auxiliary = state.specialists;
       if (Array.isArray(auxiliary?.scores) &&
-          (auxiliary.scores.length === specialistScores.length || auxiliary.scores.length === specialistCount) &&
+          auxiliary.scores.length <= specialistScores.length &&
+          [specialistCount, specialistCount + contextCount, specialistScores.length].includes(auxiliary.scores.length) &&
           auxiliary.scores.every(value => finite(value, -10000, 10000)) &&
           finite(auxiliary.base, -10000, 10000)) {
         specialistScores.set(auxiliary.scores);
@@ -329,7 +365,7 @@
     }
 
     return {
-      prepare, observe, trainingFeatures, exportState,
+      prepare, observe, trainingFeatures, exportState, get round() { return round; },
       exportHistory: () => history.slice(),
       diagnostics: () => ({ rounds: round, predictiveEdge, payoff, experts: expertCount + 3 })
     };

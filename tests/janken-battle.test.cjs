@@ -85,6 +85,23 @@ test('the trained battle network accepts causal features and returns a normalize
   const prediction = learner.prepare().forecast;
   assert.ok(prediction.every(value => value > 0 && value < 1));
   assert.ok(Math.abs(prediction.reduce((sum, value) => sum + value, 0) - 1) < 1e-10);
+  const rows = learner.trainingFeatures();
+  const graph = model.describeBattleNetwork();
+  assert.equal(graph.length, 3);
+  const trace = model.inspectBattleFeatures(rows, 0, 2);
+  for (const [index, { sizes, connections }] of graph.entries()) {
+    assert.deepEqual(trace[index].activations.map(layer => layer.length), sizes);
+    for (const [layer, edges] of connections.entries()) {
+      assert.ok(edges.every(edge => edge.source < sizes[layer] &&
+        edge.target < sizes[layer + 1] && Number.isFinite(edge.weight) && edge.weight !== 0));
+    }
+  }
+  const blended = model.predictBattleFeatures(rows, 0);
+  for (let move = 0; move < 3; move++) {
+    assert.ok(Math.abs(blended[move] - trace.reduce((sum, head) =>
+      sum + head.share * head.probabilities[move], 0)) < 1e-10);
+  }
+  assert.ok(trace[2].share > model.inspectBattleFeatures(rows, 96, 2)[2].share);
 });
 
 test('the periodic learner keeps its evidence through random hands and a saved-state reload', () => {
@@ -120,5 +137,19 @@ test('context evidence extends v2 saved learning and resumes identically after a
     state.specialists.scores);
   for (let turn = 0; turn < 60; turn++) updated.observe((turn * 2 + Math.floor(turn / 7)) % 3, turn % 3);
   const restored = brain.createSession({ featureVersion: 3, settings, state: updated.exportState() });
+  assert.deepEqual(restored.prepare(), updated.prepare());
+});
+
+test('counter-read evidence extends v3 saved learning and resumes identically after a reload', () => {
+  const settings = { contextWeight: 1, specialistWeight: 1 };
+  const old = brain.createSession({ featureVersion: 3, settings });
+  for (let turn = 0; turn < 20; turn++) old.observe((turn + 1) % 3, turn % 3);
+  const state = old.exportState();
+  const config = { featureVersion: 3, settings: { ...settings, metaWeight: 1 } };
+  const updated = brain.createSession({ ...config, state });
+  assert.equal(updated.round, 20);
+  assert.deepEqual(updated.exportState().specialists.scores, state.specialists.scores.concat(Array(8).fill(0)));
+  for (let turn = 0; turn < 20; turn++) updated.observe((turn + 2) % 3, turn % 3);
+  const restored = brain.createSession({ ...config, state: updated.exportState() });
   assert.deepEqual(restored.prepare(), updated.prepare());
 });

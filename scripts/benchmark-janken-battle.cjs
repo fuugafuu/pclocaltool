@@ -7,7 +7,7 @@ const { execFileSync } = require('node:child_process');
 const brain = require('../tools/janken-ai/opponent-model.js');
 const { createOpponent, randomGenerator, testFamilies } = require('./janken-opponents.cjs');
 const directory = path.resolve(__dirname, '../tools/janken-ai');
-const reference = '4539005';
+const reference = process.env.JANKEN_BATTLE_REFERENCE || 'ec142b8';
 const [output, seedStart = '1000', seedCount = '6', rounds = '400', mode = 'fast', settingsFile] = process.argv.slice(2);
 if (!output) throw new Error('Expected report path, seed start, count, rounds, fast/model mode');
 
@@ -44,6 +44,7 @@ function match(family, seed, name, settings, model, forecastModel = model) {
   }) : null;
   const history = [], biases = Array(6).fill(0);
   let wins = 0, losses = 0, hits = 0;
+  let opening;
   for (let turn = 0; turn < Number(rounds); turn++) {
     const prior = previous.calibrate(model?.predict(history) || [1 / 3, 1 / 3, 1 / 3],
       history, biases, model?.playPolicy?.calibration);
@@ -62,13 +63,16 @@ function match(family, seed, name, settings, model, forecastModel = model) {
     wins += Number(reward === 1);
     losses += Number(reward === -1);
     hits += Number(forecast.indexOf(Math.max(...forecast)) === actual);
+    if (turn === 11 || turn + 1 === Number(rounds) && !opening) {
+      opening = { wins, losses, hits, draws: turn + 1 - wins - losses, rounds: turn + 1 };
+    }
     if (learner) learner.observe(actual, move);
     previous.trainCalibration(biases, prior, history, actual, model?.playPolicy?.calibration);
     enemy.observe(move, actual);
     history.push(actual * 3 + move);
     if (history.length > 64) history.shift();
   }
-  return { wins, losses, draws: Number(rounds) - wins - losses, hits, rounds: Number(rounds) };
+  return { wins, losses, draws: Number(rounds) - wins - losses, hits, rounds: Number(rounds), opening };
 }
 
 async function main() {
@@ -109,13 +113,17 @@ else {
   const scores = {};
   for (const { name, settings, network } of workerData.configurations) {
     const total = { wins: 0, losses: 0, draws: 0, hits: 0, rounds: 0 };
+    const opening = { ...total };
     for (let seed = Number(seedStart); seed < Number(seedStart) + Number(seedCount); seed++) {
       const prior = name === 'incumbent' ? oldModel : model;
       const forecastModel = network === 'incumbent' ? oldModel : prior;
       const result = match(workerData.family, seed, name, settings, prior, forecastModel);
-      for (const key of Object.keys(total)) total[key] += result[key];
+      for (const key of Object.keys(total)) {
+        total[key] += result[key];
+        opening[key] += result.opening[key];
+      }
     }
-    scores[name] = total;
+    scores[name] = { ...total, opening };
   }
   parentPort.postMessage([workerData.family, scores]);
 }

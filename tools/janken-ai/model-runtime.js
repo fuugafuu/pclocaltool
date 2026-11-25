@@ -29,8 +29,9 @@
       return { rows: layer.rows, cols: layer.cols, bias: layer.bias, weights };
     });
     if (expected !== outputWidth) return;
-    return data => {
+    const infer = (data, activations) => {
       let input = data;
+      activations?.push(input);
       for (const [index, { rows, cols, bias, weights }] of layers.entries()) {
         const output = new Float32Array(rows);
         for (let row = 0; row < rows; row++) {
@@ -46,9 +47,28 @@
           output[row] = index === layers.length - 1 ? value : Math.max(0, value);
         }
         input = output;
+        activations?.push(input);
       }
       return input;
     };
+    infer.graph = () => ({
+      sizes: [inputWidth, ...layers.map(layer => layer.rows)],
+      parameters: layers.reduce((sum, layer) => sum + layer.weights.length + layer.rows, 0),
+      connections: layers.map(({ rows, cols, weights }) => {
+        const edges = [];
+        for (let target = 0; target < rows; target++) {
+          const offset = target * cols;
+          const sources = Array.from({ length: cols }, (_, index) => index)
+            .sort((a, b) => Math.abs(weights[offset + b]) - Math.abs(weights[offset + a]));
+          for (const source of sources.slice(0, rows === 1 ? 12 : 3)) {
+            const weight = weights[offset + source];
+            if (weight) edges.push({ source, target, weight });
+          }
+        }
+        return edges;
+      })
+    });
+    return infer;
   }
 
   function candidatePredictor(model) {
@@ -84,6 +104,30 @@
   }
 
   function battlePredictor(model) {
+    if (model?.kind === 'battle-ensemble') {
+      if (!Array.isArray(model.models) || model.models.length < 2 || model.models.length > 4 ||
+          !model.models.every(({ head, weight, opening }) => head?.kind === 'battle-int4' &&
+            head.featureVersion === model.featureVersion && Number.isFinite(weight) && weight > 0 &&
+            Number.isFinite(opening) && opening >= 0)) return;
+      const heads = model.models.map(({ head }) => battlePredictor(head));
+      if (heads.some(head => !head)) return;
+      function weights(round) {
+        const shares = model.models.map(head => head.weight * (1 + head.opening * Math.exp(-round / 12)));
+        const total = shares.reduce((sum, share) => sum + share, 0);
+        return shares.map(share => share / total);
+      }
+      const predict = (rows, round = rows[0][0] * 64) => {
+        const shares = weights(round);
+        const distributions = heads.map(head => head(rows));
+        return [0, 1, 2].map(move => distributions.reduce((sum, dist, index) => sum + shares[index] * dist[move], 0));
+      };
+      predict.describe = () => heads.map((head, index) => ({ ...head.describe()[0], name: model.models[index].name }));
+      predict.inspect = (rows, round, candidate) => {
+        const shares = weights(round);
+        return heads.map((head, index) => ({ ...head.inspect(rows, round, candidate)[0], share: shares[index] }));
+      };
+      return predict;
+    }
     const width = { 1: 675, 2: 677, 3: 684 }[model?.featureVersion];
     if (model?.kind !== 'battle-int4' || !width ||
         !Array.isArray(model.mean) || model.mean.length !== width ||
@@ -91,13 +135,21 @@
         !model.scale.every(value => Number.isFinite(value) && value > 0)) return;
     const infer = quantizedPredictor(model, model.mean.length, 1);
     if (!infer) return;
-    return rows => softmax(rows.map(row => {
+    function logits(row, activations) {
       const input = new Float32Array(model.mean.length);
       for (let index = 0; index < input.length; index++) {
         input[index] = Math.max(-12, Math.min(12, (Math.fround(row[index]) - model.mean[index]) / model.scale[index]));
       }
-      return infer(input)[0];
-    }));
+      return infer(input, activations)[0];
+    }
+    const predict = rows => softmax(rows.map(row => logits(row)));
+    predict.describe = () => [{ name: '対戦予測', ...infer.graph() }];
+    predict.inspect = (rows, _round, candidate) => {
+      const activations = [];
+      const probabilities = softmax(rows.map((row, move) => logits(row, move === candidate ? activations : undefined)));
+      return [{ activations, probabilities, share: 1 }];
+    };
+    return predict;
   }
 
   function sparseKeys(pairs) {
@@ -333,6 +385,8 @@
   globalThis.JankenLearnedModel = Object.freeze({
     predict, predictAlternative, playPolicy: artifact.playPolicy,
     predictBattleFeatures, battlePolicy: artifact.battlePolicy,
+    describeBattleNetwork: predictBattleFeatures?.describe,
+    inspectBattleFeatures: predictBattleFeatures?.inspect,
     battleFeatureVersion: predictBattleFeatures ? artifact.battleModel.featureVersion : undefined,
     createSession, kind: refinementLogits ? 'sequence-refined' :
       candidateLogits ? 'routed-distilled' : treeLogits ? 'adaptive-hybrid' : artifact.kind

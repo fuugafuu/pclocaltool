@@ -6,6 +6,7 @@
   const engine = window.JankenEngine;
   const learner = window.JankenPlayPolicy;
   const model = window.JankenLearnedModel;
+  const traceRounds = !!document.getElementById('network-canvas');
   const policy = model?.playPolicy || { id:'baseline', prior:0, gain:0, decay:0.9 };
   let saved;
   try { saved = JSON.parse(localStorage.getItem(storageKey)); } catch {}
@@ -29,7 +30,8 @@
     const distribution = learner.calibrate(
       learner.applyPeriod(base,periodic ?? -1,policy.periodic?.strength),memory,biases,policy.calibration);
     const prepared = battle.prepare(distribution);
-    return {predictions, distribution, move:window.JankenOpponent.sample(prepared.action)};
+    return {predictions, distribution, move:window.JankenOpponent.sample(prepared.action),
+      trace: traceRounds ? { rows:battle.trainingFeatures(), round:battle.round, ...prepared } : null};
   }
 
   let pending = prepare();
@@ -53,7 +55,14 @@
       const outcome = document.getElementById('outcome');
       outcome.textContent = labels[result];
       outcome.dataset.result = result;
+      const trace = pending.trace;
       pending = prepare();
+      if (trace) {
+        window.dispatchEvent(new CustomEvent('janken:round', {detail:{
+          ai, human, result, round:trace.round + 1, forecast:trace.forecast, action:trace.action,
+          branches:model?.inspectBattleFeatures?.(trace.rows,trace.round,human)
+        }}));
+      }
     });
   }
   window.render_game_to_text = () => JSON.stringify(lastResult || {});
