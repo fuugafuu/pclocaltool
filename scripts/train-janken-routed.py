@@ -90,8 +90,15 @@ def route(values, router):
 
 
 def fit_student(x, y, valid, labels, teacher=None, epochs=20, width=160, hidden=64,
-                training_weights=None, validation_weights=None):
-    model = scorer(x.shape[-1], width, hidden)
+                training_weights=None, validation_weights=None, additional_hidden=()):
+    if additional_hidden:
+        layers = []
+        sizes = (x.shape[-1], width, hidden, *additional_hidden)
+        for inputs, outputs in zip(sizes, sizes[1:]):
+            layers.extend((nn.Linear(inputs, outputs), nn.ReLU()))
+        model = nn.Sequential(*layers, nn.Linear(sizes[-1], 1))
+    else:
+        model = scorer(x.shape[-1], width, hidden)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.0016, weight_decay=0.02)
     best, state = float("inf"), None
     for _ in range(epochs):

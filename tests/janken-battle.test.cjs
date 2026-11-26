@@ -87,9 +87,10 @@ test('the trained battle network accepts causal features and returns a normalize
   assert.ok(Math.abs(prediction.reduce((sum, value) => sum + value, 0) - 1) < 1e-10);
   const rows = learner.trainingFeatures();
   const graph = model.describeBattleNetwork();
-  assert.equal(graph.length, 5);
+  assert.equal(graph.length, 6);
   assert.equal(graph[3].sizes[0], brain.humanInputWidth);
   assert.equal(graph[4].sizes[0], brain.sequenceInputWidth);
+  assert.deepEqual(graph[5].sizes, [137, 128, 80, 48, 24, 1]);
   assert.deepEqual(rows.map(row => row.slice(684)), brain.humanFeatures([], 5));
   const trace = model.inspectBattleFeatures(rows, 0, 2);
   for (const [index, { sizes, connections }] of graph.entries()) {
@@ -132,6 +133,35 @@ test('sequence features retain the older inputs and find continuations of recurr
   assert.ok(enhanced[0][brain.humanInputWidth] > enhanced[1][brain.humanInputWidth]);
   const session = brain.createSession({ featureVersion: 5, history });
   assert.deepEqual(session.trainingFeatures().map(row => row.slice(684)), enhanced);
+});
+
+test('planning models reactions to hypothetical hands and preserves the committed forecast', () => {
+  const random = randomGenerator(62813);
+  let previous = 0;
+  const history = Array.from({ length: 128 }, () => {
+    const ours = Math.floor(3 * random());
+    const pair = 3 * previous + ours;
+    previous = ours;
+    return pair;
+  });
+  const reference = brain.createSession({ settings, history });
+  const config = { ...settings, planningWeight: 1, planningDepth: 4 };
+  const learner = brain.createSession({ settings: config, history });
+  const before = learner.exportState();
+  const prepared = learner.prepare();
+  assert.deepEqual(prepared.forecast, reference.prepare().forecast);
+  assert.deepEqual(learner.exportState(), before);
+  assert.equal(prepared.plan.depth, 4);
+  assert.ok(prepared.plan.positions > 9 && prepared.plan.positions <= 172);
+  assert.ok(Math.max(...prepared.plan.future) > Math.min(...prepared.plan.future));
+  assert.deepEqual(prepared.plan.total, prepared.plan.immediate.map((score, move) => score + prepared.plan.future[move]));
+  assert.equal(learner.prepare([0, 0, 1]), prepared);
+  assert.throws(() => { prepared.plan.future[0] = 2; });
+  const resumed = brain.createSession({ settings: config, state: before });
+  assert.deepEqual(resumed.prepare(), prepared);
+  const fresh = brain.createSession({ settings: config });
+  assert.equal(fresh.prepare().plan.depth, 1);
+  assert.deepEqual(fresh.prepare().plan.future, [0, 0, 0]);
 });
 
 test('the periodic learner keeps its evidence through random hands and a saved-state reload', () => {

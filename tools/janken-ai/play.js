@@ -60,6 +60,7 @@
       if (trace) {
         window.dispatchEvent(new CustomEvent('janken:round', {detail:{
           ai, human, result, round:trace.round + 1, forecast:trace.forecast, action:trace.action,
+          plan:trace.plan,
           branches:model?.inspectBattleFeatures?.(trace.rows,trace.round,human)
         }}));
       }

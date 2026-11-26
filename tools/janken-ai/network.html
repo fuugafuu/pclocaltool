@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101719">
   <title>神経回路 3D | じゃんけんラボ</title>
-  <link rel="stylesheet" href="network.css">
+  <link rel="stylesheet" href="network.css?v=20261126-2">
   <script src="model.js" defer></script>
   <script src="adaptive-features.js?v=20261117-4" defer></script>
-  <script src="model-runtime.js?v=20261126-1" defer></script>
+  <script src="model-runtime.js?v=20261126-2" defer></script>
   <script src="play-policy.js" defer></script>
-  <script src="opponent-model.js?v=20261126-1" defer></script>
+  <script src="opponent-model.js?v=20261126-2" defer></script>
   <script src="engine.js" defer></script>
-  <script src="play.js?v=20261125-2" defer></script>
-  <script src="network.js" defer></script>
+  <script src="play.js?v=20261126-2" defer></script>
+  <script src="network.js?v=20261126-2" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -56,6 +56,14 @@
           <p id="network-decision" class="hint" hidden></p>
           <p class="hint">重みの絶対値が大きい結線を表示します。信号はあなたが出した手に対する、対戦直前の計算です。</p>
         </div>
+        <details id="network-planning" class="inspection planning" hidden>
+          <summary id="network-planning-title">読み先の評価</summary>
+          <table>
+            <thead><tr><th scope="col">候補</th><th scope="col">直近</th><th scope="col">読み先</th><th scope="col">合計点</th></tr></thead>
+            <tbody id="network-planning-scores"></tbody>
+          </table>
+          <p id="network-planning-hint" class="hint"></p>
+        </details>
       </section>
     </div>
   </main>

@@ -22,7 +22,8 @@
   const defaults = Object.freeze({
     scoreDecay: 0.94, scoreRate: 0.65, smoothing: 0.35,
     exploration: 0.06, evidenceScale: 3, temperature: 0.16, defense: 2.5,
-    specialistWeight: 0, drawPenalty: 0, contextWeight: 0, metaWeight: 0, networkWeight: 0
+    specialistWeight: 0, drawPenalty: 0, contextWeight: 0, metaWeight: 0, networkWeight: 0,
+    planningWeight: 0, planningDepth: 3
   });
   const periods = Array.from({ length: 23 }, (_, i) => i + 2);
   const windows = [4, 6, 9, 13, 19, 27, 39, 56];
@@ -31,6 +32,89 @@
   const metaCount = 8;
   const humanInputWidth = 113;
   const sequenceInputWidth = 137;
+  const moves = [0, 1, 2];
+
+  function responseModel(history) {
+    const counts = new Float64Array(3 * 136);
+    const outcomeAt = pair => mod(Math.floor(pair / 3) - pair % 3);
+    const ourSequence = (previous, pair) => 100 + 3 * (previous % 3) + pair % 3;
+    function relativeSequence(previous, pair) {
+      const anchor = Math.floor(pair / 3);
+      return 109 + 9 * mod(Math.floor(previous / 3) - anchor) +
+        3 * mod(previous % 3 - anchor) + mod(pair % 3 - anchor);
+    }
+    function distribution(key, move, prior, strength) {
+      const offset = 3 * key;
+      const mass = counts[offset] + counts[offset + 1] + counts[offset + 2];
+      return (counts[offset + move] + strength * prior) / (mass + strength);
+    }
+    function predict(previous, pair, pooled = moves.map(move => distribution(0, move, 1 / 3, 3))) {
+      const rival = Math.floor(pair / 3);
+      return pooled.map((value, move) => {
+        const byUs = distribution(1 + pair % 3, move, value, 4);
+        const byRival = distribution(4 + rival, move, value, 5);
+        const byOutcome = distribution(7 + outcomeAt(pair), mod(move - rival), value, 5);
+        const backedOff = (byUs + byRival + byOutcome) / 3;
+        const byPair = distribution(10 + pair, move, backedOff, 5);
+        if (previous === undefined) return byPair;
+        const byOurSequence = distribution(ourSequence(previous, pair), move, byUs, 7);
+        const byRelative = distribution(relativeSequence(previous, pair), mod(move - rival), byPair, 6);
+        const adapted = (byOurSequence + 2 * byRelative) / 3;
+        return distribution(19 + 9 * previous + pair, move, adapted, 5);
+      });
+    }
+    let evidence = 0;
+    for (let index = 1; index < history.length; index++) {
+      const pair = history[index - 1];
+      const move = Math.floor(history[index] / 3);
+      const previous = history[index - 2];
+      const rival = Math.floor(pair / 3);
+      const weight = 0.976 ** (history.length - index - 1);
+      if (index >= 5) {
+        const pooled = moves.map(hand => distribution(0, hand, 1 / 3, 3));
+        const conditional = predict(previous, pair, pooled);
+        evidence += weight * Math.log(conditional[move] / pooled[move]);
+      }
+      for (const key of [0, 1 + pair % 3, 4 + rival, 10 + pair]) counts[3 * key + move] += weight;
+      counts[3 * (7 + outcomeAt(pair)) + mod(move - rival)] += weight;
+      if (previous !== undefined) {
+        counts[3 * (19 + 9 * previous + pair) + move] += weight;
+        counts[3 * ourSequence(previous, pair) + move] += weight;
+        counts[3 * relativeSequence(previous, pair) + mod(move - rival)] += weight;
+      }
+    }
+    return { predict, trust: clamp(evidence / 1.5, 0, 1) };
+  }
+
+  function expectedReward(distribution, move, drawPenalty) {
+    return distribution[mod(move - 1)] - distribution[mod(move + 1)] - drawPenalty * distribution[move];
+  }
+
+  function planAhead(history, forecast, model, settings) {
+    const immediate = moves.map(move => expectedReward(forecast, move, settings.drawPenalty));
+    const strength = settings.planningWeight * model.trust;
+    if (!strength) return { depth: 1, positions: 1, immediate, future: [0, 0, 0], total: immediate.slice() };
+    const discount = 0.45;
+    const memo = new Map();
+    function continuation(previous, pair, remaining) {
+      const key = remaining * 81 + previous * 9 + pair;
+      if (memo.has(key)) return memo.get(key);
+      const distribution = model.predict(previous, pair);
+      const value = Math.max(...moves.map(move => {
+        const reward = expectedReward(distribution, move, settings.drawPenalty);
+        if (remaining === 1) return reward;
+        return reward + discount * distribution.reduce((sum, probability, enemy) =>
+          sum + probability * continuation(pair, 3 * enemy + move, remaining - 1), 0);
+      }));
+      memo.set(key, value);
+      return value;
+    }
+    const past = history.at(-1);
+    const future = moves.map(move => strength * discount * forecast.reduce((sum, probability, enemy) =>
+      sum + probability * continuation(past, 3 * enemy + move, settings.planningDepth - 1), 0));
+    return { depth: settings.planningDepth, positions: memo.size + 1, immediate, future,
+      total: immediate.map((value, move) => value + future[move]) };
+  }
 
   function sequenceCounts(history) {
     const counts = Array.from({ length: 12 }, () => [0, 0, 0]);
@@ -241,6 +325,8 @@
     settings.contextWeight = clamp(settings.contextWeight, 0, 1);
     settings.metaWeight = clamp(settings.metaWeight, 0, 1);
     settings.networkWeight = clamp(settings.networkWeight, 0, 1);
+    settings.planningWeight = clamp(settings.planningWeight, 0, 1);
+    settings.planningDepth = Math.round(clamp(settings.planningDepth, 2, 4));
     const own = [], opponent = [], history = [];
     const tables = [];
     for (const perspective of [0, 1]) {
@@ -345,8 +431,9 @@
         const online = (1 - metaTrust) * combined + metaTrust * counter;
         return (1 - networkTrust) * online + networkTrust * learned[move];
       });
-      const utility = [0, 1, 2].map(move =>
-        forecast[mod(move - 1)] - forecast[mod(move + 1)] - settings.drawPenalty * forecast[move]);
+      const planningHistory = settings.planningWeight ? history.slice(-128) : null;
+      const plan = planningHistory ? planAhead(planningHistory, forecast, responseModel(planningHistory), settings) : undefined;
+      const utility = plan?.total ?? moves.map(move => expectedReward(forecast, move, settings.drawPenalty));
       const maximum = Math.max(...utility);
       const sharpened = utility.map(value => Math.exp((value - maximum) / settings.temperature));
       const sum = sharpened[0] + sharpened[1] + sharpened[2];
@@ -354,7 +441,9 @@
       const safety = clamp(-payoff * settings.defense, 0, 1);
       const exploitation = (1 - settings.exploration) * confidence * (1 - safety);
       const action = sharpened.map(value => exploitation * value / sum + (1 - exploitation) / 3);
-      const visible = Object.freeze({ forecast: Object.freeze(forecast), action: Object.freeze(action) });
+      const visible = Object.freeze({ forecast: Object.freeze(forecast), action: Object.freeze(action),
+        ...(plan && { plan: Object.freeze({ ...plan, immediate: Object.freeze(plan.immediate),
+          future: Object.freeze(plan.future), total: Object.freeze(plan.total) }) }) });
       pending = { predictions, public: visible, rows, base, extra: extra.concat(contexts, meta) };
       return visible;
     }

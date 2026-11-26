@@ -55,6 +55,10 @@ button:hover, button[aria-pressed="true"] { border-color: var(--green); color: v
 .probabilities { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .probabilities[hidden] { display: none; }
 .probability { font-size: .76rem; border-bottom: 3px solid var(--line); padding-bottom: 6px; background: linear-gradient(to right, var(--green) var(--value), transparent 0) bottom / 100% 2px no-repeat; }
+.planning summary { cursor: pointer; font-size: .85rem; color: var(--green); }
+.planning table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; font-size: .76rem; }
+.planning th, .planning td { text-align: right; border-bottom: 1px solid var(--line); padding: 5px; }
+.planning th:first-child { text-align: left; }
 @media (max-width: 680px) {
   .shell { width: calc(100% - 28px); }
   .studio { display: flex; flex-direction: column; gap: 10px; }

@@ -105,7 +105,7 @@
 
   function battlePredictor(model) {
     if (model?.kind === 'battle-ensemble') {
-      if (!Array.isArray(model.models) || model.models.length < 2 || model.models.length > 5 ||
+      if (!Array.isArray(model.models) || model.models.length < 2 || model.models.length > 6 ||
           !model.models.every(({ head, weight, opening }) => head?.kind === 'battle-int4' &&
             (head.featureVersion === model.featureVersion ||
               ([4, 5].includes(model.featureVersion) && head.featureVersion >= 3 &&
@@ -394,6 +394,7 @@
       const models = [...baseBattle.models];
       if (human && sequence.previousWeight > 0) models.push({ ...human, weight: sequence.previousWeight });
       models.push(sequence);
+      if (artifact.deepBattleHead) models.push(artifact.deepBattleHead);
       predictBattleFeatures = battlePredictor({ ...baseBattle, featureVersion: 5, models });
       if (predictBattleFeatures) battleFeatureVersion = 5;
     }

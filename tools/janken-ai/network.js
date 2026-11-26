@@ -173,6 +173,27 @@
   });
   window.addEventListener('janken:round', ({ detail }) => {
     lastRound = detail;
+    const panel = document.getElementById('network-planning');
+    const plan = detail.plan;
+    if (panel && plan) {
+      panel.hidden = false;
+      document.getElementById('network-planning-title').textContent = '読み先の評価 · ' + plan.depth + '手 / ' + plan.positions + '局面';
+      document.getElementById('network-planning-hint').textContent = plan.depth === 1 ?
+        '相手の反応を判断できるまでは、今の手を評価します。' :
+        '読み先の点数は、相手が取りうる手と、その後の応手を重み付きで計算した値です。';
+      const scores = labels.map((label, index) => {
+        const row = document.createElement('tr');
+        const hand = document.createElement('th');
+        hand.scope = 'row';
+        hand.textContent = label;
+        row.append(hand);
+        for (const value of [plan.immediate[index], plan.future[index], plan.total[index]]) {
+          row.insertCell().textContent = value.toFixed(3);
+        }
+        return row;
+      });
+      document.getElementById('network-planning-scores').replaceChildren(...scores);
+    }
     animationAge = 0;
     updateReadout();
     render();
@@ -180,7 +201,8 @@
   const renderPlay = window.render_game_to_text;
   window.render_game_to_text = () => JSON.stringify({
     ...JSON.parse(renderPlay()), branch, branches: branches.length, yaw, pitch, paused,
-    round: lastRound?.round, signal: lastRound?.branches?.[branch]?.probabilities
+    round: lastRound?.round, signal: lastRound?.branches?.[branch]?.probabilities,
+    planning: lastRound?.plan
   });
   window.advanceTime = ms => advance(ms);
   updateReadout();
