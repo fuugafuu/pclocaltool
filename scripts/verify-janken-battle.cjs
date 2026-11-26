@@ -40,7 +40,7 @@ async function main() {
       network: typeof window.JankenLearnedModel.predictBattleFeatures,
       policy: window.JankenLearnedModel.battlePolicy?.id,
       features: window.JankenLearnedModel.battleFeatureVersion
-    })), { network: 'function', policy: 'human-adaptive-v5', features: 4 });
+    })), { network: 'function', policy: 'human-sequence-v6', features: 5 });
     assert.equal(await page.locator('[data-move]').count(), 3);
     assert.equal(await page.locator('#opponent-move').textContent(), '—');
     assert.equal(await page.evaluate(() => window.__testCommittedHands.length), 1);
@@ -97,7 +97,7 @@ async function main() {
     await page.goto(base + '/tools/janken-ai/network.html');
     assert.equal(await page.locator('#opponent-move').textContent(), '—');
     assert.equal(await page.locator('#network-probs').isVisible(), false);
-    assert.equal(await page.locator('#branch-list button').count(), 4);
+    assert.equal(await page.locator('#branch-list button').count(), 5);
     const committed = await page.evaluate(() => window.__testCommittedHands.at(-1));
     await page.locator('[data-move="paper"]').click();
     const trace = await page.evaluate(() => JSON.parse(window.render_game_to_text()));
@@ -108,7 +108,7 @@ async function main() {
     await page.evaluate(() => window.advanceTime(200));
     assert.notEqual(await page.evaluate(() => JSON.parse(window.render_game_to_text()).yaw), trace.yaw);
     await page.locator('#branch-list button').last().click();
-    assert.match(await page.locator('#network-shape').textContent(), /113 → 96 → 36 → 1/);
+    assert.match(await page.locator('#network-shape').textContent(), /137 → 128 → 48 → 1/);
     assert.match(await page.locator('#network-status').textContent(), /第5手・パーの信号/);
     await page.locator('#network-pause').click();
     await page.locator('#network-canvas').press('ArrowRight');

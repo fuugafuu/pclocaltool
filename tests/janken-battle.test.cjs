@@ -87,9 +87,10 @@ test('the trained battle network accepts causal features and returns a normalize
   assert.ok(Math.abs(prediction.reduce((sum, value) => sum + value, 0) - 1) < 1e-10);
   const rows = learner.trainingFeatures();
   const graph = model.describeBattleNetwork();
-  assert.equal(graph.length, 4);
+  assert.equal(graph.length, 5);
   assert.equal(graph[3].sizes[0], brain.humanInputWidth);
-  assert.deepEqual(rows.map(row => row.slice(684)), brain.humanFeatures([]));
+  assert.equal(graph[4].sizes[0], brain.sequenceInputWidth);
+  assert.deepEqual(rows.map(row => row.slice(684)), brain.humanFeatures([], 5));
   const trace = model.inspectBattleFeatures(rows, 0, 2);
   for (const [index, { sizes, connections }] of graph.entries()) {
     assert.deepEqual(trace[index].activations.map(layer => layer.length), sizes);
@@ -120,6 +121,17 @@ test('human behavior features are candidate-specific and depend only on observed
   assert.equal(learner.trainingFeatures(), firstRows);
   learner.observe(0, 2);
   assert.deepEqual(learner.trainingFeatures().map(row => row.slice(684)), brain.humanFeatures([...history, 2]));
+});
+
+test('sequence features retain the older inputs and find continuations of recurring hands', () => {
+  const history = Array.from({ length: 36 }, (_, turn) => 4 * (turn % 3));
+  const original = brain.humanFeatures(history, 4);
+  const enhanced = brain.humanFeatures(history, 5);
+  assert.ok(enhanced.every(row => row.length === brain.sequenceInputWidth && row.every(Number.isFinite)));
+  assert.deepEqual(enhanced.map(row => row.slice(0, brain.humanInputWidth)), original);
+  assert.ok(enhanced[0][brain.humanInputWidth] > enhanced[1][brain.humanInputWidth]);
+  const session = brain.createSession({ featureVersion: 5, history });
+  assert.deepEqual(session.trainingFeatures().map(row => row.slice(684)), enhanced);
 });
 
 test('the periodic learner keeps its evidence through random hands and a saved-state reload', () => {

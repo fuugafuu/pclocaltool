@@ -30,8 +30,50 @@
   const contextCount = 5;
   const metaCount = 8;
   const humanInputWidth = 113;
+  const sequenceInputWidth = 137;
 
-  function humanFeatures(history) {
+  function sequenceCounts(history) {
+    const counts = Array.from({ length: 12 }, () => [0, 0, 0]);
+    const human = history.map(pair => Math.floor(pair / 3));
+    const ai = history.map(pair => pair % 3);
+    const outcome = history.map((_, index) => mod(human[index] - ai[index]));
+    const last = history.length - 1;
+    let weight = 1;
+    for (let end = last - 1; end >= 0; end--) {
+      const humanShift = mod(human[last] - human[end]);
+      const aiShift = mod(ai[last] - ai[end]);
+      let absolute = 0, relative = 0, joint = 0, aiRelative = 0, results = 0;
+      for (let lag = 0; lag < Math.min(4, end + 1); lag++) {
+        const left = last - lag, right = end - lag;
+        const sameHuman = mod(human[left] - human[right]) === humanShift;
+        const sameAi = mod(ai[left] - ai[right]) === aiShift;
+        if (absolute === lag && human[left] === human[right]) absolute++;
+        if (relative === lag && sameHuman) relative++;
+        if (joint === lag && sameHuman && sameAi && humanShift === aiShift) joint++;
+        if (aiRelative === lag && sameAi) aiRelative++;
+        if (results === lag && outcome[left] === outcome[right]) results++;
+      }
+      const next = human[end + 1];
+      const relativeNext = mod(next + humanShift);
+      if (absolute >= 3) counts[0][next] += weight;
+      if (absolute >= 4) counts[1][next] += weight;
+      if (joint >= 2) counts[2][relativeNext] += weight * joint;
+      if (relative >= 2) counts[3][relativeNext] += weight;
+      if (relative >= 4) counts[4][relativeNext] += weight;
+      if (aiRelative >= 2) counts[5][mod(next + aiShift)] += weight;
+      if (results >= 2) counts[6][relativeNext] += weight;
+      if (results >= 3) counts[7][mod(next + aiShift)] += weight;
+      if (results >= 2 && relative >= 2) counts[8][relativeNext] += weight;
+      const distance = last - end + 1;
+      if (distance % 2 === 0) counts[9][human[end]] += weight;
+      if (distance % 3 === 0) counts[10][human[end]] += weight;
+      if (distance % 4 === 0) counts[11][human[end]] += weight;
+      weight *= 0.96;
+    }
+    return counts;
+  }
+
+  function humanFeatures(history, version = 4) {
     const end = history.length;
     const last = history[end - 1];
     const counts = Array.from({ length: 18 }, () => [0, 0, 0]);
@@ -60,6 +102,7 @@
       shortWeight *= 0.82;
       longWeight *= 0.972;
     }
+    if (version === 5) counts.push(...sequenceCounts(history));
     return [0, 1, 2].map(move => {
       const row = [Math.min(end, 96) / 96, Number(move === 0), Number(move === 1), Number(move === 2), Number(end > 0)];
       for (let lag = 1; lag <= 8; lag++) {
@@ -276,8 +319,8 @@
           row.push(contextForecast[move], clamp(contextEvidence, -12, 12) / 12);
         });
       }
-      if (options.featureVersion === 4) {
-        const features = humanFeatures(history.slice(-96));
+      if (options.featureVersion >= 4) {
+        const features = humanFeatures(history.slice(-96), options.featureVersion);
         rows.forEach((row, move) => row.push(...features[move]));
       }
       const learned = typeof options.network === 'function' ? normalize(options.network(rows, round)) : uniform;
@@ -428,7 +471,7 @@
     };
   }
 
-  const api = { createSession, sample, normalize, defaults, humanFeatures, humanInputWidth };
+  const api = { createSession, sample, normalize, defaults, humanFeatures, humanInputWidth, sequenceInputWidth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.JankenOpponent = api;
 })(globalThis);

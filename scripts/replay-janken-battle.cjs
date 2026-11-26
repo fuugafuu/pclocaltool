@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
+const { Worker, isMainThread, parentPort, workerData } = require('node:worker_threads');
 const features = require('../tools/janken-ai/adaptive-features.js');
 const play = require('../tools/janken-ai/play-policy.js');
 const brain = require('../tools/janken-ai/opponent-model.js');
@@ -72,12 +73,46 @@ function score({ model, start }, games) {
   return { rounds, hits, accuracy: hits / rounds, logLoss: loss / rounds, openingHits, openingRounds };
 }
 
-const previous = load(reference), updated = load();
-const report = files.map(file => {
-  const games = JSON.parse(fs.readFileSync(file, 'utf8'))[split];
-  if (!Array.isArray(games)) throw new Error('Missing ' + split + ' split: ' + file);
-  const result = { file, split, previous: score(previous, games), updated: score(updated, games) };
-  console.log(result);
-  return result;
-});
-fs.writeFileSync(output, JSON.stringify(report, null, 2));
+function compare(partitions) {
+  const previous = load(reference), updated = load();
+  return partitions.map(games => ({ previous: score(previous, games), updated: score(updated, games) }));
+}
+
+function combine(parts) {
+  const total = { rounds: 0, hits: 0, openingRounds: 0, openingHits: 0 };
+  let loss = 0;
+  for (const part of parts) {
+    for (const key of Object.keys(total)) total[key] += part[key];
+    loss += part.logLoss * part.rounds;
+  }
+  return { ...total, accuracy: total.hits / total.rounds, logLoss: loss / total.rounds };
+}
+
+async function main() {
+  const corpora = files.map(file => {
+    const games = JSON.parse(fs.readFileSync(file, 'utf8'))[split];
+    if (!Array.isArray(games) || !games.length) throw new Error('Missing ' + split + ' split: ' + file);
+    return games;
+  });
+  const requested = Number(process.env.JANKEN_REPLAY_WORKERS ?? 1);
+  if (!Number.isInteger(requested) || requested < 1 || requested > 16) throw new Error('Expected 1 to 16 replay workers');
+  const count = Math.min(requested, ...corpora.map(games => games.length));
+  const reports = count === 1 ? [compare(corpora)] :
+    await Promise.all(Array.from({ length: count }, (_, part) => new Promise((resolve, reject) => {
+      const partitions = corpora.map(games => games.filter((_, index) => index % count === part));
+      const worker = new Worker(__filename, { argv: process.argv.slice(2), workerData: partitions });
+      worker.once('message', resolve);
+      worker.once('error', reject);
+      worker.once('exit', code => { if (code) reject(new Error('Replay worker failed: ' + code)); });
+    })));
+  const report = files.map((file, index) => {
+    const result = { file, split, previous: combine(reports.map(part => part[index].previous)),
+      updated: combine(reports.map(part => part[index].updated)) };
+    console.log(result);
+    return result;
+  });
+  fs.writeFileSync(output, JSON.stringify(report, null, 2));
+}
+
+if (isMainThread) main().catch(error => { console.error(error); process.exitCode = 1; });
+else parentPort.postMessage(compare(workerData));

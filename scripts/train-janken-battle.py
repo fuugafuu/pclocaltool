@@ -33,7 +33,7 @@ def main():
     x, y = helpers.read_features(args.features, "train")
     validation, labels = helpers.read_features(args.features, "validation")
     manifest = json.loads((args.features / "manifest.json").read_text(encoding="utf-8"))
-    round_scale = 96 if manifest["featureVersion"] == 4 else 64
+    round_scale = 96 if manifest["featureVersion"] >= 4 else 64
 
     def opening_weights(rows):
         weights = 0.18 + 2.5 * torch.exp(-rows[:, 0, 0] * round_scale / 24)

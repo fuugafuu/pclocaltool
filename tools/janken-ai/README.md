@@ -432,3 +432,28 @@ python scripts/prepare-janken-zhang.py RPS_data_exp1.csv zhang-exp1.json
 python scripts/prepare-janken-zhang.py Exp2-PRS-ALL.txt zhang-exp2.json
 node scripts/replay-janken-battle.cjs 4300a7c human-replay-v5.json arai.json zhang-exp1.json zhang-exp2.json
 ```
+
+### 繰り返す手の並びからの予測
+
+直近96手から、過去の展開と最大4手を照合します。相手の手がそのまま一致する場合、グー・パー・チョキを同じ向きにずらすと一致する場合、両者の並びや勝敗の並びが一致する場合を別々に数えます。似た展開の直後に出た手と観測数、2〜4手周期で現れた手を追加の入力とし、前回と同じ662,293手で再学習しました。
+
+追加のネットワークは137入力、128・48ユニットの中間層、23,905パラメーターです。量子化後の単体的中率は、同じ136,182手の検証で44.69%から44.98%に上がりました。対戦エンジンの設定選びには3種類の人間ログ9,724手を使い、新しいネットワークと既存の人間向けネットワークを併用する設定を選びました。
+
+| 学習・設定選択に未使用の再生試験 | 旧版 | 新版 |
+| --- | ---: | ---: |
+| 前回と同じ人間ログ5種類、66,800手 | 35,370手（52.95%） | 35,695手（53.44%） |
+| 上記の最初の12手、計5,442手 | 2,290手（42.08%） | 2,327手（42.76%） |
+| Roshambo.meの試験分割から抽出した11,401手 | 4,309手（37.79%） | 4,294手（37.66%） |
+| 全試験、78,201手 | 39,679手（50.74%） | 39,989手（51.14%） |
+
+全試験の対数損失は0.97037から0.96807へ下がりました。18種類の生成AIとの対戦では、勝数が6,325から6,328、的中数が6,610から6,578に変化しました（各版10,368手）。
+
+```sh
+JANKEN_HUMAN_FEATURE_VERSION=5 node scripts/prepare-janken-human-battle.cjs sequence-features arai.json pooled-with-roshambo.json
+python scripts/train-janken-battle.py sequence-features sequence.json --epochs 14 --width 128 --hidden 48 --seed 86751 --source-weights 3 1
+git show 8f7bbc1:tools/janken-ai/model.js > model-v5.js
+node scripts/pack-janken-human-battle.cjs model-v5.js sequence.json tools/janken-ai/model.js 4 2 0.92
+JANKEN_REPLAY_WORKERS=9 node scripts/replay-janken-battle.cjs 8f7bbc1 human-replay-v6.json arai.json zhang-exp1.json zhang-exp2.json openneuro.json transfer-verified.json web-test.json
+```
+
+`web-test.json` はRoshambo.me試験分割の `test` から、長さを `n` としてインデックス `floor((i + 0.5) * n / 1600)`（`i = 0..1599`）の試合を抽出します。
